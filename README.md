@@ -16,8 +16,9 @@
 
 ## 🌐 공개 URL
 
-- **데모**: https://3000-ips8i3uztuuq2eks1g7od-3844e1b6.sandbox.novita.ai
-- **API Base**: https://3000-ips8i3uztuuq2eks1g7od-3844e1b6.sandbox.novita.ai/api
+- **프로덕션**: https://wow3d-stock-sales-manager.pages.dev
+- **GitHub**: https://github.com/seojeongju/wow3d-stock-sales-manager
+- **API Base**: https://wow3d-stock-sales-manager.pages.dev/api
 
 ## 🏗️ 기술 스택
 
@@ -227,9 +228,12 @@ npm run preview
 
 ## 📄 배포 정보
 
-- **플랫폼**: Cloudflare Pages (엣지 배포)
-- **데이터베이스**: Cloudflare D1 (로컬 개발 모드)
-- **상태**: 개발 중 (Development)
+- **플랫폼**: Cloudflare Pages (전세계 엣지 배포)
+- **데이터베이스**: Cloudflare D1 (프로덕션)
+  - Database ID: 463de385-2845-4930-b64e-c0c4e872e01a
+  - Region: ENAM (유럽/북미)
+- **프로덕션 URL**: https://wow3d-stock-sales-manager.pages.dev
+- **상태**: ✅ 프로덕션 배포 완료
 - **최종 업데이트**: 2025-10-31
 
 ## 🔐 보안 고려사항
