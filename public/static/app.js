@@ -19,10 +19,10 @@ function setupNavigation() {
       
       // 활성 상태 변경
       document.querySelectorAll('.nav-link').forEach(l => {
-        l.classList.remove('active', 'text-white');
+        l.classList.remove('active', 'text-white', 'bg-blue-500', 'shadow-md');
         l.classList.add('text-blue-100');
       });
-      e.currentTarget.classList.add('active', 'text-white');
+      e.currentTarget.classList.add('active', 'text-white', 'bg-blue-500', 'shadow-md');
       e.currentTarget.classList.remove('text-blue-100');
       
       loadPage(page);

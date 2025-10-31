@@ -50,8 +50,9 @@ app.get('/', (c) => {
             }
             
             .nav-link.active {
-                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-                box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+                background: #3b82f6 !important;
+                color: white !important;
+                box-shadow: 0 4px 6px rgba(59, 130, 246, 0.4);
             }
             
             .card-hover {
@@ -78,7 +79,7 @@ app.get('/', (c) => {
                     </div>
                 </div>
                 <nav class="mt-6 px-3">
-                    <a href="#" data-page="dashboard" class="nav-link active flex items-center px-4 py-3 mb-2 text-white rounded-lg hover:bg-blue-600 hover:bg-opacity-50 transition duration-200">
+                    <a href="#" data-page="dashboard" class="nav-link active flex items-center px-4 py-3 mb-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 shadow-md">
                         <i class="fas fa-chart-line mr-3 text-lg"></i>
                         <span class="font-medium">대시보드</span>
                     </a>
