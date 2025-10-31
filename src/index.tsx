@@ -112,18 +112,18 @@ app.get('/', (c) => {
             <!-- 메인 컨텐츠 -->
             <main class="flex-1 overflow-y-auto">
                 <!-- 헤더 -->
-                <header class="bg-white shadow-sm border-b border-gray-200">
-                    <div class="px-8 py-4 flex items-center justify-between">
+                <header class="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 shadow-md border-b border-blue-100">
+                    <div class="px-8 py-5 flex items-center justify-between">
                         <div>
-                            <h2 id="page-title" class="text-2xl font-bold text-gray-800">대시보드</h2>
-                            <p class="text-sm text-gray-500 mt-1">실시간 매출 및 재고 현황</p>
+                            <h2 id="page-title" class="text-3xl font-bold text-gray-800">대시보드</h2>
+                            <p class="text-sm text-blue-600 font-medium mt-1">실시간 매출 및 재고 현황</p>
                         </div>
                         <div class="flex items-center space-x-4">
                             <div class="text-right">
-                                <p class="text-sm text-gray-600">관리자</p>
-                                <p class="text-xs text-gray-400" id="current-time"></p>
+                                <p class="text-sm font-semibold text-gray-700">관리자</p>
+                                <p class="text-xs text-gray-500" id="current-time"></p>
                             </div>
-                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
+                            <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
                                 A
                             </div>
                         </div>
