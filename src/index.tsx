@@ -70,7 +70,9 @@ app.get('/', (c) => {
             <aside class="w-72 blue-gradient text-white shadow-2xl">
                 <div class="p-6 border-b border-blue-400 border-opacity-30">
                     <div class="flex items-center mb-2">
-                        <img src="/static/wow3d-logo.png" alt="WOW3D Logo" class="h-12 mr-3 bg-white p-1 rounded">
+                        <div class="bg-white p-2 rounded-lg shadow-md mr-3">
+                            <img src="/static/wow3d-logo.png" alt="WOW3D Logo" class="h-10">
+                        </div>
                         <div>
                             <h1 class="text-lg font-bold leading-tight">(주)와우쓰리디</h1>
                             <p class="text-blue-200 text-sm">판매관리 시스템</p>
