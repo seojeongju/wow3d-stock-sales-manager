@@ -68,12 +68,12 @@ app.get('/', (c) => {
         <div id="app" class="flex h-screen">
             <!-- 사이드바 -->
             <aside class="w-72 blue-gradient text-white shadow-2xl">
-                <div class="bg-white p-6 border-b border-gray-200">
-                    <div class="flex items-center gap-4">
-                        <img src="/static/wow3d-logo.png" alt="WOW3D Logo" class="h-14 flex-shrink-0">
-                        <div class="flex-1">
-                            <h1 class="text-base font-bold text-gray-800 leading-tight">(주)와우쓰리디</h1>
-                            <p class="text-sm font-medium text-blue-600 mt-1">판매관리</p>
+                <div class="bg-white p-5 border-b border-gray-200">
+                    <div class="flex flex-col items-center">
+                        <img src="/static/wow3d-logo.png" alt="WOW3D Logo" class="h-16 mb-3">
+                        <div class="text-center">
+                            <h1 class="text-lg font-bold text-gray-800">(주)와우쓰리디</h1>
+                            <p class="text-base font-semibold text-blue-600 mt-0.5">판매관리</p>
                         </div>
                     </div>
                 </div>
