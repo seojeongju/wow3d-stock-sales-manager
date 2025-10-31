@@ -19,15 +19,27 @@ function setupNavigation() {
       
       // 활성 상태 변경
       document.querySelectorAll('.nav-link').forEach(l => {
-        l.classList.remove('bg-gray-700', 'text-white');
-        l.classList.add('text-gray-300');
+        l.classList.remove('active', 'text-white');
+        l.classList.add('text-blue-100');
       });
-      e.currentTarget.classList.add('bg-gray-700', 'text-white');
-      e.currentTarget.classList.remove('text-gray-300');
+      e.currentTarget.classList.add('active', 'text-white');
+      e.currentTarget.classList.remove('text-blue-100');
       
       loadPage(page);
     });
   });
+}
+
+// 페이지 타이틀 업데이트
+function updatePageTitle(title, subtitle) {
+  const titleElement = document.getElementById('page-title');
+  if (titleElement) {
+    titleElement.textContent = title;
+  }
+  const subtitleElement = titleElement?.nextElementSibling;
+  if (subtitleElement) {
+    subtitleElement.textContent = subtitle;
+  }
 }
 
 // 페이지 로드
@@ -37,18 +49,23 @@ async function loadPage(page) {
   
   switch(page) {
     case 'dashboard':
+      updatePageTitle('대시보드', '실시간 매출 및 재고 현황');
       await loadDashboard(content);
       break;
     case 'products':
+      updatePageTitle('상품 관리', '상품 등록 및 재고 관리');
       await loadProducts(content);
       break;
     case 'stock':
+      updatePageTitle('재고 관리', '입고/출고 및 재고 조정');
       await loadStock(content);
       break;
     case 'sales':
+      updatePageTitle('판매 관리', '판매 등록 및 내역 조회');
       await loadSales(content);
       break;
     case 'customers':
+      updatePageTitle('고객 관리', '고객 정보 및 구매 이력 관리');
       await loadCustomers(content);
       break;
   }
@@ -70,60 +87,64 @@ async function loadDashboard(content) {
     const lowStockAlerts = lowStockResponse.data.data;
     
     content.innerHTML = `
-      <h1 class="text-3xl font-bold text-gray-800 mb-6">
-        <i class="fas fa-chart-line mr-2"></i>대시보드
-      </h1>
-      
       <!-- 주요 지표 -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white rounded-xl shadow-lg p-6 card-hover border-l-4 border-blue-500">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-gray-500 text-sm">오늘의 매출</p>
-              <p class="text-2xl font-bold text-gray-800">${formatCurrency(data.today_revenue)}</p>
-              <p class="text-sm text-gray-600 mt-1">${data.today_sales_count}건</p>
+              <p class="text-gray-500 text-sm font-medium">오늘의 매출</p>
+              <p class="text-2xl font-bold text-blue-600 mt-2">${formatCurrency(data.today_revenue)}</p>
+              <p class="text-sm text-gray-600 mt-1">
+                <i class="fas fa-receipt mr-1"></i>${data.today_sales_count}건
+              </p>
             </div>
-            <div class="bg-blue-100 rounded-full p-3">
-              <i class="fas fa-dollar-sign text-blue-600 text-2xl"></i>
+            <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-full p-4 shadow-lg">
+              <i class="fas fa-dollar-sign text-white text-2xl"></i>
             </div>
           </div>
         </div>
         
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white rounded-xl shadow-lg p-6 card-hover border-l-4 border-indigo-500">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-gray-500 text-sm">이번 달 매출</p>
-              <p class="text-2xl font-bold text-gray-800">${formatCurrency(data.month_revenue)}</p>
-              <p class="text-sm text-gray-600 mt-1">${data.month_sales_count}건</p>
+              <p class="text-gray-500 text-sm font-medium">이번 달 매출</p>
+              <p class="text-2xl font-bold text-indigo-600 mt-2">${formatCurrency(data.month_revenue)}</p>
+              <p class="text-sm text-gray-600 mt-1">
+                <i class="fas fa-receipt mr-1"></i>${data.month_sales_count}건
+              </p>
             </div>
-            <div class="bg-green-100 rounded-full p-3">
-              <i class="fas fa-chart-bar text-green-600 text-2xl"></i>
+            <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full p-4 shadow-lg">
+              <i class="fas fa-chart-bar text-white text-2xl"></i>
             </div>
           </div>
         </div>
         
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white rounded-xl shadow-lg p-6 card-hover border-l-4 border-purple-500">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-gray-500 text-sm">총 재고 가치</p>
-              <p class="text-2xl font-bold text-gray-800">${formatCurrency(data.total_stock_value)}</p>
-              <p class="text-sm text-gray-600 mt-1">${data.total_products}개 상품</p>
+              <p class="text-gray-500 text-sm font-medium">총 재고 가치</p>
+              <p class="text-2xl font-bold text-purple-600 mt-2">${formatCurrency(data.total_stock_value)}</p>
+              <p class="text-sm text-gray-600 mt-1">
+                <i class="fas fa-box mr-1"></i>${data.total_products}개 상품
+              </p>
             </div>
-            <div class="bg-purple-100 rounded-full p-3">
-              <i class="fas fa-warehouse text-purple-600 text-2xl"></i>
+            <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-full p-4 shadow-lg">
+              <i class="fas fa-warehouse text-white text-2xl"></i>
             </div>
           </div>
         </div>
         
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white rounded-xl shadow-lg p-6 card-hover border-l-4 border-cyan-500">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-gray-500 text-sm">총 고객 수</p>
-              <p class="text-2xl font-bold text-gray-800">${data.total_customers}</p>
-              <p class="text-sm text-gray-600 mt-1">VIP ${data.vip_customers}명</p>
+              <p class="text-gray-500 text-sm font-medium">총 고객 수</p>
+              <p class="text-2xl font-bold text-cyan-600 mt-2">${data.total_customers}</p>
+              <p class="text-sm text-gray-600 mt-1">
+                <i class="fas fa-crown mr-1 text-yellow-500"></i>VIP ${data.vip_customers}명
+              </p>
             </div>
-            <div class="bg-orange-100 rounded-full p-3">
-              <i class="fas fa-users text-orange-600 text-2xl"></i>
+            <div class="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-full p-4 shadow-lg">
+              <i class="fas fa-users text-white text-2xl"></i>
             </div>
           </div>
         </div>
@@ -131,21 +152,35 @@ async function loadDashboard(content) {
       
       <!-- 차트 및 통계 -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow p-6">
-          <h2 class="text-xl font-bold mb-4">최근 7일 매출 추이</h2>
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center mb-4">
+            <div class="bg-blue-100 rounded-lg p-2 mr-3">
+              <i class="fas fa-chart-line text-blue-600"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-800">최근 7일 매출 추이</h2>
+          </div>
           <canvas id="salesChart"></canvas>
         </div>
         
-        <div class="bg-white rounded-lg shadow p-6">
-          <h2 class="text-xl font-bold mb-4">베스트셀러 TOP 5</h2>
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center mb-4">
+            <div class="bg-indigo-100 rounded-lg p-2 mr-3">
+              <i class="fas fa-trophy text-indigo-600"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-800">베스트셀러 TOP 5</h2>
+          </div>
           <div class="space-y-3">
             ${bestsellers.map((item, index) => `
-              <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+              <div class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg hover:shadow-md transition">
                 <div class="flex items-center">
-                  <span class="text-lg font-bold text-gray-400 mr-3">${index + 1}</span>
+                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold mr-3">
+                    ${index + 1}
+                  </div>
                   <div>
-                    <p class="font-semibold">${item.name}</p>
-                    <p class="text-sm text-gray-600">${item.category}</p>
+                    <p class="font-semibold text-gray-800">${item.name}</p>
+                    <p class="text-xs text-gray-600">
+                      <i class="fas fa-tag mr-1"></i>${item.category}
+                    </p>
                   </div>
                 </div>
                 <div class="text-right">
