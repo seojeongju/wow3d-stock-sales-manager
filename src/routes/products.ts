@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { Bindings, Variables, Product, CreateProductRequest, UpdateProductRequest } from '../types'
+import { checkPlanLimit } from '../utils/subscription'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -65,6 +66,12 @@ app.post('/', async (c) => {
   const { DB } = c.env
   const tenantId = c.get('tenantId')
   const body = await c.req.json<CreateProductRequest>()
+
+  // 플랜 한도 체크
+  const limitCheck = await checkPlanLimit(DB, tenantId, 'products')
+  if (!limitCheck.allowed) {
+    return c.json({ success: false, error: limitCheck.error }, 403)
+  }
 
   // SKU 중복 체크
   const existing = await DB.prepare('SELECT id FROM products WHERE sku = ? AND tenant_id = ?')

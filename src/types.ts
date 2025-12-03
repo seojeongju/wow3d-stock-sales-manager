@@ -6,6 +6,8 @@ export type Bindings = {
 
 export type Variables = {
   tenantId: number;
+  userId: number;
+  userRole: string;
 }
 
 // 테넌트 타입
