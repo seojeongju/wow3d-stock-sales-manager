@@ -543,7 +543,7 @@ async function loadProducts(content) {
                     <button onclick="editProduct(${p.id})" class="text-indigo-600 hover:text-indigo-900 mr-3 transition-colors">
                       <i class="fas fa-edit"></i>
                     </button>
-                    <button onclick="deleteProduct(${p.id})" class="text-red-500 hover:text-red-700 transition-colors">
+                    <button onclick="deleteProductAction(${p.id})" class="text-red-500 hover:text-red-700 transition-colors">
                       <i class="fas fa-trash"></i>
                     </button>
                   </td>
@@ -627,7 +627,7 @@ async function loadCustomers(content) {
                     <button onclick="editCustomer(${c.id})" class="text-indigo-600 hover:text-indigo-900 mr-3 transition-colors">
                       <i class="fas fa-edit"></i>
                     </button>
-                    <button onclick="deleteCustomer(${c.id})" class="text-red-500 hover:text-red-700 transition-colors">
+                    <button onclick="deleteCustomerAction(${c.id})" class="text-red-500 hover:text-red-700 transition-colors">
                       <i class="fas fa-trash"></i>
                     </button>
                   </td>
@@ -1918,16 +1918,7 @@ async function submitCustomer(e) {
   }
 }
 
-function deleteCustomer(id) {
-  if (confirm('정말 삭제하시겠습니까?')) {
-    axios.delete(`${API_BASE}/customers/${id}`)
-      .then(() => {
-        showSuccess('삭제되었습니다.');
-        loadPage('customers');
-      })
-      .catch(err => alert('삭제 실패: ' + err.message));
-  }
-}
+
 
 async function loadCategories() {
   try {
@@ -2168,7 +2159,7 @@ async function cancelSale(saleId) {
   }
 }
 
-async function deleteCustomer(id) {
+async function deleteCustomerAction(id) {
   if (!confirm('정말 이 고객을 삭제하시겠습니까? 구매 이력도 함께 삭제될 수 있습니다.')) return;
 
   try {
@@ -2181,7 +2172,7 @@ async function deleteCustomer(id) {
   }
 }
 
-async function deleteProduct(id) {
+async function deleteProductAction(id) {
   if (!confirm('정말 이 상품을 삭제하시겠습니까?')) return;
 
   try {
