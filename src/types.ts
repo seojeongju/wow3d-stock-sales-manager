@@ -3,9 +3,36 @@ export type Bindings = {
   DB: D1Database;
 }
 
+export type Variables = {
+  tenantId: number;
+}
+
+// 테넌트 타입
+export interface Tenant {
+  id: number;
+  name: string;
+  plan_type: 'FREE' | 'BASIC' | 'PRO';
+  status: 'ACTIVE' | 'SUSPENDED' | 'CANCELLED';
+  created_at: string;
+  updated_at: string;
+}
+
+// 사용자 타입
+export interface User {
+  id: number;
+  tenant_id: number;
+  email: string;
+  name: string;
+  role: 'OWNER' | 'ADMIN' | 'USER';
+  password_hash?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // 상품 타입
 export interface Product {
   id: number;
+  tenant_id: number;
   sku: string;
   name: string;
   category: string;
@@ -30,6 +57,7 @@ export interface Product {
 // 고객 타입
 export interface Customer {
   id: number;
+  tenant_id: number;
   name: string;
   phone: string;
   email?: string;
@@ -51,6 +79,7 @@ export interface Customer {
 // 판매 타입
 export interface Sale {
   id: number;
+  tenant_id: number;
   customer_id?: number;
   total_amount: number;
   discount_amount: number;
@@ -68,6 +97,7 @@ export interface Sale {
 // 반품/교환 타입
 export interface Claim {
   id: number;
+  tenant_id: number;
   sale_id: number;
   type: 'return' | 'exchange';
   status: 'requested' | 'approved' | 'completed' | 'rejected';
@@ -100,6 +130,7 @@ export interface SaleItem {
 // 재고 이동 타입
 export interface StockMovement {
   id: number;
+  tenant_id: number;
   product_id: number;
   movement_type: string;
   quantity: number;
@@ -217,6 +248,7 @@ export interface StockLot {
 // 출고 지시서 타입
 export interface OutboundOrder {
   id: number;
+  tenant_id: number;
   order_number: string;
   destination_name: string;
   destination_address: string;

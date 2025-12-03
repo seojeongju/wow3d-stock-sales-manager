@@ -1,6 +1,7 @@
 import { Hono, Context } from 'hono'
 import { cors } from 'hono/cors'
-import type { Bindings } from './types'
+import type { Bindings, Variables } from './types'
+import { tenantMiddleware } from './middleware/tenant'
 
 // API 라우트 import
 import productsRouter from './routes/products'
@@ -12,10 +13,13 @@ import claimsRouter from './routes/claims'
 import usersRouter from './routes/users'
 import outboundRouter from './routes/outbound'
 
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // CORS 활성화
 app.use('/api/*', cors())
+
+// 멀티테넌트 미들웨어 적용
+app.use('/api/*', tenantMiddleware)
 
 // API 라우트 등록
 app.route('/api/products', productsRouter)

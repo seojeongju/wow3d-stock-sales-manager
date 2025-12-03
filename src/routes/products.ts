@@ -1,17 +1,18 @@
 import { Hono } from 'hono'
-import type { Bindings, Product, CreateProductRequest, UpdateProductRequest } from '../types'
+import type { Bindings, Variables, Product, CreateProductRequest, UpdateProductRequest } from '../types'
 
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // 상품 목록 조회
 app.get('/', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const search = c.req.query('search') || ''
   const category = c.req.query('category') || ''
   const lowStock = c.req.query('lowStock') === 'true'
 
-  let query = 'SELECT * FROM products WHERE is_active = 1'
-  const params: any[] = []
+  let query = 'SELECT * FROM products WHERE is_active = 1 AND tenant_id = ?'
+  const params: any[] = [tenantId]
 
   if (search) {
     query += ' AND (name LIKE ? OR sku LIKE ?)'
@@ -45,10 +46,11 @@ app.get('/', async (c) => {
 // 상품 상세 조회
 app.get('/:id', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const id = c.req.param('id')
 
-  const product = await DB.prepare('SELECT * FROM products WHERE id = ?')
-    .bind(id)
+  const product = await DB.prepare('SELECT * FROM products WHERE id = ? AND tenant_id = ?')
+    .bind(id, tenantId)
     .first<Product>()
 
   if (!product) {
@@ -61,11 +63,12 @@ app.get('/:id', async (c) => {
 // 상품 등록
 app.post('/', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const body = await c.req.json<CreateProductRequest>()
 
   // SKU 중복 체크
-  const existing = await DB.prepare('SELECT id FROM products WHERE sku = ?')
-    .bind(body.sku)
+  const existing = await DB.prepare('SELECT id FROM products WHERE sku = ? AND tenant_id = ?')
+    .bind(body.sku, tenantId)
     .first()
 
   if (existing) {
@@ -73,10 +76,11 @@ app.post('/', async (c) => {
   }
 
   const result = await DB.prepare(`
-    INSERT INTO products (sku, name, category, category_medium, category_small, description, purchase_price, selling_price, 
+    INSERT INTO products (tenant_id, sku, name, category, category_medium, category_small, description, purchase_price, selling_price, 
                           current_stock, min_stock_alert, supplier, image_url, brand, tags, status, specifications)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
+    tenantId,
     body.sku,
     body.name,
     body.category || '미분류',
@@ -98,9 +102,9 @@ app.post('/', async (c) => {
   // 재고 이동 기록 (초기 재고)
   if (body.current_stock > 0) {
     await DB.prepare(`
-      INSERT INTO stock_movements (product_id, movement_type, quantity, reason)
-      VALUES (?, '입고', ?, '초기 재고')
-    `).bind(result.meta.last_row_id, body.current_stock).run()
+      INSERT INTO stock_movements (tenant_id, product_id, movement_type, quantity, reason)
+      VALUES (?, ?, '입고', ?, '초기 재고')
+    `).bind(tenantId, result.meta.last_row_id, body.current_stock).run()
   }
 
   return c.json({
@@ -113,11 +117,12 @@ app.post('/', async (c) => {
 // 상품 수정
 app.put('/:id', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const id = c.req.param('id')
   const body = await c.req.json<UpdateProductRequest>()
 
-  const product = await DB.prepare('SELECT * FROM products WHERE id = ?')
-    .bind(id)
+  const product = await DB.prepare('SELECT * FROM products WHERE id = ? AND tenant_id = ?')
+    .bind(id, tenantId)
     .first()
 
   if (!product) {
@@ -189,10 +194,10 @@ app.put('/:id', async (c) => {
   }
 
   updates.push('updated_at = CURRENT_TIMESTAMP')
-  params.push(id)
+  params.push(id, tenantId)
 
   await DB.prepare(`
-    UPDATE products SET ${updates.join(', ')} WHERE id = ?
+    UPDATE products SET ${updates.join(', ')} WHERE id = ? AND tenant_id = ?
   `).bind(...params).run()
 
   return c.json({ success: true, message: '상품이 수정되었습니다.' })
@@ -201,18 +206,19 @@ app.put('/:id', async (c) => {
 // 상품 삭제 (비활성화)
 app.delete('/:id', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const id = c.req.param('id')
 
-  const product = await DB.prepare('SELECT * FROM products WHERE id = ?')
-    .bind(id)
+  const product = await DB.prepare('SELECT * FROM products WHERE id = ? AND tenant_id = ?')
+    .bind(id, tenantId)
     .first()
 
   if (!product) {
     return c.json({ success: false, error: '상품을 찾을 수 없습니다.' }, 404)
   }
 
-  await DB.prepare('UPDATE products SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-    .bind(id)
+  await DB.prepare('UPDATE products SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?')
+    .bind(id, tenantId)
     .run()
 
   return c.json({ success: true, message: '상품이 삭제되었습니다.' })
@@ -221,12 +227,13 @@ app.delete('/:id', async (c) => {
 // 재고 부족 상품 조회
 app.get('/alerts/low-stock', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
 
   const { results } = await DB.prepare(`
     SELECT * FROM products 
-    WHERE is_active = 1 AND current_stock <= min_stock_alert
+    WHERE is_active = 1 AND current_stock <= min_stock_alert AND tenant_id = ?
     ORDER BY current_stock ASC
-  `).all<Product>()
+  `).bind(tenantId).all<Product>()
 
   return c.json({ success: true, data: results })
 })
@@ -234,10 +241,11 @@ app.get('/alerts/low-stock', async (c) => {
 // 카테고리 목록 조회
 app.get('/meta/categories', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
 
   const { results } = await DB.prepare(`
-    SELECT DISTINCT category FROM products WHERE is_active = 1 ORDER BY category
-  `).all<{ category: string }>()
+    SELECT DISTINCT category FROM products WHERE is_active = 1 AND tenant_id = ? ORDER BY category
+  `).bind(tenantId).all<{ category: string }>()
 
   return c.json({
     success: true,
