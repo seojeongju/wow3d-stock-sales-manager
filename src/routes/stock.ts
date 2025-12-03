@@ -14,7 +14,7 @@ app.get('/movements', async (c) => {
   const limit = parseInt(c.req.query('limit') || '50')
 
   let query = `
-    SELECT sm.*, p.name as product_name, p.sku
+    SELECT sm.*, p.name as product_name, p.sku, p.category, p.category_medium, p.category_small
     FROM stock_movements sm
     JOIN products p ON sm.product_id = p.id
     WHERE sm.tenant_id = ?

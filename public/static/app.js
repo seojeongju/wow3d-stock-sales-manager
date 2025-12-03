@@ -985,7 +985,8 @@ async function loadStock(content) {
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm font-medium text-slate-900">${m.product_name}</div>
-                    <div class="text-xs text-slate-500 font-mono">${m.sku}</div>
+                    <div class="text-xs text-slate-500 mb-0.5">${[m.category, m.category_medium, m.category_small].filter(Boolean).join(' > ')}</div>
+                    <div class="text-xs text-slate-400 font-mono">${m.sku}</div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-right">
                     <div class="text-sm font-bold ${m.movement_type === '입고' ? 'text-emerald-600' : 'text-amber-600'}">
@@ -3592,6 +3593,7 @@ function renderOutboundProducts(filterText = '') {
     <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" onclick="addToOutboundCart(${p.id})">
       <div>
         <div class="font-medium text-slate-800">${p.name}</div>
+        <div class="text-xs text-indigo-600 mb-0.5 font-medium">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</div>
         <div class="text-xs text-slate-500 flex items-center gap-2">
           <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded">${p.sku}</span>
           <span>재고: <span class="${p.current_stock <= 0 ? 'text-rose-600 font-bold' : 'text-slate-600'}">${p.current_stock}</span></span>
@@ -3646,9 +3648,12 @@ function renderOutboundCart() {
     totalQty += item.quantity;
     return `
       <div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
-        <div class="flex-1 min-w-0 mr-3">
-          <div class="font-medium text-slate-800 truncate">${item.product.name}</div>
-          <div class="text-xs text-slate-500">${item.product.sku}</div>
+        <div class="flex-1 min-w-0">
+          <div>
+            <div class="font-medium text-slate-800 text-sm">${item.product.name}</div>
+            <div class="text-xs text-indigo-600 mb-0.5">${[item.product.category, item.product.category_medium, item.product.category_small].filter(Boolean).join(' > ')}</div>
+            <div class="text-xs text-slate-500 font-mono">${item.product.sku}</div>
+          </div>
         </div>
         <div class="flex items-center gap-3">
           <div class="flex items-center bg-white rounded border border-slate-200">
