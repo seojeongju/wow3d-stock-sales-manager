@@ -1296,15 +1296,25 @@ function injectProductModal() {
             <!-- 이미지/미디어 탭 -->
             <div id="content-media" class="space-y-6 hidden">
               <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">대표 이미지 URL</label>
-                <div class="flex gap-2">
-                  <input type="text" id="prodImageUrl" onchange="previewImage(this.value)" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="https://example.com/image.jpg">
-                </div>
-                <div class="mt-4 w-full h-64 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative">
-                  <img id="imgPreview" src="" class="absolute inset-0 w-full h-full object-contain hidden" alt="미리보기">
-                  <div id="imgPlaceholder" class="text-slate-400 flex flex-col items-center">
-                    <i class="fas fa-image text-4xl mb-2"></i>
-                    <span>이미지 미리보기</span>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">상품 이미지</label>
+                <input type="hidden" id="prodImageUrl">
+                <div class="mt-2 w-full">
+                  <label for="prodImageFile" class="flex flex-col items-center justify-center w-full h-64 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors relative overflow-hidden group">
+                    <div id="imgPlaceholder" class="flex flex-col items-center justify-center pt-5 pb-6">
+                      <i class="fas fa-cloud-upload-alt text-4xl text-slate-400 mb-3 group-hover:text-indigo-500 transition-colors"></i>
+                      <p class="mb-2 text-sm text-slate-500"><span class="font-semibold">클릭하여 이미지 업로드</span></p>
+                      <p class="text-xs text-slate-500">PNG, JPG, GIF (자동 리사이징됨)</p>
+                    </div>
+                    <img id="imgPreview" src="" class="absolute inset-0 w-full h-full object-contain hidden bg-white" alt="미리보기">
+                    <div id="imgOverlay" class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden">
+                      <p class="text-white font-semibold"><i class="fas fa-edit mr-2"></i>이미지 변경</p>
+                    </div>
+                    <input id="prodImageFile" type="file" accept="image/*" class="hidden" onchange="handleImageUpload(this)">
+                  </label>
+                  <div class="flex justify-end mt-2">
+                    <button type="button" onclick="removeImage()" id="btnRemoveImage" class="text-sm text-red-500 hover:text-red-700 hidden">
+                      <i class="fas fa-trash-alt mr-1"></i>이미지 삭제
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1371,21 +1381,85 @@ function switchProductTab(tab) {
   });
 }
 
-function previewImage(url) {
+// 이미지 업로드 및 리사이징 처리
+function handleImageUpload(input) {
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+
+    // 파일 크기 체크 (예: 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('파일 크기가 너무 큽니다. 10MB 이하의 이미지를 선택해주세요.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = new Image();
+      img.onload = function () {
+        // 캔버스를 이용한 리사이징
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 최대 크기 설정 (600px)
+        const MAX_WIDTH = 600;
+        const MAX_HEIGHT = 600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Base64로 변환 (JPEG, 퀄리티 0.7)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+        // 데이터 설정 및 미리보기 업데이트
+        document.getElementById('prodImageUrl').value = dataUrl;
+        updateImagePreview(dataUrl);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function updateImagePreview(url) {
   const img = document.getElementById('imgPreview');
   const placeholder = document.getElementById('imgPlaceholder');
+  const overlay = document.getElementById('imgOverlay');
+  const removeBtn = document.getElementById('btnRemoveImage');
+
   if (url) {
     img.src = url;
     img.classList.remove('hidden');
     placeholder.classList.add('hidden');
-    img.onerror = () => {
-      img.classList.add('hidden');
-      placeholder.classList.remove('hidden');
-    };
+    overlay.classList.remove('hidden'); // 이미지가 있을 때만 오버레이 활성화 가능
+    removeBtn.classList.remove('hidden');
   } else {
+    img.src = '';
     img.classList.add('hidden');
     placeholder.classList.remove('hidden');
+    overlay.classList.add('hidden');
+    removeBtn.classList.add('hidden');
   }
+}
+
+function removeImage() {
+  document.getElementById('prodImageUrl').value = '';
+  document.getElementById('prodImageFile').value = ''; // 파일 인풋 초기화
+  updateImagePreview('');
 }
 
 function showProductModal() {
@@ -1407,8 +1481,11 @@ function showProductModal() {
   // 탭 초기화
   switchProductTab('basic');
 
+  // 탭 초기화
+  switchProductTab('basic');
+
   // 이미지 미리보기 초기화
-  previewImage('');
+  removeImage();
 
   modal.classList.remove('hidden');
 }
@@ -1448,7 +1525,7 @@ async function editProduct(id) {
     document.getElementById('prodMinStock').value = product.min_stock_alert;
     document.getElementById('prodDesc').value = product.description || '';
     document.getElementById('prodImageUrl').value = product.image_url || '';
-    previewImage(product.image_url);
+    updateImagePreview(product.image_url);
 
     fillCategoryDatalist();
     switchProductTab('basic');
