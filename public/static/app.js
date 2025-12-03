@@ -623,7 +623,7 @@ async function loadProducts(content) {
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-600">
-                      ${p.category}
+                      ${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-right">
@@ -710,7 +710,7 @@ async function filterProductsList() {
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-600">
-                  ${p.category}
+                  ${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right">
