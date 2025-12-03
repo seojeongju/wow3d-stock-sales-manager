@@ -12,6 +12,7 @@ import dashboardRouter from './routes/dashboard'
 import claimsRouter from './routes/claims'
 import usersRouter from './routes/users'
 import outboundRouter from './routes/outbound'
+import authRouter from './routes/auth'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -22,6 +23,7 @@ app.use('/api/*', cors())
 app.use('/api/*', tenantMiddleware)
 
 // API 라우트 등록
+app.route('/api/auth', authRouter)
 app.route('/api/products', productsRouter)
 app.route('/api/customers', customersRouter)
 app.route('/api/sales', salesRouter)
@@ -154,6 +156,9 @@ app.get('/', (c: Context) => {
                             <p class="text-sm font-medium text-white truncate" id="user-name">Loading...</p>
                             <p class="text-xs text-slate-500 truncate" id="user-email">...</p>
                         </div>
+                        <button onclick="logout()" class="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-slate-800" title="로그아웃">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
                     </div>
                 </div>
             </aside>

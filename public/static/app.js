@@ -1,6 +1,39 @@
 // API Base URL
 const API_BASE = '/api';
 
+// 인증 체크
+const token = localStorage.getItem('token');
+if (!token) {
+  window.location.href = '/login.html';
+}
+
+// Axios 인터셉터 설정
+axios.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+axios.interceptors.response.use(response => {
+  return response;
+}, error => {
+  if (error.response && error.response.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+  return Promise.reject(error);
+});
+
+// 로그아웃
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = '/login.html';
+}
+
 // 유틸리티: 토스트 메시지
 function showToast(message, type = 'success') {
   const el = document.createElement('div');
@@ -41,20 +74,41 @@ document.addEventListener('DOMContentLoaded', () => {
 // 사용자 정보 로드
 async function loadUserInfo() {
   try {
-    const response = await axios.get(`${API_BASE}/users/me`);
-    const user = response.data.data;
+    // 로컬 스토리지에서 먼저 로드
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      updateUserUI(user);
+    }
 
-    document.getElementById('user-name').textContent = user.name;
-    document.getElementById('user-email').textContent = user.email;
-
-    if (user.avatar_url) {
-      const avatarEl = document.getElementById('user-avatar');
-      avatarEl.innerHTML = `<img src="${user.avatar_url}" alt="${user.name}" class="w-full h-full rounded-full object-cover">`;
-    } else {
-      document.getElementById('user-avatar').textContent = user.name.charAt(0).toUpperCase();
+    // API로 최신 정보 확인
+    const response = await axios.get(`${API_BASE}/auth/me`);
+    if (response.data.success) {
+      // 아직 auth/me가 구현되지 않았으므로(Not implemented yet), 실제 데이터가 오면 업데이트
+      // 현재는 로컬 스토리지 데이터로 충분
+      // const user = response.data.data;
+      // localStorage.setItem('user', JSON.stringify(user));
+      // updateUserUI(user);
     }
   } catch (error) {
     console.error('사용자 정보 로드 실패:', error);
+  }
+}
+
+function updateUserUI(user) {
+  const nameEl = document.getElementById('user-name');
+  const emailEl = document.getElementById('user-email');
+  const avatarEl = document.getElementById('user-avatar');
+
+  if (nameEl) nameEl.textContent = user.name;
+  if (emailEl) emailEl.textContent = user.email;
+
+  if (avatarEl) {
+    if (user.avatar_url) {
+      avatarEl.innerHTML = `<img src="${user.avatar_url}" alt="${user.name}" class="w-full h-full rounded-full object-cover">`;
+    } else {
+      avatarEl.textContent = user.name.charAt(0).toUpperCase();
+    }
   }
 }
 

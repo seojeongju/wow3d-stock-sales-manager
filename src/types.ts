@@ -1,6 +1,7 @@
 // Cloudflare Bindings 타입
 export type Bindings = {
   DB: D1Database;
+  JWT_SECRET: string;
 }
 
 export type Variables = {
