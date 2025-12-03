@@ -1010,7 +1010,7 @@ function injectProductModal() {
 
   const modalHtml = `
     <div id="productModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 transition-all duration-300">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 transform transition-all max-h-[90vh] overflow-y-auto border border-slate-100">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 transform transition-all max-h-[90vh] overflow-y-auto border border-slate-100 flex flex-col">
         <div class="flex justify-between items-center p-6 border-b border-slate-100 sticky top-0 bg-white/95 backdrop-blur z-10">
           <h3 id="productModalTitle" class="text-xl font-bold text-slate-800">상품 등록</h3>
           <button onclick="closeProductModal()" class="text-slate-400 hover:text-slate-600 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100">
@@ -1018,83 +1018,141 @@ function injectProductModal() {
           </button>
         </div>
         
-        <form id="productForm" onsubmit="submitProduct(event)">
+        <div class="flex border-b border-slate-100 px-6">
+          <button type="button" onclick="switchProductTab('basic')" id="tab-basic" class="px-4 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 transition-colors">기본 정보</button>
+          <button type="button" onclick="switchProductTab('detail')" id="tab-detail" class="px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">상세 정보</button>
+          <button type="button" onclick="switchProductTab('media')" id="tab-media" class="px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">이미지/미디어</button>
+        </div>
+
+        <form id="productForm" onsubmit="submitProduct(event)" class="flex-1 overflow-y-auto">
           <div class="p-6 space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">SKU (상품코드)</label>
-                <div class="flex flex-col gap-2">
-                  <div class="flex items-center gap-4 mb-1">
-                    <label class="inline-flex items-center cursor-pointer">
-                      <input type="radio" name="skuType" value="auto" checked onchange="toggleSkuInput(this.value)" class="form-radio text-indigo-600 focus:ring-indigo-500">
-                      <span class="ml-2 text-sm text-slate-700">자동 생성</span>
-                    </label>
-                    <label class="inline-flex items-center cursor-pointer">
-                      <input type="radio" name="skuType" value="manual" onchange="toggleSkuInput(this.value)" class="form-radio text-indigo-600 focus:ring-indigo-500">
-                      <span class="ml-2 text-sm text-slate-700">수동 입력</span>
-                    </label>
-                  </div>
-                  <div class="flex gap-2">
-                    <input type="text" id="prodSku" required readonly class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400 bg-slate-50 text-slate-500">
-                    <button type="button" id="btnGenerateSku" onclick="generateAutoSku()" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
-                      <i class="fas fa-sync-alt mr-1"></i>생성
-                    </button>
+            <!-- 기본 정보 탭 -->
+            <div id="content-basic" class="space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">SKU (상품코드)</label>
+                  <div class="flex flex-col gap-2">
+                    <div class="flex items-center gap-4 mb-1">
+                      <label class="inline-flex items-center cursor-pointer">
+                        <input type="radio" name="skuType" value="auto" checked onchange="toggleSkuInput(this.value)" class="form-radio text-indigo-600 focus:ring-indigo-500">
+                        <span class="ml-2 text-sm text-slate-700">자동 생성</span>
+                      </label>
+                      <label class="inline-flex items-center cursor-pointer">
+                        <input type="radio" name="skuType" value="manual" onchange="toggleSkuInput(this.value)" class="form-radio text-indigo-600 focus:ring-indigo-500">
+                        <span class="ml-2 text-sm text-slate-700">수동 입력</span>
+                      </label>
+                    </div>
+                    <div class="flex gap-2">
+                      <input type="text" id="prodSku" required readonly class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400 bg-slate-50 text-slate-500">
+                      <button type="button" id="btnGenerateSku" onclick="generateAutoSku()" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                        <i class="fas fa-sync-alt mr-1"></i>생성
+                      </button>
+                    </div>
                   </div>
                 </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">상품명</label>
+                  <input type="text" id="prodName" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                </div>
               </div>
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">상품명</label>
-                <input type="text" id="prodName" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
-              </div>
+
               <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (대분류)</label>
-                <input type="text" id="prodCategory" required list="categoryList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 전자제품">
-                <datalist id="categoryList"></datalist>
-              </div>
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (중분류)</label>
-                <input type="text" id="prodCategoryMedium" list="categoryMediumList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 컴퓨터">
-                <datalist id="categoryMediumList"></datalist>
-              </div>
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (소분류)</label>
-                <input type="text" id="prodCategorySmall" list="categorySmallList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 노트북">
-                <datalist id="categorySmallList"></datalist>
-              </div>
-            </div>
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">공급사</label>
-                <input type="text" id="prodSupplier" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
-              </div>
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">매입가</label>
-                <div class="relative">
-                  <span class="absolute left-4 top-2.5 text-slate-500">₩</span>
-                  <input type="number" id="prodPurchasePrice" required min="0" class="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (대분류)</label>
+                  <input type="text" id="prodCategory" required list="categoryList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 전자제품">
+                  <datalist id="categoryList"></datalist>
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (중분류)</label>
+                  <input type="text" id="prodCategoryMedium" list="categoryMediumList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 컴퓨터">
+                  <datalist id="categoryMediumList"></datalist>
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (소분류)</label>
+                  <input type="text" id="prodCategorySmall" list="categorySmallList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 노트북">
+                  <datalist id="categorySmallList"></datalist>
                 </div>
               </div>
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">판매가</label>
-                <div class="relative">
-                  <span class="absolute left-4 top-2.5 text-slate-500">₩</span>
-                  <input type="number" id="prodSellingPrice" required min="0" class="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">매입가</label>
+                  <div class="relative">
+                    <span class="absolute left-4 top-2.5 text-slate-500">₩</span>
+                    <input type="number" id="prodPurchasePrice" required min="0" class="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">판매가</label>
+                  <div class="relative">
+                    <span class="absolute left-4 top-2.5 text-slate-500">₩</span>
+                    <input type="number" id="prodSellingPrice" required min="0" class="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                  </div>
                 </div>
               </div>
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">현재 재고</label>
-                <input type="number" id="prodStock" required min="0" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
-                <p class="text-xs text-slate-500 mt-1.5 flex items-center"><i class="fas fa-info-circle mr-1"></i>수정 시에는 재고 조정 기능을 이용하세요.</p>
-              </div>
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">최소 재고 알림</label>
-                <input type="number" id="prodMinStock" required min="0" value="10" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">현재 재고</label>
+                  <input type="number" id="prodStock" required min="0" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                  <p class="text-xs text-slate-500 mt-1.5 flex items-center"><i class="fas fa-info-circle mr-1"></i>수정 시에는 재고 조정 기능을 이용하세요.</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">최소 재고 알림</label>
+                  <input type="number" id="prodMinStock" required min="0" value="10" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                </div>
               </div>
             </div>
-            
-            <div>
-              <label class="block text-sm font-semibold text-slate-700 mb-2">상세 설명</label>
-              <textarea id="prodDesc" rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400 resize-none"></textarea>
+
+            <!-- 상세 정보 탭 -->
+            <div id="content-detail" class="space-y-6 hidden">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">브랜드</label>
+                  <input type="text" id="prodBrand" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">공급사</label>
+                  <input type="text" id="prodSupplier" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">태그 (쉼표로 구분)</label>
+                <input type="text" id="prodTags" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 신상품, 베스트, 여름특가">
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">상태</label>
+                <select id="prodStatus" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+                  <option value="sale">판매중</option>
+                  <option value="out_of_stock">품절</option>
+                  <option value="discontinued">단종</option>
+                  <option value="hidden">숨김</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">상세 설명</label>
+                <textarea id="prodDesc" rows="5" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400 resize-none"></textarea>
+              </div>
+            </div>
+
+            <!-- 이미지/미디어 탭 -->
+            <div id="content-media" class="space-y-6 hidden">
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">대표 이미지 URL</label>
+                <div class="flex gap-2">
+                  <input type="text" id="prodImageUrl" onchange="previewImage(this.value)" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="https://example.com/image.jpg">
+                </div>
+                <div class="mt-4 w-full h-64 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative">
+                  <img id="imgPreview" src="" class="absolute inset-0 w-full h-full object-contain hidden" alt="미리보기">
+                  <div id="imgPlaceholder" class="text-slate-400 flex flex-col items-center">
+                    <i class="fas fa-image text-4xl mb-2"></i>
+                    <span>이미지 미리보기</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -1141,6 +1199,40 @@ function generateAutoSku() {
   document.getElementById('prodSku').value = `PRD-${year}${month}${day}-${random}`;
 }
 
+function switchProductTab(tab) {
+  // 탭 스타일 업데이트
+  ['basic', 'detail', 'media'].forEach(t => {
+    const btn = document.getElementById(`tab-${t}`);
+    const content = document.getElementById(`content-${t}`);
+    if (t === tab) {
+      btn.classList.remove('text-slate-500', 'border-transparent');
+      btn.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600');
+      content.classList.remove('hidden');
+    } else {
+      btn.classList.add('text-slate-500');
+      btn.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600');
+      content.classList.add('hidden');
+    }
+  });
+}
+
+function previewImage(url) {
+  const img = document.getElementById('imgPreview');
+  const placeholder = document.getElementById('imgPlaceholder');
+  if (url) {
+    img.src = url;
+    img.classList.remove('hidden');
+    placeholder.classList.add('hidden');
+    img.onerror = () => {
+      img.classList.add('hidden');
+      placeholder.classList.remove('hidden');
+    };
+  } else {
+    img.classList.add('hidden');
+    placeholder.classList.remove('hidden');
+  }
+}
+
 function showProductModal() {
   injectProductModal(); // Ensure modal exists
 
@@ -1157,11 +1249,11 @@ function showProductModal() {
   document.querySelector('input[name="skuType"][value="auto"]').checked = true;
   toggleSkuInput('auto');
 
-  document.getElementById('prodStock').readOnly = false;
-  document.getElementById('prodStock').classList.remove('bg-gray-100');
+  // 탭 초기화
+  switchProductTab('basic');
 
-  // 카테고리 데이터리스트 채우기
-  fillCategoryDatalist();
+  // 이미지 미리보기 초기화
+  previewImage('');
 
   modal.classList.remove('hidden');
 }
@@ -1190,6 +1282,9 @@ async function editProduct(id) {
     document.getElementById('prodCategoryMedium').value = product.category_medium || '';
     document.getElementById('prodCategorySmall').value = product.category_small || '';
     document.getElementById('prodSupplier').value = product.supplier || '';
+    document.getElementById('prodBrand').value = product.brand || '';
+    document.getElementById('prodTags').value = product.tags || '';
+    document.getElementById('prodStatus').value = product.status || 'sale';
     document.getElementById('prodPurchasePrice').value = product.purchase_price;
     document.getElementById('prodSellingPrice').value = product.selling_price;
     document.getElementById('prodStock').value = product.current_stock;
@@ -1197,8 +1292,11 @@ async function editProduct(id) {
     document.getElementById('prodStock').classList.add('bg-gray-100');
     document.getElementById('prodMinStock').value = product.min_stock_alert;
     document.getElementById('prodDesc').value = product.description || '';
+    document.getElementById('prodImageUrl').value = product.image_url || '';
+    previewImage(product.image_url);
 
     fillCategoryDatalist();
+    switchProductTab('basic');
 
     document.getElementById('productModal').classList.remove('hidden');
   } catch (error) {
@@ -1221,6 +1319,10 @@ async function submitProduct(e) {
     category_medium: document.getElementById('prodCategoryMedium').value,
     category_small: document.getElementById('prodCategorySmall').value,
     supplier: document.getElementById('prodSupplier').value,
+    brand: document.getElementById('prodBrand').value,
+    tags: document.getElementById('prodTags').value,
+    status: document.getElementById('prodStatus').value,
+    image_url: document.getElementById('prodImageUrl').value,
     purchase_price: parseInt(document.getElementById('prodPurchasePrice').value),
     selling_price: parseInt(document.getElementById('prodSellingPrice').value),
     current_stock: parseInt(document.getElementById('prodStock').value),

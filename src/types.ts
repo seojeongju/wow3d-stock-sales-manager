@@ -17,6 +17,11 @@ export interface Product {
   current_stock: number;
   min_stock_alert: number;
   supplier?: string;
+  image_url?: string;
+  brand?: string;
+  tags?: string;
+  status?: string;
+  specifications?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -117,6 +122,11 @@ export interface CreateProductRequest {
   current_stock: number;
   min_stock_alert?: number;
   supplier?: string;
+  image_url?: string;
+  brand?: string;
+  tags?: string;
+  status?: string;
+  specifications?: string;
 }
 
 export interface UpdateProductRequest {
@@ -129,6 +139,11 @@ export interface UpdateProductRequest {
   selling_price?: number;
   min_stock_alert?: number;
   supplier?: string;
+  image_url?: string;
+  brand?: string;
+  tags?: string;
+  status?: string;
+  specifications?: string;
 }
 
 export interface CreateCustomerRequest {

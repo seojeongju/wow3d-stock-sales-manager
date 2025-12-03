@@ -66,8 +66,8 @@ app.post('/', async (c) => {
 
   const result = await DB.prepare(`
     INSERT INTO products (sku, name, category, category_medium, category_small, description, purchase_price, selling_price, 
-                          current_stock, min_stock_alert, supplier)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          current_stock, min_stock_alert, supplier, image_url, brand, tags, status, specifications)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.sku,
     body.name,
@@ -79,7 +79,12 @@ app.post('/', async (c) => {
     body.selling_price,
     body.current_stock,
     body.min_stock_alert || 10,
-    body.supplier || null
+    body.supplier || null,
+    body.image_url || null,
+    body.brand || null,
+    body.tags || null,
+    body.status || 'sale',
+    body.specifications || null
   ).run()
 
   // 재고 이동 기록 (초기 재고)
@@ -149,6 +154,26 @@ app.put('/:id', async (c) => {
   if (body.supplier !== undefined) {
     updates.push('supplier = ?')
     params.push(body.supplier)
+  }
+  if (body.image_url !== undefined) {
+    updates.push('image_url = ?')
+    params.push(body.image_url)
+  }
+  if (body.brand !== undefined) {
+    updates.push('brand = ?')
+    params.push(body.brand)
+  }
+  if (body.tags !== undefined) {
+    updates.push('tags = ?')
+    params.push(body.tags)
+  }
+  if (body.status !== undefined) {
+    updates.push('status = ?')
+    params.push(body.status)
+  }
+  if (body.specifications !== undefined) {
+    updates.push('specifications = ?')
+    params.push(body.specifications)
   }
 
   if (updates.length === 0) {
