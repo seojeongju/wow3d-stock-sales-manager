@@ -237,40 +237,38 @@ async function loadDashboard(content) {
       <!-- 하단 정보 그리드 -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <!-- 최근 상품 목록 -->
-        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center">
-              <div class="bg-indigo-100 rounded-lg p-2 mr-3">
-                <i class="fas fa-box text-indigo-600"></i>
-              </div>
-              <h2 class="text-xl font-bold text-gray-800">최근 상품 목록</h2>
+        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full">
+          <div class="flex items-center mb-4">
+            <div class="bg-indigo-100 rounded-lg p-2 mr-3">
+              <i class="fas fa-box text-indigo-600"></i>
             </div>
-            <div class="flex gap-1">
-              <button onclick="loadDashboardProducts(Math.max(0, window.dashProdPage - 1))" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"><i class="fas fa-chevron-left"></i></button>
-              <button onclick="loadDashboardProducts(window.dashProdPage + 1)" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"><i class="fas fa-chevron-right"></i></button>
-            </div>
+            <h2 class="text-xl font-bold text-gray-800">최근 상품 목록</h2>
           </div>
-          <div id="dashProductList" class="space-y-3 flex-1">
+          <div id="dashProductList" class="space-y-3 flex-1 mb-4">
             <!-- 상품 목록 렌더링 -->
+          </div>
+          <div class="flex justify-center items-center gap-4 mt-auto pt-3 border-t border-slate-100">
+            <button onclick="loadDashboardProducts(Math.max(0, window.dashProdPage - 1))" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-colors"><i class="fas fa-chevron-left"></i></button>
+            <span id="dashProdPageDisplay" class="text-sm text-slate-500 font-medium">1 페이지</span>
+            <button onclick="loadDashboardProducts(window.dashProdPage + 1)" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-colors"><i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
 
         <!-- 최근 판매 현황 -->
-        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center">
-              <div class="bg-emerald-100 rounded-lg p-2 mr-3">
-                <i class="fas fa-shopping-cart text-emerald-600"></i>
-              </div>
-              <h2 class="text-xl font-bold text-gray-800">최근 판매 현황</h2>
+        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full">
+          <div class="flex items-center mb-4">
+            <div class="bg-emerald-100 rounded-lg p-2 mr-3">
+              <i class="fas fa-shopping-cart text-emerald-600"></i>
             </div>
-            <div class="flex gap-1">
-              <button onclick="loadDashboardSales(Math.max(0, window.dashSalePage - 1))" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"><i class="fas fa-chevron-left"></i></button>
-              <button onclick="loadDashboardSales(window.dashSalePage + 1)" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"><i class="fas fa-chevron-right"></i></button>
-            </div>
+            <h2 class="text-xl font-bold text-gray-800">최근 판매 현황</h2>
           </div>
-          <div id="dashSaleList" class="space-y-3 flex-1">
+          <div id="dashSaleList" class="space-y-3 flex-1 mb-4">
             <!-- 판매 목록 렌더링 -->
+          </div>
+          <div class="flex justify-center items-center gap-4 mt-auto pt-3 border-t border-slate-100">
+            <button onclick="loadDashboardSales(Math.max(0, window.dashSalePage - 1))" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-colors"><i class="fas fa-chevron-left"></i></button>
+            <span id="dashSalePageDisplay" class="text-sm text-slate-500 font-medium">1 페이지</span>
+            <button onclick="loadDashboardSales(window.dashSalePage + 1)" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-colors"><i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
 
@@ -330,6 +328,10 @@ async function loadDashboardProducts(page) {
     const res = await axios.get(`${API_BASE}/products?limit=5&offset=${page * 5}`);
     if (res.data.data.length === 0 && page > 0) return; // 더 이상 데이터 없음
     window.dashProdPage = page;
+
+    const display = document.getElementById('dashProdPageDisplay');
+    if (display) display.textContent = `${page + 1} 페이지`;
+
     renderDashboardProducts(res.data.data);
   } catch (e) {
     console.error(e);
@@ -364,6 +366,10 @@ async function loadDashboardSales(page) {
     const res = await axios.get(`${API_BASE}/sales?limit=5&offset=${page * 5}`);
     if (res.data.data.length === 0 && page > 0) return; // 더 이상 데이터 없음
     window.dashSalePage = page;
+
+    const display = document.getElementById('dashSalePageDisplay');
+    if (display) display.textContent = `${page + 1} 페이지`;
+
     renderDashboardSales(res.data.data);
   } catch (e) {
     console.error(e);
