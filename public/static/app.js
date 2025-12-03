@@ -344,7 +344,8 @@ async function loadDashboard(content) {
                 <div class="flex justify-between items-start">
                   <div>
                     <p class="font-semibold text-gray-800 text-sm">${item.name}</p>
-                    <p class="text-xs text-gray-500">${item.sku}</p>
+                    <p class="text-xs text-gray-500 mb-0.5">${[item.category, item.category_medium, item.category_small].filter(Boolean).join(' > ')}</p>
+                    <p class="text-xs text-slate-400 font-mono">${item.sku}</p>
                   </div>
                   <span class="px-2 py-1 bg-red-200 text-red-800 text-xs font-bold rounded">
                     ${item.current_stock}개 남음
@@ -416,7 +417,7 @@ function renderDashboardProducts(products) {
         </div>
         <div>
           <p class="font-semibold text-gray-800 text-sm truncate max-w-[120px]">${p.name}</p>
-          <p class="text-xs text-gray-500">${p.category}</p>
+          <p class="text-xs text-gray-500">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</p>
         </div>
       </div>
       <div class="text-right">
@@ -2420,7 +2421,7 @@ function renderPosProducts(filterText = '', filterCat = '') {
         </div>
       </div>
       <div class="flex justify-between items-start mb-2">
-        <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">${p.category}</span>
+        <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</span>
         <span class="text-xs text-slate-400 font-mono">${p.sku}</span>
       </div>
       <h4 class="font-bold text-slate-800 mb-1 line-clamp-2 flex-1">${p.name}</h4>
