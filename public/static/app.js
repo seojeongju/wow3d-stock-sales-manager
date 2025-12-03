@@ -89,6 +89,10 @@ async function loadPage(page) {
       updatePageTitle('고객 관리', '고객 정보 및 구매 이력 관리');
       await loadCustomers(content);
       break;
+    case 'outbound':
+      updatePageTitle('출고 관리', '출고 지시, 피킹, 패킹 및 배송 처리');
+      await loadOutbound(content);
+      break;
   }
 }
 

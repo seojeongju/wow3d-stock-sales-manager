@@ -10,6 +10,7 @@ import stockRouter from './routes/stock'
 import dashboardRouter from './routes/dashboard'
 import claimsRouter from './routes/claims'
 import usersRouter from './routes/users'
+import outboundRouter from './routes/outbound'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -24,6 +25,7 @@ app.route('/api/stock', stockRouter)
 app.route('/api/dashboard', dashboardRouter)
 app.route('/api/claims', claimsRouter)
 app.route('/api/users', usersRouter)
+app.route('/api/outbound', outboundRouter)
 
 // 메인 페이지
 app.get('/', (c: Context) => {
@@ -132,6 +134,10 @@ app.get('/', (c: Context) => {
                     <a href="#" data-page="customers" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
                         <i class="fas fa-users w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                         <span class="font-medium">고객 관리</span>
+                    </a>
+                    <a href="#" data-page="outbound" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
+                        <i class="fas fa-truck-loading w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
+                        <span class="font-medium">출고 관리</span>
                     </a>
                 </nav>
                 

@@ -202,3 +202,75 @@ export interface UpdateClaimStatusRequest {
   status: 'approved' | 'completed' | 'rejected';
   admin_notes?: string;
 }
+
+// 재고 Lot 타입
+export interface StockLot {
+  id: number;
+  product_id: number;
+  lot_number: string;
+  quantity: number;
+  remaining_quantity: number;
+  expiry_date?: string;
+  created_at: string;
+}
+
+// 출고 지시서 타입
+export interface OutboundOrder {
+  id: number;
+  order_number: string;
+  destination_name: string;
+  destination_address: string;
+  destination_phone: string;
+  status: 'PENDING' | 'PICKING' | 'PACKING' | 'SHIPPED' | 'CANCELLED';
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  items?: OutboundItem[];
+  packages?: OutboundPackage[];
+  sales?: number[]; // sale_ids
+}
+
+// 출고 상세 품목 타입
+export interface OutboundItem {
+  id: number;
+  outbound_order_id: number;
+  product_id: number;
+  product_name?: string; // Join result
+  sku?: string; // Join result
+  quantity_ordered: number;
+  quantity_picked: number;
+  quantity_packed: number;
+  status: 'PENDING' | 'PICKED' | 'PACKED';
+}
+
+// 출고 패키지 타입
+export interface OutboundPackage {
+  id: number;
+  outbound_order_id: number;
+  tracking_number?: string;
+  courier?: string;
+  box_type?: string;
+  box_count: number;
+  weight?: number;
+  created_at: string;
+}
+
+export interface CreateOutboundRequest {
+  sale_ids: number[];
+  notes?: string;
+}
+
+export interface PickingRequest {
+  items: {
+    product_id: number;
+    quantity: number;
+  }[];
+}
+
+export interface PackingRequest {
+  box_type?: string;
+  box_count: number;
+  weight?: number;
+  courier?: string;
+  tracking_number?: string;
+}
