@@ -1029,13 +1029,23 @@ function injectProductModal() {
                 <label class="block text-sm font-semibold text-slate-700 mb-2">상품명</label>
                 <input type="text" id="prodName" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
               </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리</label>
-                <input type="text" id="prodCategory" required list="categoryList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
-                <datalist id="categoryList">
-                  <!-- 카테고리 자동완성 -->
-                </datalist>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (대분류)</label>
+                <input type="text" id="prodCategory" required list="categoryList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 전자제품">
+                <datalist id="categoryList"></datalist>
               </div>
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (중분류)</label>
+                <input type="text" id="prodCategoryMedium" list="categoryMediumList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 컴퓨터">
+                <datalist id="categoryMediumList"></datalist>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (소분류)</label>
+                <input type="text" id="prodCategorySmall" list="categorySmallList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 노트북">
+                <datalist id="categorySmallList"></datalist>
+              </div>
+            </div>
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-2">공급사</label>
                 <input type="text" id="prodSupplier" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
@@ -1122,6 +1132,8 @@ async function editProduct(id) {
     document.getElementById('prodSku').readOnly = true; // SKU 수정 불가
     document.getElementById('prodName').value = product.name;
     document.getElementById('prodCategory').value = product.category;
+    document.getElementById('prodCategoryMedium').value = product.category_medium || '';
+    document.getElementById('prodCategorySmall').value = product.category_small || '';
     document.getElementById('prodSupplier').value = product.supplier || '';
     document.getElementById('prodPurchasePrice').value = product.purchase_price;
     document.getElementById('prodSellingPrice').value = product.selling_price;
@@ -1151,6 +1163,8 @@ async function submitProduct(e) {
     sku: document.getElementById('prodSku').value,
     name: document.getElementById('prodName').value,
     category: document.getElementById('prodCategory').value,
+    category_medium: document.getElementById('prodCategoryMedium').value,
+    category_small: document.getElementById('prodCategorySmall').value,
     supplier: document.getElementById('prodSupplier').value,
     purchase_price: parseInt(document.getElementById('prodPurchasePrice').value),
     selling_price: parseInt(document.getElementById('prodSellingPrice').value),
@@ -1181,14 +1195,31 @@ async function submitProduct(e) {
   }
 }
 
+// 카테고리 데이터리스트 채우기
 async function fillCategoryDatalist() {
   try {
-    const response = await axios.get(`${API_BASE}/products/meta/categories`);
-    const categories = response.data.data;
-    const datalist = document.getElementById('categoryList');
-    datalist.innerHTML = categories.map(c => `<option value="${c}">`).join('');
+    const response = await axios.get(`${API_BASE}/products`);
+    const products = response.data.data;
+
+    const categories = [...new Set(products.map(p => p.category))];
+    const mediums = [...new Set(products.map(p => p.category_medium).filter(Boolean))];
+    const smalls = [...new Set(products.map(p => p.category_small).filter(Boolean))];
+
+    const list = document.getElementById('categoryList');
+    const mediumList = document.getElementById('categoryMediumList');
+    const smallList = document.getElementById('categorySmallList');
+
+    if (list) {
+      list.innerHTML = categories.map(c => `<option value="${c}">`).join('');
+    }
+    if (mediumList) {
+      mediumList.innerHTML = mediums.map(c => `<option value="${c}">`).join('');
+    }
+    if (smallList) {
+      smallList.innerHTML = smalls.map(c => `<option value="${c}">`).join('');
+    }
   } catch (e) {
-    console.error(e);
+    console.error('카테고리 로드 실패', e);
   }
 }
 

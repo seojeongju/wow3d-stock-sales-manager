@@ -9,6 +9,8 @@ export interface Product {
   sku: string;
   name: string;
   category: string;
+  category_medium?: string;
+  category_small?: string;
   description?: string;
   purchase_price: number;
   selling_price: number;
@@ -102,6 +104,8 @@ export interface CreateProductRequest {
   sku: string;
   name: string;
   category: string;
+  category_medium?: string;
+  category_small?: string;
   description?: string;
   purchase_price: number;
   selling_price: number;
@@ -113,6 +117,8 @@ export interface CreateProductRequest {
 export interface UpdateProductRequest {
   name?: string;
   category?: string;
+  category_medium?: string;
+  category_small?: string;
   description?: string;
   purchase_price?: number;
   selling_price?: number;

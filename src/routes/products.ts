@@ -30,7 +30,7 @@ app.get('/', async (c) => {
   query += ' ORDER BY created_at DESC'
 
   const { results } = await DB.prepare(query).bind(...params).all<Product>()
-  
+
   return c.json({ success: true, data: results })
 })
 
@@ -65,13 +65,15 @@ app.post('/', async (c) => {
   }
 
   const result = await DB.prepare(`
-    INSERT INTO products (sku, name, category, description, purchase_price, selling_price, 
+    INSERT INTO products (sku, name, category, category_medium, category_small, description, purchase_price, selling_price, 
                           current_stock, min_stock_alert, supplier)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.sku,
     body.name,
     body.category,
+    body.category_medium || null,
+    body.category_small || null,
     body.description || null,
     body.purchase_price,
     body.selling_price,
@@ -88,8 +90,8 @@ app.post('/', async (c) => {
     `).bind(result.meta.last_row_id, body.current_stock).run()
   }
 
-  return c.json({ 
-    success: true, 
+  return c.json({
+    success: true,
     data: { id: result.meta.last_row_id },
     message: '상품이 등록되었습니다.'
   })
@@ -119,6 +121,14 @@ app.put('/:id', async (c) => {
   if (body.category !== undefined) {
     updates.push('category = ?')
     params.push(body.category)
+  }
+  if (body.category_medium !== undefined) {
+    updates.push('category_medium = ?')
+    params.push(body.category_medium)
+  }
+  if (body.category_small !== undefined) {
+    updates.push('category_small = ?')
+    params.push(body.category_small)
   }
   if (body.description !== undefined) {
     updates.push('description = ?')
@@ -196,9 +206,9 @@ app.get('/meta/categories', async (c) => {
     SELECT DISTINCT category FROM products WHERE is_active = 1 ORDER BY category
   `).all<{ category: string }>()
 
-  return c.json({ 
-    success: true, 
-    data: results.map(r => r.category) 
+  return c.json({
+    success: true,
+    data: results.map(r => r.category)
   })
 })
 
