@@ -349,9 +349,17 @@ function renderDashboardProducts(products) {
 
   container.innerHTML = products.map(p => `
     <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:shadow-md transition">
-      <div>
-        <p class="font-semibold text-gray-800 text-sm truncate max-w-[150px]">${p.name}</p>
-        <p class="text-xs text-gray-500">${p.category}</p>
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 flex-shrink-0 bg-white rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
+            ${p.image_url ?
+      `<img class="h-10 w-10 object-cover" src="${p.image_url}" alt="${p.name}">` :
+      `<i class="fas fa-box text-slate-300"></i>`
+    }
+        </div>
+        <div>
+          <p class="font-semibold text-gray-800 text-sm truncate max-w-[120px]">${p.name}</p>
+          <p class="text-xs text-gray-500">${p.category}</p>
+        </div>
       </div>
       <div class="text-right">
         <p class="font-bold text-indigo-600 text-sm">${formatCurrency(p.selling_price)}</p>
