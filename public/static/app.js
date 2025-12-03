@@ -4,7 +4,7 @@ const API_BASE = '/api';
 // 인증 체크
 const token = localStorage.getItem('token');
 if (!token) {
-  window.location.href = '/login.html';
+  window.location.href = '/login';
 }
 
 // Axios 인터셉터 설정
@@ -22,7 +22,7 @@ axios.interceptors.response.use(response => {
   if (error.response && error.response.status === 401) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login.html';
+    window.location.href = '/login';
   }
   return Promise.reject(error);
 });
@@ -31,7 +31,7 @@ axios.interceptors.response.use(response => {
 function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = '/login.html';
+  window.location.href = '/login';
 }
 
 // 유틸리티: 토스트 메시지
