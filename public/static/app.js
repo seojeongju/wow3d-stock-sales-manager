@@ -3317,6 +3317,7 @@ async function renderOutboundHistoryTab(container) {
                 <th class="px-6 py-3">수령인</th>
                 <th class="px-6 py-3">품목수</th>
                 <th class="px-6 py-3">상태</th>
+                <th class="px-6 py-3 text-center">관리</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -3327,9 +3328,14 @@ async function renderOutboundHistoryTab(container) {
                   <td class="px-6 py-4 font-medium text-slate-800">${o.destination_name}</td>
                   <td class="px-6 py-4">${o.item_count}</td>
                   <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">${o.status}</span></td>
+                  <td class="px-6 py-4 text-center">
+                    <button onclick="showOutboundDetail(${o.id})" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded text-xs font-bold transition-colors">
+                      <i class="fas fa-search mr-1"></i>상세보기
+                    </button>
+                  </td>
                 </tr>
               `).join('')}
-              ${list.length === 0 ? '<tr><td colspan="5" class="px-6 py-10 text-center text-slate-500">출고 이력이 없습니다.</td></tr>' : ''}
+              ${list.length === 0 ? '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">출고 이력이 없습니다.</td></tr>' : ''}
             </tbody>
           </table>
         </div>
@@ -3338,5 +3344,146 @@ async function renderOutboundHistoryTab(container) {
   } catch (error) {
     console.error(error);
     showError(container, '출고 이력을 불러오는데 실패했습니다.');
+  }
+}
+
+async function showOutboundDetail(id) {
+  try {
+    const res = await axios.get(`${API_BASE}/outbound/${id}`);
+    const data = res.data.data;
+    const { items, packages } = data;
+
+    const modalHtml = `
+      <div id="outDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[60] transition-opacity duration-300 opacity-0">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300">
+          <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+            <div>
+              <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-file-invoice-dollar text-indigo-600"></i> 출고 상세 정보
+              </h3>
+              <p class="text-sm text-slate-500 mt-1 font-mono">${data.order_number}</p>
+            </div>
+            <button onclick="closeOutboundDetail()" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
+              <i class="fas fa-times text-lg"></i>
+            </button>
+          </div>
+          
+          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <!-- 상태 및 기본 정보 -->
+            <div class="grid grid-cols-2 gap-6">
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <h4 class="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">받는 분 정보</h4>
+                <div class="space-y-2 text-sm">
+                  <div class="flex"><span class="w-20 text-slate-500">이름</span> <span class="font-medium text-slate-900">${data.destination_name}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">연락처</span> <span class="font-medium text-slate-900">${data.destination_phone || '-'}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">주소</span> <span class="font-medium text-slate-900 break-all">${data.destination_address}</span></div>
+                </div>
+              </div>
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <h4 class="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">출고 상태</h4>
+                <div class="space-y-2 text-sm">
+                  <div class="flex items-center"><span class="w-20 text-slate-500">상태</span> 
+                    <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-bold text-indigo-600 shadow-sm">${data.status}</span>
+                  </div>
+                  <div class="flex"><span class="w-20 text-slate-500">등록일</span> <span class="text-slate-700">${new Date(data.created_at).toLocaleString()}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">비고</span> <span class="text-slate-700">${data.notes || '-'}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 상품 목록 -->
+            <div>
+              <h4 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <i class="fas fa-box-open text-slate-400"></i> 출고 상품 목록
+              </h4>
+              <div class="border border-slate-200 rounded-lg overflow-hidden">
+                <table class="min-w-full text-sm text-left divide-y divide-slate-200">
+                  <thead class="bg-slate-50 font-semibold text-slate-500">
+                    <tr>
+                      <th class="px-4 py-3">상품명 / SKU</th>
+                      <th class="px-4 py-3 text-center">수량</th>
+                      <th class="px-4 py-3 text-center">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 bg-white">
+                    ${items.map(i => `
+                      <tr>
+                        <td class="px-4 py-3">
+                          <div class="font-medium text-slate-900">${i.product_name}</div>
+                          <div class="text-xs text-slate-500 font-mono">${i.sku}</div>
+                        </td>
+                        <td class="px-4 py-3 text-center font-bold text-slate-700">${i.quantity_ordered}</td>
+                        <td class="px-4 py-3 text-center">
+                          <span class="text-xs px-2 py-1 rounded bg-slate-100 text-slate-600">${i.status}</span>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 배송 정보 (패키지) -->
+            ${packages.length > 0 ? `
+              <div>
+                <h4 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                  <i class="fas fa-truck text-slate-400"></i> 배송 및 운송장 정보
+                </h4>
+                <div class="grid grid-cols-1 gap-3">
+                  ${packages.map(p => `
+                    <div class="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                      <div class="flex items-center gap-4">
+                        <div class="bg-white p-2 rounded-full shadow-sm text-indigo-600">
+                          <i class="fas fa-shipping-fast"></i>
+                        </div>
+                        <div>
+                          <div class="font-bold text-indigo-900">${p.courier}</div>
+                          <div class="text-sm text-indigo-700 font-mono tracking-wide">${p.tracking_number}</div>
+                        </div>
+                      </div>
+                      <div class="text-right text-sm">
+                        <div class="font-medium text-slate-600">${p.box_type || '박스정보 없음'}</div>
+                        <div class="text-slate-500">수량: ${p.box_count}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+          
+          <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end">
+            <button onclick="closeOutboundDetail()" class="px-6 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium transition-colors shadow-lg shadow-slate-200">
+              닫기
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // 애니메이션
+    requestAnimationFrame(() => {
+      const modal = document.getElementById('outDetailModal');
+      const content = modal.querySelector('div');
+      modal.classList.remove('opacity-0');
+      content.classList.remove('scale-95');
+      content.classList.add('scale-100');
+    });
+
+  } catch (e) {
+    console.error(e);
+    alert('상세 정보를 불러오는데 실패했습니다.');
+  }
+}
+
+function closeOutboundDetail() {
+  const modal = document.getElementById('outDetailModal');
+  if (modal) {
+    modal.classList.add('opacity-0');
+    modal.querySelector('div').classList.remove('scale-100');
+    modal.querySelector('div').classList.add('scale-95');
+    setTimeout(() => modal.remove(), 300);
   }
 }
