@@ -1,6 +1,33 @@
 // API Base URL
 const API_BASE = '/api';
 
+// 유틸리티: 토스트 메시지
+function showToast(message, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `fixed bottom-5 right-5 px-6 py-3 rounded-xl shadow-lg text-white font-medium transform transition-all duration-300 translate-y-10 opacity-0 z-[9999] flex items-center ${type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`;
+  el.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2"></i>${message}`;
+  document.body.appendChild(el);
+
+  requestAnimationFrame(() => el.classList.remove('translate-y-10', 'opacity-0'));
+
+  setTimeout(() => {
+    el.classList.add('translate-y-10', 'opacity-0');
+    setTimeout(() => el.remove(), 300);
+  }, 3000);
+}
+
+function showSuccess(msg) { showToast(msg, 'success'); }
+
+function showError(target, msg) {
+  if (typeof target === 'string') {
+    showToast(target, 'error');
+  } else if (target instanceof HTMLElement) {
+    target.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg text-center my-4"><i class="fas fa-exclamation-circle mr-2"></i>${msg}</div>`;
+  } else {
+    showToast(msg || '오류가 발생했습니다.', 'error');
+  }
+}
+
 // 현재 페이지 상태
 let currentPage = 'dashboard';
 
@@ -2887,20 +2914,20 @@ async function confirmOutbound(id) {
 
 // --- 출고 관리 로드 (간편 모드) ---
 async function loadOutbound(content) {
-    // 상품 목록 로드
-    if (!window.products) {
-        try {
-            const res = await axios.get(`${API_BASE}/products`);
-            window.products = res.data.data;
-        } catch (e) {
-            console.error('상품 로드 실패', e);
-        }
+  // 상품 목록 로드
+  if (!window.products) {
+    try {
+      const res = await axios.get(`${API_BASE}/products`);
+      window.products = res.data.data;
+    } catch (e) {
+      console.error('상품 로드 실패', e);
     }
+  }
 
-    // 출고 장바구니 초기화
-    window.outboundCart = [];
+  // 출고 장바구니 초기화
+  window.outboundCart = [];
 
-    content.innerHTML = `
+  content.innerHTML = `
     <div class="flex flex-col h-full">
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-slate-800">
@@ -3007,19 +3034,19 @@ async function loadOutbound(content) {
     </div>
   `;
 
-    renderOutboundProducts();
+  renderOutboundProducts();
 }
 
 function renderOutboundProducts(filterText = '') {
-    const container = document.getElementById('outboundProductList');
-    if (!container) return;
+  const container = document.getElementById('outboundProductList');
+  if (!container) return;
 
-    const filtered = window.products.filter(p =>
-        p.name.toLowerCase().includes(filterText.toLowerCase()) ||
-        p.sku.toLowerCase().includes(filterText.toLowerCase())
-    );
+  const filtered = window.products.filter(p =>
+    p.name.toLowerCase().includes(filterText.toLowerCase()) ||
+    p.sku.toLowerCase().includes(filterText.toLowerCase())
+  );
 
-    container.innerHTML = filtered.map(p => `
+  container.innerHTML = filtered.map(p => `
     <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" onclick="addToOutboundCart(${p.id})">
       <div>
         <div class="font-medium text-slate-800">${p.name}</div>
@@ -3036,46 +3063,46 @@ function renderOutboundProducts(filterText = '') {
 }
 
 function filterOutboundProducts() {
-    const text = document.getElementById('outboundSearch').value;
-    renderOutboundProducts(text);
+  const text = document.getElementById('outboundSearch').value;
+  renderOutboundProducts(text);
 }
 
 function addToOutboundCart(productId) {
-    const product = window.products.find(p => p.id === productId);
-    if (!product) return;
+  const product = window.products.find(p => p.id === productId);
+  if (!product) return;
 
-    if (product.current_stock <= 0) {
-        alert('재고가 없는 상품입니다.');
-        return;
-    }
+  if (product.current_stock <= 0) {
+    alert('재고가 없는 상품입니다.');
+    return;
+  }
 
-    const existing = window.outboundCart.find(item => item.product.id === productId);
-    if (existing) {
-        if (existing.quantity >= product.current_stock) {
-            alert('재고 수량을 초과할 수 없습니다.');
-            return;
-        }
-        existing.quantity++;
-    } else {
-        window.outboundCart.push({ product, quantity: 1 });
+  const existing = window.outboundCart.find(item => item.product.id === productId);
+  if (existing) {
+    if (existing.quantity >= product.current_stock) {
+      alert('재고 수량을 초과할 수 없습니다.');
+      return;
     }
-    renderOutboundCart();
+    existing.quantity++;
+  } else {
+    window.outboundCart.push({ product, quantity: 1 });
+  }
+  renderOutboundCart();
 }
 
 function renderOutboundCart() {
-    const container = document.getElementById('outboundCartItems');
-    const totalEl = document.getElementById('outboundTotalQty');
+  const container = document.getElementById('outboundCartItems');
+  const totalEl = document.getElementById('outboundTotalQty');
 
-    if (window.outboundCart.length === 0) {
-        container.innerHTML = '<p class="text-center text-slate-400 py-8">상품을 선택해주세요.</p>';
-        totalEl.textContent = '0개';
-        return;
-    }
+  if (window.outboundCart.length === 0) {
+    container.innerHTML = '<p class="text-center text-slate-400 py-8">상품을 선택해주세요.</p>';
+    totalEl.textContent = '0개';
+    return;
+  }
 
-    let totalQty = 0;
-    container.innerHTML = window.outboundCart.map(item => {
-        totalQty += item.quantity;
-        return `
+  let totalQty = 0;
+  container.innerHTML = window.outboundCart.map(item => {
+    totalQty += item.quantity;
+    return `
       <div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
         <div class="flex-1 min-w-0 mr-3">
           <div class="font-medium text-slate-800 truncate">${item.product.name}</div>
@@ -3091,99 +3118,99 @@ function renderOutboundCart() {
         </div>
       </div>
     `;
-    }).join('');
+  }).join('');
 
-    totalEl.textContent = totalQty + '개';
+  totalEl.textContent = totalQty + '개';
 }
 
 function updateOutboundQty(productId, delta) {
-    const item = window.outboundCart.find(i => i.product.id === productId);
-    if (!item) return;
+  const item = window.outboundCart.find(i => i.product.id === productId);
+  if (!item) return;
 
-    const newQty = item.quantity + delta;
-    if (newQty <= 0) {
-        removeOutboundItem(productId);
-        return;
-    }
-    if (newQty > item.product.current_stock) {
-        alert('재고 부족');
-        return;
-    }
-    item.quantity = newQty;
-    renderOutboundCart();
+  const newQty = item.quantity + delta;
+  if (newQty <= 0) {
+    removeOutboundItem(productId);
+    return;
+  }
+  if (newQty > item.product.current_stock) {
+    alert('재고 부족');
+    return;
+  }
+  item.quantity = newQty;
+  renderOutboundCart();
 }
 
 function removeOutboundItem(productId) {
-    window.outboundCart = window.outboundCart.filter(i => i.product.id !== productId);
-    renderOutboundCart();
+  window.outboundCart = window.outboundCart.filter(i => i.product.id !== productId);
+  renderOutboundCart();
 }
 
 async function submitDirectOutbound() {
-    if (window.outboundCart.length === 0) {
-        alert('출고할 상품을 선택해주세요.');
-        return;
-    }
+  if (window.outboundCart.length === 0) {
+    alert('출고할 상품을 선택해주세요.');
+    return;
+  }
 
-    const destName = document.getElementById('outDestName').value;
-    const destPhone = document.getElementById('outDestPhone').value;
-    const destAddress = document.getElementById('outDestAddress').value;
-    const courier = document.getElementById('outCourier').value;
-    const tracking = document.getElementById('outTracking').value;
-    const boxType = document.getElementById('outBoxType').value;
-    const notes = document.getElementById('outNotes').value;
+  const destName = document.getElementById('outDestName').value;
+  const destPhone = document.getElementById('outDestPhone').value;
+  const destAddress = document.getElementById('outDestAddress').value;
+  const courier = document.getElementById('outCourier').value;
+  const tracking = document.getElementById('outTracking').value;
+  const boxType = document.getElementById('outBoxType').value;
+  const notes = document.getElementById('outNotes').value;
 
-    if (!destName || !destAddress) {
-        alert('수령인과 주소를 입력해주세요.');
-        return;
-    }
+  if (!destName || !destAddress) {
+    alert('수령인과 주소를 입력해주세요.');
+    return;
+  }
 
-    if (!tracking) {
-        if (!confirm('운송장 번호 없이 출고하시겠습니까?')) return;
-    }
+  if (!tracking) {
+    if (!confirm('운송장 번호 없이 출고하시겠습니까?')) return;
+  }
 
-    const payload = {
-        items: window.outboundCart.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
-        destination: {
-            name: destName,
-            phone: destPhone,
-            address: destAddress
-        },
-        package: {
-            courier: courier,
-            tracking_number: tracking,
-            box_type: boxType
-        },
-        notes: notes
-    };
+  const payload = {
+    items: window.outboundCart.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
+    destination: {
+      name: destName,
+      phone: destPhone,
+      address: destAddress
+    },
+    package: {
+      courier: courier,
+      tracking_number: tracking,
+      box_type: boxType
+    },
+    notes: notes
+  };
 
-    try {
-        await axios.post(`${API_BASE}/outbound/direct`, payload);
-        alert('출고가 완료되었습니다.');
-        // 초기화
-        window.outboundCart = [];
-        document.getElementById('outDestName').value = '';
-        document.getElementById('outDestPhone').value = '';
-        document.getElementById('outDestAddress').value = '';
-        document.getElementById('outTracking').value = '';
-        document.getElementById('outNotes').value = '';
-        renderOutboundCart();
-        // 상품 재고 갱신을 위해 다시 로드
-        const res = await axios.get(`${API_BASE}/products`);
-        window.products = res.data.data;
-        renderOutboundProducts();
-    } catch (e) {
-        console.error(e);
-        alert('출고 등록 실패: ' + (e.response?.data?.error || e.message));
-    }
+  try {
+    await axios.post(`${API_BASE}/outbound/direct`, payload);
+    alert('출고가 완료되었습니다.');
+    // 초기화
+    window.outboundCart = [];
+    document.getElementById('outDestName').value = '';
+    document.getElementById('outDestPhone').value = '';
+    document.getElementById('outDestAddress').value = '';
+    document.getElementById('outTracking').value = '';
+    document.getElementById('outNotes').value = '';
+    renderOutboundCart();
+    // 상품 재고 갱신을 위해 다시 로드
+    const res = await axios.get(`${API_BASE}/products`);
+    window.products = res.data.data;
+    renderOutboundProducts();
+  } catch (e) {
+    console.error(e);
+    alert('출고 등록 실패: ' + (e.response?.data?.error || e.message));
+  }
 }
 
 async function loadOutboundHistory() {
-    // 간단한 모달로 이력 보여주기
-    try {
-        const res = await axios.get(`${API_BASE}/outbound`);
-        const list = res.data.data;
+  // 간단한 모달로 이력 보여주기
+  try {
+    const res = await axios.get(`${API_BASE}/outbound`);
+    const list = res.data.data;
 
-        const modalHtml = `
+    const modalHtml = `
       <div id="outHistoryModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 h-[80vh] flex flex-col">
           <div class="p-6 border-b border-slate-100 flex justify-between items-center">
@@ -3217,8 +3244,8 @@ async function loadOutboundHistory() {
         </div>
       </div>
     `;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    } catch (e) {
-        alert('이력 로드 실패');
-    }
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  } catch (e) {
+    alert('이력 로드 실패');
+  }
 }
