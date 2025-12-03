@@ -898,6 +898,9 @@ async function renderOrderManagementTab(container) {
                       <button onclick="openClaimModal(${s.id})" class="text-amber-600 hover:text-amber-800 font-medium text-xs bg-amber-50 px-2 py-1 rounded hover:bg-amber-100 transition-colors">
                         <i class="fas fa-undo mr-1"></i>반품/교환
                       </button>
+                      <button onclick="cancelSale(${s.id})" class="text-rose-600 hover:text-rose-800 font-medium text-xs bg-rose-50 px-2 py-1 rounded hover:bg-rose-100 transition-colors">
+                        <i class="fas fa-times mr-1"></i>취소
+                      </button>
                     ` : ''}
                   </td>
                 </tr>
@@ -2066,15 +2069,47 @@ async function checkout() {
 }
 
 async function cancelSale(saleId) {
-  if (!confirm('정말 이 판매 내역을 취소하시겠습니까?\n재고가 다시 복구됩니다.')) return;
+  if (!confirm('정말 이 판매 내역을 취소하시겠습니까?\\n재고가 다시 복구됩니다.')) return;
 
   try {
     await axios.put(`${API_BASE}/sales/${saleId}/cancel`);
     showSuccess('판매가 취소되었습니다.');
-    switchSalesTab('pos'); // 목록 갱신
+    // 현재 활성화된 탭에 따라 새로고침
+    const activeTab = document.querySelector('.border-indigo-600')?.id;
+    if (activeTab === 'tab-orders') {
+      switchSalesTab('orders');
+    } else {
+      switchSalesTab('pos');
+    }
   } catch (error) {
     console.error('판매 취소 실패:', error);
     alert('판매 취소 실패: ' + (error.response?.data?.error || error.message));
+  }
+}
+
+async function deleteCustomer(id) {
+  if (!confirm('정말 이 고객을 삭제하시겠습니까? 구매 이력도 함께 삭제될 수 있습니다.')) return;
+
+  try {
+    await axios.delete(`${API_BASE}/customers/${id}`);
+    showSuccess('고객이 삭제되었습니다.');
+    loadPage('customers');
+  } catch (error) {
+    console.error('고객 삭제 실패:', error);
+    alert('고객 삭제 실패: ' + (error.response?.data?.error || error.message));
+  }
+}
+
+async function deleteProduct(id) {
+  if (!confirm('정말 이 상품을 삭제하시겠습니까?')) return;
+
+  try {
+    await axios.delete(`${API_BASE}/products/${id}`);
+    showSuccess('상품이 삭제되었습니다.');
+    loadPage('products');
+  } catch (error) {
+    console.error('상품 삭제 실패:', error);
+    alert('상품 삭제 실패: ' + (error.response?.data?.error || error.message));
   }
 }
 
@@ -2442,7 +2477,7 @@ async function submitStockMovement(e) {
 
 // --- 출고 관리 로드 ---
 async function loadOutbound(content) {
-    content.innerHTML = `
+  content.innerHTML = `
     <div class="flex flex-col h-full">
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-slate-800">
@@ -2477,44 +2512,44 @@ async function loadOutbound(content) {
     </div>
   `;
 
-    switchOutboundTab('instruction');
+  switchOutboundTab('instruction');
 }
 
 async function switchOutboundTab(tabName) {
-    // 탭 스타일 업데이트
-    document.querySelectorAll('[id^="tab-"]').forEach(el => {
-        el.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
-        el.classList.add('text-slate-500', 'font-medium', 'border-transparent');
-        el.querySelector('div').classList.remove('bg-indigo-100', 'text-indigo-600');
-        el.querySelector('div').classList.add('bg-slate-100', 'text-slate-500');
-    });
-    const activeTab = document.getElementById(`tab-${tabName}`);
-    if (activeTab) {
-        activeTab.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-        activeTab.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
-        activeTab.querySelector('div').classList.remove('bg-slate-100', 'text-slate-500');
-        activeTab.querySelector('div').classList.add('bg-indigo-100', 'text-indigo-600');
-    }
+  // 탭 스타일 업데이트
+  document.querySelectorAll('[id^="tab-"]').forEach(el => {
+    el.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+    el.classList.add('text-slate-500', 'font-medium', 'border-transparent');
+    el.querySelector('div').classList.remove('bg-indigo-100', 'text-indigo-600');
+    el.querySelector('div').classList.add('bg-slate-100', 'text-slate-500');
+  });
+  const activeTab = document.getElementById(`tab-${tabName}`);
+  if (activeTab) {
+    activeTab.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
+    activeTab.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+    activeTab.querySelector('div').classList.remove('bg-slate-100', 'text-slate-500');
+    activeTab.querySelector('div').classList.add('bg-indigo-100', 'text-indigo-600');
+  }
 
-    const container = document.getElementById('outboundTabContent');
+  const container = document.getElementById('outboundTabContent');
 
-    switch (tabName) {
-        case 'instruction': await renderOutboundInstruction(container); break;
-        case 'picking': await renderOutboundPicking(container); break;
-        case 'packing': await renderOutboundPacking(container); break;
-        case 'confirmation': await renderOutboundConfirmation(container); break;
-    }
+  switch (tabName) {
+    case 'instruction': await renderOutboundInstruction(container); break;
+    case 'picking': await renderOutboundPicking(container); break;
+    case 'packing': await renderOutboundPacking(container); break;
+    case 'confirmation': await renderOutboundConfirmation(container); break;
+  }
 }
 
 // 1. 출고 지시 (Instruction)
 async function renderOutboundInstruction(container) {
-    try {
-        // 배송 준비중인 주문 목록 조회 (아직 출고지시 안된 것들)
-        // 실제로는 API 필터링이 필요하지만 여기서는 sales API 활용
-        const salesRes = await axios.get(`${API_BASE}/sales?status=completed`);
-        const sales = salesRes.data.data;
+  try {
+    // 배송 준비중인 주문 목록 조회 (아직 출고지시 안된 것들)
+    // 실제로는 API 필터링이 필요하지만 여기서는 sales API 활용
+    const salesRes = await axios.get(`${API_BASE}/sales?status=completed`);
+    const sales = salesRes.data.data;
 
-        container.innerHTML = `
+    container.innerHTML = `
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
         <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 class="font-bold text-slate-800">출고 대기 주문 목록</h3>
@@ -2550,42 +2585,42 @@ async function renderOutboundInstruction(container) {
         </div>
       </div>
     `;
-    } catch (error) {
-        console.error(error);
-        showError(container, '주문 목록 로드 실패');
-    }
+  } catch (error) {
+    console.error(error);
+    showError(container, '주문 목록 로드 실패');
+  }
 }
 
 function toggleAllSales(source) {
-    document.querySelectorAll('.sale-checkbox').forEach(cb => cb.checked = source.checked);
+  document.querySelectorAll('.sale-checkbox').forEach(cb => cb.checked = source.checked);
 }
 
 async function createOutboundOrder() {
-    const selected = Array.from(document.querySelectorAll('.sale-checkbox:checked')).map(cb => parseInt(cb.value));
-    if (selected.length === 0) {
-        alert('주문을 선택해주세요.');
-        return;
-    }
+  const selected = Array.from(document.querySelectorAll('.sale-checkbox:checked')).map(cb => parseInt(cb.value));
+  if (selected.length === 0) {
+    alert('주문을 선택해주세요.');
+    return;
+  }
 
-    if (!confirm(`${selected.length}건의 주문에 대해 출고지시서를 생성하시겠습니까?`)) return;
+  if (!confirm(`${selected.length}건의 주문에 대해 출고지시서를 생성하시겠습니까?`)) return;
 
-    try {
-        await axios.post(`${API_BASE}/outbound/create`, { sale_ids: selected });
-        alert('출고지시서가 생성되었습니다.');
-        switchOutboundTab('instruction'); // Refresh
-    } catch (error) {
-        console.error(error);
-        alert('생성 실패: ' + (error.response?.data?.error || error.message));
-    }
+  try {
+    await axios.post(`${API_BASE}/outbound/create`, { sale_ids: selected });
+    alert('출고지시서가 생성되었습니다.');
+    switchOutboundTab('instruction'); // Refresh
+  } catch (error) {
+    console.error(error);
+    alert('생성 실패: ' + (error.response?.data?.error || error.message));
+  }
 }
 
 // 2. 피킹/검수 (Picking)
 async function renderOutboundPicking(container) {
-    try {
-        const response = await axios.get(`${API_BASE}/outbound?status=PENDING`); // PENDING or PICKING
-        const orders = response.data.data.filter(o => o.status === 'PENDING' || o.status === 'PICKING');
+  try {
+    const response = await axios.get(`${API_BASE}/outbound?status=PENDING`); // PENDING or PICKING
+    const orders = response.data.data.filter(o => o.status === 'PENDING' || o.status === 'PICKING');
 
-        container.innerHTML = `
+    container.innerHTML = `
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto p-1">
         ${orders.map(o => `
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow cursor-pointer" onclick="openPickingModal(${o.id})">
@@ -2612,20 +2647,20 @@ async function renderOutboundPicking(container) {
         ${orders.length === 0 ? '<div class="col-span-full text-center py-10 text-slate-500">피킹 대기 중인 지시서가 없습니다.</div>' : ''}
       </div>
     `;
-    } catch (error) {
-        console.error(error);
-        showError(container, '출고 목록 로드 실패');
-    }
+  } catch (error) {
+    console.error(error);
+    showError(container, '출고 목록 로드 실패');
+  }
 }
 
 async function openPickingModal(id) {
-    // 상세 조회 및 모달 표시
-    try {
-        const res = await axios.get(`${API_BASE}/outbound/${id}`);
-        const order = res.data.data;
+  // 상세 조회 및 모달 표시
+  try {
+    const res = await axios.get(`${API_BASE}/outbound/${id}`);
+    const order = res.data.data;
 
-        // 모달 HTML 생성 (바코드 스캔 시뮬레이션 포함)
-        const modalHtml = `
+    // 모달 HTML 생성 (바코드 스캔 시뮬레이션 포함)
+    const modalHtml = `
       <div id="pickingModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
           <div class="p-6 border-b border-slate-100 flex justify-between items-center">
@@ -2680,46 +2715,46 @@ async function openPickingModal(id) {
         </div>
       </div>
     `;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        document.getElementById('scanInput').focus();
-    } catch (e) {
-        console.error(e);
-        alert('상세 정보 로드 실패');
-    }
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.getElementById('scanInput').focus();
+  } catch (e) {
+    console.error(e);
+    alert('상세 정보 로드 실패');
+  }
 }
 
 async function simulateScan(sku, orderId) {
-    if (!sku) return;
+  if (!sku) return;
 
-    try {
-        const prodRes = await axios.get(`${API_BASE}/products?search=${sku}`);
-        if (prodRes.data.data.length === 0) {
-            alert('상품을 찾을 수 없습니다.');
-            return;
-        }
-        const product = prodRes.data.data[0]; // 첫번째 매칭
-
-        await axios.post(`${API_BASE}/outbound/${orderId}/picking`, {
-            items: [{ product_id: product.id, quantity: 1 }]
-        });
-
-        // UI 업데이트 (간단히 리로드)
-        document.getElementById('pickingModal').remove();
-        openPickingModal(orderId);
-
-    } catch (e) {
-        console.error(e);
-        alert('스캔 처리 실패');
+  try {
+    const prodRes = await axios.get(`${API_BASE}/products?search=${sku}`);
+    if (prodRes.data.data.length === 0) {
+      alert('상품을 찾을 수 없습니다.');
+      return;
     }
+    const product = prodRes.data.data[0]; // 첫번째 매칭
+
+    await axios.post(`${API_BASE}/outbound/${orderId}/picking`, {
+      items: [{ product_id: product.id, quantity: 1 }]
+    });
+
+    // UI 업데이트 (간단히 리로드)
+    document.getElementById('pickingModal').remove();
+    openPickingModal(orderId);
+
+  } catch (e) {
+    console.error(e);
+    alert('스캔 처리 실패');
+  }
 }
 
 // 3. 패킹/송장 (Packing)
 async function renderOutboundPacking(container) {
-    try {
-        const response = await axios.get(`${API_BASE}/outbound?status=PACKING`);
-        const orders = response.data.data;
+  try {
+    const response = await axios.get(`${API_BASE}/outbound?status=PACKING`);
+    const orders = response.data.data;
 
-        container.innerHTML = `
+    container.innerHTML = `
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto p-1">
         ${orders.map(o => `
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
@@ -2757,45 +2792,45 @@ async function renderOutboundPacking(container) {
         ${orders.length === 0 ? '<div class="col-span-full text-center py-10 text-slate-500">패킹 대기 중인 지시서가 없습니다.</div>' : ''}
       </div>
     `;
-    } catch (error) {
-        console.error(error);
-        showError(container, '목록 로드 실패');
-    }
+  } catch (error) {
+    console.error(error);
+    showError(container, '목록 로드 실패');
+  }
 }
 
 async function submitPacking(id) {
-    const courier = document.getElementById(`courier-${id}`).value;
-    const trackingNumber = document.getElementById(`tracking-${id}`).value;
-    const boxType = document.getElementById(`box-${id}`).value;
+  const courier = document.getElementById(`courier-${id}`).value;
+  const trackingNumber = document.getElementById(`tracking-${id}`).value;
+  const boxType = document.getElementById(`box-${id}`).value;
 
-    if (!trackingNumber) {
-        alert('운송장 번호를 입력해주세요.');
-        return;
-    }
+  if (!trackingNumber) {
+    alert('운송장 번호를 입력해주세요.');
+    return;
+  }
 
-    try {
-        await axios.post(`${API_BASE}/outbound/${id}/packing`, {
-            courier, tracking_number: trackingNumber, box_type: boxType, box_count: 1
-        });
-        alert('저장되었습니다.');
-        switchOutboundTab('packing');
-    } catch (e) {
-        console.error(e);
-        alert('저장 실패');
-    }
+  try {
+    await axios.post(`${API_BASE}/outbound/${id}/packing`, {
+      courier, tracking_number: trackingNumber, box_type: boxType, box_count: 1
+    });
+    alert('저장되었습니다.');
+    switchOutboundTab('packing');
+  } catch (e) {
+    console.error(e);
+    alert('저장 실패');
+  }
 }
 
 // 4. 출고 확정 (Confirmation)
 async function renderOutboundConfirmation(container) {
-    try {
-        // PACKING 상태이지만 아직 SHIPPED가 아닌 것들? 
-        // 로직상 PACKING 단계에서 송장 입력하면 바로 SHIPPED로 넘기지 않고, 여기서 최종 확정(재고 차감)을 하도록 함.
-        // 하지만 위 packing API에서는 status를 PACKING으로 유지함.
-        const response = await axios.get(`${API_BASE}/outbound?status=PACKING`);
-        // 송장 정보가 있는 것만 필터링해야 하지만 API가 간단하므로 일단 PACKING 상태인 것을 보여줌.
-        const orders = response.data.data;
+  try {
+    // PACKING 상태이지만 아직 SHIPPED가 아닌 것들? 
+    // 로직상 PACKING 단계에서 송장 입력하면 바로 SHIPPED로 넘기지 않고, 여기서 최종 확정(재고 차감)을 하도록 함.
+    // 하지만 위 packing API에서는 status를 PACKING으로 유지함.
+    const response = await axios.get(`${API_BASE}/outbound?status=PACKING`);
+    // 송장 정보가 있는 것만 필터링해야 하지만 API가 간단하므로 일단 PACKING 상태인 것을 보여줌.
+    const orders = response.data.data;
 
-        container.innerHTML = `
+    container.innerHTML = `
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
         <div class="p-4 border-b border-slate-200 bg-slate-50">
           <h3 class="font-bold text-slate-800">출고 확정 대기 목록</h3>
@@ -2831,21 +2866,21 @@ async function renderOutboundConfirmation(container) {
         </div>
       </div>
     `;
-    } catch (error) {
-        console.error(error);
-        showError(container, '목록 로드 실패');
-    }
+  } catch (error) {
+    console.error(error);
+    showError(container, '목록 로드 실패');
+  }
 }
 
 async function confirmOutbound(id) {
-    if (!confirm('출고를 확정하시겠습니까? 재고가 즉시 차감됩니다.')) return;
+  if (!confirm('출고를 확정하시겠습니까? 재고가 즉시 차감됩니다.')) return;
 
-    try {
-        await axios.post(`${API_BASE}/outbound/${id}/confirm`);
-        alert('출고가 확정되었습니다.');
-        switchOutboundTab('confirmation');
-    } catch (e) {
-        console.error(e);
-        alert('확정 실패: ' + (e.response?.data?.error || e.message));
-    }
+  try {
+    await axios.post(`${API_BASE}/outbound/${id}/confirm`);
+    alert('출고가 확정되었습니다.');
+    switchOutboundTab('confirmation');
+  } catch (e) {
+    console.error(e);
+    alert('확정 실패: ' + (e.response?.data?.error || e.message));
+  }
 }
