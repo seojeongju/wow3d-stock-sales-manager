@@ -268,4 +268,79 @@ app.post('/:id/confirm', async (c) => {
     return c.json({ success: true, message: '출고가 확정되었습니다.' })
 })
 
+// 5. 간편 출고 등록 (Direct Outbound)
+app.post('/direct', async (c) => {
+    const { DB } = c.env
+    const body = await c.req.json<{
+        items: { product_id: number; quantity: number }[];
+        destination: {
+            name: string;
+            address: string;
+            phone: string;
+        };
+        package: {
+            courier: string;
+            tracking_number: string;
+            box_type?: string;
+        };
+        notes?: string;
+    }>()
+
+    if (!body.items || body.items.length === 0) {
+        return c.json({ success: false, error: '상품이 선택되지 않았습니다.' }, 400)
+    }
+
+    const orderNumber = `DO-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
+
+    try {
+        // 1. 출고 지시서 생성 (바로 SHIPPED 상태로)
+        const insertOrder = DB.prepare(`
+            INSERT INTO outbound_orders (order_number, destination_name, destination_address, destination_phone, status, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'SHIPPED', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `).bind(
+            orderNumber,
+            body.destination.name,
+            body.destination.address,
+            body.destination.phone,
+            body.notes || null
+        )
+
+        const orderResult = await insertOrder.run()
+        const orderId = orderResult.meta.last_row_id
+
+        // 2. 아이템 등록 및 재고 차감
+        for (const item of body.items) {
+            // 아이템 등록 (주문=피킹=패킹 수량 동일)
+            await DB.prepare(`
+                INSERT INTO outbound_items (outbound_order_id, product_id, quantity_ordered, quantity_picked, quantity_packed, status)
+                VALUES (?, ?, ?, ?, ?, 'PACKED')
+            `).bind(orderId, item.product_id, item.quantity, item.quantity, item.quantity).run()
+
+            // 재고 차감 (FIFO 무시하고 총 재고에서 단순 차감 - 간편 모드이므로)
+            // 필요하다면 FIFO 로직을 여기에도 적용할 수 있음. 일단은 단순 차감.
+            await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
+                .bind(item.quantity, item.product_id).run()
+
+            // 재고 이동 기록
+            await DB.prepare(`
+                INSERT INTO stock_movements (product_id, movement_type, quantity, reason, reference_id)
+                VALUES (?, '출고', ?, '간편 출고', ?)
+            `).bind(item.product_id, item.quantity, orderId).run()
+        }
+
+        // 3. 패키지(송장) 정보 등록
+        if (body.package && body.package.tracking_number) {
+            await DB.prepare(`
+                INSERT INTO outbound_packages (outbound_order_id, tracking_number, courier, box_type, box_count)
+                VALUES (?, ?, ?, ?, 1)
+            `).bind(orderId, body.package.tracking_number, body.package.courier, body.package.box_type || 'A형').run()
+        }
+
+        return c.json({ success: true, message: '출고가 완료되었습니다.', data: { id: orderId } })
+
+    } catch (e: any) {
+        return c.json({ success: false, error: '출고 처리 중 오류가 발생했습니다: ' + e.message }, 500)
+    }
+})
+
 export default app
