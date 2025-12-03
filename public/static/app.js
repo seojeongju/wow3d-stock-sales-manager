@@ -1023,7 +1023,24 @@ function injectProductModal() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-2">SKU (상품코드)</label>
-                <input type="text" id="prodSku" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center gap-4 mb-1">
+                    <label class="inline-flex items-center cursor-pointer">
+                      <input type="radio" name="skuType" value="auto" checked onchange="toggleSkuInput(this.value)" class="form-radio text-indigo-600 focus:ring-indigo-500">
+                      <span class="ml-2 text-sm text-slate-700">자동 생성</span>
+                    </label>
+                    <label class="inline-flex items-center cursor-pointer">
+                      <input type="radio" name="skuType" value="manual" onchange="toggleSkuInput(this.value)" class="form-radio text-indigo-600 focus:ring-indigo-500">
+                      <span class="ml-2 text-sm text-slate-700">수동 입력</span>
+                    </label>
+                  </div>
+                  <div class="flex gap-2">
+                    <input type="text" id="prodSku" required readonly class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400 bg-slate-50 text-slate-500">
+                    <button type="button" id="btnGenerateSku" onclick="generateAutoSku()" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                      <i class="fas fa-sync-alt mr-1"></i>생성
+                    </button>
+                  </div>
+                </div>
               </div>
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-2">상품명</label>
@@ -1097,6 +1114,33 @@ function injectProductModal() {
   document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
+function toggleSkuInput(type) {
+  const skuInput = document.getElementById('prodSku');
+  const generateBtn = document.getElementById('btnGenerateSku');
+
+  if (type === 'auto') {
+    skuInput.readOnly = true;
+    skuInput.classList.add('bg-slate-50', 'text-slate-500');
+    generateBtn.classList.remove('hidden');
+    if (!skuInput.value) generateAutoSku();
+  } else {
+    skuInput.readOnly = false;
+    skuInput.classList.remove('bg-slate-50', 'text-slate-500');
+    generateBtn.classList.add('hidden');
+    skuInput.value = '';
+    skuInput.focus();
+  }
+}
+
+function generateAutoSku() {
+  const date = new Date();
+  const year = date.getFullYear().toString().slice(-2);
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  document.getElementById('prodSku').value = `PRD-${year}${month}${day}-${random}`;
+}
+
 function showProductModal() {
   injectProductModal(); // Ensure modal exists
 
@@ -1108,7 +1152,11 @@ function showProductModal() {
   window.editingProductId = null;
 
   title.textContent = '상품 등록';
-  document.getElementById('prodSku').readOnly = false;
+
+  // SKU 초기화 (자동 생성 모드)
+  document.querySelector('input[name="skuType"][value="auto"]').checked = true;
+  toggleSkuInput('auto');
+
   document.getElementById('prodStock').readOnly = false;
   document.getElementById('prodStock').classList.remove('bg-gray-100');
 
@@ -1128,8 +1176,15 @@ async function editProduct(id) {
     window.editingProductId = id;
 
     document.getElementById('productModalTitle').textContent = '상품 수정';
+
+    // 수정 시에는 SKU 변경 불가 (UI 처리)
     document.getElementById('prodSku').value = product.sku;
-    document.getElementById('prodSku').readOnly = true; // SKU 수정 불가
+    document.getElementById('prodSku').readOnly = true;
+    document.getElementById('prodSku').classList.add('bg-slate-50', 'text-slate-500');
+    // 라디오 버튼 및 생성 버튼 숨김/비활성화
+    document.querySelectorAll('input[name="skuType"]').forEach(el => el.disabled = true);
+    document.getElementById('btnGenerateSku').classList.add('hidden');
+
     document.getElementById('prodName').value = product.name;
     document.getElementById('prodCategory').value = product.category;
     document.getElementById('prodCategoryMedium').value = product.category_medium || '';
