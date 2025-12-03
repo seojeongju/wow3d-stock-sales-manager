@@ -305,6 +305,10 @@ app.get('/', (c: Context) => {
                         <i class="fas fa-warehouse w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                         <span class="font-medium">재고 관리</span>
                     </a>
+                    <a href="#" data-page="settings" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
+                        <i class="fas fa-cog w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
+                        <span class="font-medium">설정</span>
+                    </a>
                 </nav>
                 
                 <div class="p-4 border-t border-slate-800 bg-slate-900">

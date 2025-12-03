@@ -174,6 +174,10 @@ async function loadPage(page) {
       updatePageTitle('출고 관리', '출고 지시, 피킹, 패킹 및 배송 처리');
       await loadOutbound(content);
       break;
+    case 'settings':
+      updatePageTitle('설정', '구독 및 팀원 관리');
+      await loadSettingsPage(content);
+      break;
   }
 }
 
@@ -3989,5 +3993,226 @@ function closeOutboundDetail() {
     modal.querySelector('div').classList.remove('scale-100');
     modal.querySelector('div').classList.add('scale-95');
     setTimeout(() => modal.remove(), 300);
+  }
+}
+
+// 설정 페이지 로드
+async function loadSettingsPage(content) {
+  try {
+    const [subRes, usersRes] = await Promise.all([
+      axios.get(`${API_BASE}/subscription`),
+      axios.get(`${API_BASE}/users`)
+    ]);
+
+    const subData = subRes.data.data;
+    const users = usersRes.data.data;
+    const plan = subData.plan;
+    const usage = subData.usage;
+    const limits = subData.limits;
+
+    // 상품 사용량 퍼센트
+    const productPercent = limits.products === null ? 0 : Math.min(100, (usage.products / limits.products) * 100);
+    const productLimitText = limits.products === null ? '무제한' : `${limits.products}개`;
+
+    // 사용자 사용량 퍼센트
+    const userPercent = limits.users === null ? 0 : Math.min(100, (usage.users / limits.users) * 100);
+    const userLimitText = limits.users === null ? '무제한' : `${limits.users}명`;
+
+    content.innerHTML = `
+      <div class="space-y-6">
+        <!-- 구독 정보 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- 플랜 정보 -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="text-lg font-bold text-slate-800">현재 구독 플랜</h3>
+                <p class="text-slate-500 text-sm">이용 중인 서비스 등급입니다.</p>
+              </div>
+              <span class="px-3 py-1 rounded-full text-sm font-bold bg-indigo-100 text-indigo-700">
+                ${plan.name}
+              </span>
+            </div>
+            <div class="mb-6">
+              <span class="text-3xl font-bold text-slate-800">₩${plan.price.toLocaleString()}</span>
+              <span class="text-slate-500">/월</span>
+            </div>
+            <div class="space-y-3 mb-6">
+              ${plan.features.map(f => `
+                <div class="flex items-center text-sm text-slate-600">
+                  <i class="fas fa-check text-emerald-500 mr-2"></i> ${f}
+                </div>
+              `).join('')}
+            </div>
+            <button onclick="alert('준비 중입니다.')" class="w-full py-2 border border-indigo-600 text-indigo-600 rounded-lg font-medium hover:bg-indigo-50 transition-colors">
+              플랜 업그레이드
+            </button>
+          </div>
+
+          <!-- 사용량 정보 -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">사용량 현황</h3>
+            
+            <div class="space-y-6">
+              <!-- 상품 수 -->
+              <div>
+                <div class="flex justify-between text-sm mb-1">
+                  <span class="font-medium text-slate-700">상품 등록 수</span>
+                  <span class="text-slate-500">${usage.products.toLocaleString()} / ${productLimitText}</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-2.5">
+                  <div class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: ${productPercent}%"></div>
+                </div>
+                ${productPercent >= 90 ? '<p class="text-xs text-rose-500 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>한도에 근접했습니다.</p>' : ''}
+              </div>
+
+              <!-- 사용자 수 -->
+              <div>
+                <div class="flex justify-between text-sm mb-1">
+                  <span class="font-medium text-slate-700">팀원 수</span>
+                  <span class="text-slate-500">${usage.users.toLocaleString()} / ${userLimitText}</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-2.5">
+                  <div class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: ${userPercent}%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 팀원 관리 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+          <div class="p-6 border-b border-slate-200 flex justify-between items-center">
+            <div>
+              <h3 class="text-lg font-bold text-slate-800">팀원 관리</h3>
+              <p class="text-slate-500 text-sm">함께 일할 팀원을 초대하고 관리하세요.</p>
+            </div>
+            <button onclick="openInviteModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+              <i class="fas fa-plus mr-2"></i>팀원 초대
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">이름</th>
+                  <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">이메일</th>
+                  <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">권한</th>
+                  <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">가입일</th>
+                  <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">관리</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200">
+                ${users.map(user => `
+                  <tr class="hover:bg-slate-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${user.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${user.email}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class="px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'OWNER' ? 'bg-purple-100 text-purple-700' :
+        user.role === 'ADMIN' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
+      }">
+                        ${user.role}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                      ${new Date(user.created_at).toLocaleDateString()}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      ${user.role !== 'OWNER' ? `
+                        <button onclick="deleteUser('${user.id}')" class="text-rose-600 hover:text-rose-900 ml-3">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      ` : ''}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 초대 모달 -->
+      <div id="inviteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden transform transition-all">
+          <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <h3 class="text-lg font-bold text-slate-800">팀원 초대</h3>
+            <button onclick="closeInviteModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+              <i class="fas fa-times text-xl"></i>
+            </button>
+          </div>
+          <form onsubmit="handleInvite(event)" class="p-6 space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+              <input type="email" name="email" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="colleague@company.com">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
+              <input type="text" name="name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="홍길동">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
+              <input type="password" name="password" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="초기 비밀번호 설정">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">권한</label>
+              <select name="role" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="USER">일반 사용자 (USER)</option>
+                <option value="ADMIN">관리자 (ADMIN)</option>
+              </select>
+            </div>
+            <div class="pt-4 flex gap-3">
+              <button type="button" onclick="closeInviteModal()" class="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium">취소</button>
+              <button type="submit" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm">초대하기</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error('설정 페이지 로드 실패:', error);
+    showError('설정 정보를 불러오는데 실패했습니다.');
+  }
+}
+
+function openInviteModal() {
+  document.getElementById('inviteModal').classList.remove('hidden');
+  document.getElementById('inviteModal').classList.add('flex');
+}
+
+function closeInviteModal() {
+  document.getElementById('inviteModal').classList.add('hidden');
+  document.getElementById('inviteModal').classList.remove('flex');
+}
+
+async function handleInvite(e) {
+  e.preventDefault();
+  const form = e.target;
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
+
+  try {
+    const res = await axios.post(`${API_BASE}/users`, data);
+    if (res.data.success) {
+      showSuccess('팀원이 초대되었습니다.');
+      closeInviteModal();
+      loadSettingsPage(document.getElementById('content')); // 새로고침
+    }
+  } catch (error) {
+    showError(error.response?.data?.error || '초대 실패');
+  }
+}
+
+async function deleteUser(userId) {
+  if (!confirm('정말 이 사용자를 삭제하시겠습니까?')) return;
+
+  try {
+    const res = await axios.delete(`${API_BASE}/users/${userId}`);
+    if (res.data.success) {
+      showSuccess('사용자가 삭제되었습니다.');
+      loadSettingsPage(document.getElementById('content')); // 새로고침
+    }
+  } catch (error) {
+    showError(error.response?.data?.error || '삭제 실패');
   }
 }
