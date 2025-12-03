@@ -71,7 +71,7 @@ app.post('/', async (c) => {
   `).bind(
     body.sku,
     body.name,
-    body.category,
+    body.category || '미분류',
     body.category_medium || null,
     body.category_small || null,
     body.description || null,
@@ -125,7 +125,7 @@ app.put('/:id', async (c) => {
   }
   if (body.category !== undefined) {
     updates.push('category = ?')
-    params.push(body.category)
+    params.push(body.category || '미분류')
   }
   if (body.category_medium !== undefined) {
     updates.push('category_medium = ?')
