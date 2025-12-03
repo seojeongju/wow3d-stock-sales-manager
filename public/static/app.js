@@ -514,7 +514,7 @@ async function loadProducts(content) {
           <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">상품명</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">상품정보</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">SKU</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">카테고리</th>
                 <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">판매가</th>
@@ -526,7 +526,15 @@ async function loadProducts(content) {
               ${products.map(p => `
                 <tr class="hover:bg-slate-50 transition-colors">
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-slate-900">${p.name}</div>
+                    <div class="flex items-center">
+                      <div class="h-10 w-10 flex-shrink-0 mr-3 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
+                        ${p.image_url ?
+        `<img class="h-10 w-10 object-cover" src="${p.image_url}" alt="${p.name}">` :
+        `<i class="fas fa-box text-slate-400"></i>`
+      }
+                      </div>
+                      <div class="text-sm font-medium text-slate-900">${p.name}</div>
+                    </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm text-slate-500 font-mono">${p.sku}</div>
