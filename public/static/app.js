@@ -1258,11 +1258,12 @@ function injectCustomerModal() {
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">등급</label>
-                  <select id="custGrade" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
-                    <option value="일반">일반</option>
-                    <option value="VIP">VIP</option>
-                    <option value="VVIP">VVIP</option>
+                  <select id="custGradeSelect" onchange="toggleGradeInput(this.value)" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white mb-2">
+                    <option value="온라인">온라인</option>
+                    <option value="직접구매">직접구매</option>
+                    <option value="custom">기타(직접입력)</option>
                   </select>
+                  <input type="text" id="custGradeInput" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow hidden" placeholder="등급 직접 입력">
                 </div>
               </div>
             </div>
@@ -1327,6 +1328,17 @@ function injectCustomerModal() {
   document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
+function toggleGradeInput(value) {
+  const input = document.getElementById('custGradeInput');
+  if (value === 'custom') {
+    input.classList.remove('hidden');
+    input.required = true;
+  } else {
+    input.classList.add('hidden');
+    input.required = false;
+  }
+}
+
 function showCustomerModal() {
   injectCustomerModal();
 
@@ -1337,6 +1349,10 @@ function showCustomerModal() {
   form.reset();
   window.editingCustomerId = null;
   title.textContent = '고객 등록';
+
+  // 등급 초기화
+  document.getElementById('custGradeSelect').value = '온라인';
+  toggleGradeInput('온라인');
 
   modal.classList.remove('hidden');
 }
@@ -1354,7 +1370,19 @@ async function editCustomer(id) {
     document.getElementById('custName').value = customer.name;
     document.getElementById('custPhone').value = customer.phone;
     document.getElementById('custEmail').value = customer.email || '';
-    document.getElementById('custGrade').value = customer.grade;
+
+    // 등급 설정
+    const gradeSelect = document.getElementById('custGradeSelect');
+    const gradeInput = document.getElementById('custGradeInput');
+    if (['온라인', '직접구매'].includes(customer.grade)) {
+      gradeSelect.value = customer.grade;
+      toggleGradeInput(customer.grade);
+    } else {
+      gradeSelect.value = 'custom';
+      toggleGradeInput('custom');
+      gradeInput.value = customer.grade;
+    }
+
     document.getElementById('custCompany').value = customer.company || '';
     document.getElementById('custDept').value = customer.department || '';
     document.getElementById('custPosition').value = customer.position || '';
@@ -1377,11 +1405,15 @@ function closeCustomerModal() {
 async function submitCustomer(e) {
   e.preventDefault();
 
+  const gradeSelect = document.getElementById('custGradeSelect');
+  const gradeInput = document.getElementById('custGradeInput');
+  const grade = gradeSelect.value === 'custom' ? gradeInput.value : gradeSelect.value;
+
   const payload = {
     name: document.getElementById('custName').value,
     phone: document.getElementById('custPhone').value,
     email: document.getElementById('custEmail').value,
-    grade: document.getElementById('custGrade').value,
+    grade: grade,
     company: document.getElementById('custCompany').value,
     department: document.getElementById('custDept').value,
     position: document.getElementById('custPosition').value,
