@@ -405,9 +405,14 @@ async function loadProducts(content) {
         <h1 class="text-3xl font-bold text-gray-800">
           <i class="fas fa-box mr-2"></i>상품 관리
         </h1>
-        <button onclick="showProductModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-          <i class="fas fa-plus mr-2"></i>상품 등록
-        </button>
+        <div class="flex gap-2">
+          <button onclick="downloadProducts()" class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 flex items-center">
+            <i class="fas fa-file-excel mr-2"></i>엑셀 다운로드
+          </button>
+          <button onclick="showProductModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center">
+            <i class="fas fa-plus mr-2"></i>상품 등록
+          </button>
+        </div>
       </div>
       
       <!-- 검색 및 필터 -->
@@ -488,9 +493,14 @@ async function loadCustomers(content) {
         <h1 class="text-2xl font-bold text-slate-800">
           <i class="fas fa-users mr-2 text-indigo-600"></i>고객 관리
         </h1>
-        <button onclick="showCustomerModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
-          <i class="fas fa-plus mr-2"></i>고객 등록
-        </button>
+        <div class="flex gap-2">
+          <button onclick="downloadCustomers()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
+            <i class="fas fa-file-excel mr-2"></i>엑셀 다운로드
+          </button>
+          <button onclick="showCustomerModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
+            <i class="fas fa-plus mr-2"></i>고객 등록
+          </button>
+        </div>
       </div>
       
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
@@ -824,7 +834,11 @@ async function renderOrderManagementTab(container) {
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
         <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
           <h3 class="font-bold text-slate-800">주문 및 배송 현황</h3>
+          <h3 class="font-bold text-slate-800">주문 및 배송 현황</h3>
           <div class="flex gap-2">
+            <button onclick="downloadSales()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm flex items-center transition-colors">
+              <i class="fas fa-file-excel mr-1.5"></i>엑셀 다운로드
+            </button>
             <select class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterOrders(this.value)">
               <option value="all">전체 주문</option>
               <option value="completed">결제 완료</option>
@@ -1001,6 +1015,147 @@ function showError(container, message) {
 function showSuccess(message) {
   // 토스트 알림 (간단 구현)
   alert(message);
+  alert(message);
+}
+
+// --- CSV 다운로드 유틸리티 ---
+function downloadCSV(data, filename, headers) {
+  if (!data || data.length === 0) {
+    alert('다운로드할 데이터가 없습니다.');
+    return;
+  }
+
+  // BOM 추가 (한글 깨짐 방지)
+  let csvContent = "\uFEFF";
+
+  // 헤더 추가
+  if (headers) {
+    csvContent += Object.values(headers).join(',') + '\n';
+  } else {
+    csvContent += Object.keys(data[0]).join(',') + '\n';
+  }
+
+  // 데이터 행 추가
+  data.forEach(row => {
+    let rowContent = [];
+    if (headers) {
+      // 헤더 키 순서대로 데이터 매핑
+      Object.keys(headers).forEach(key => {
+        let cell = row[key] === null || row[key] === undefined ? '' : row[key].toString();
+        // 쉼표, 따옴표, 줄바꿈 처리
+        if (cell.search(/("|,|\n)/g) >= 0) {
+          cell = `"${cell.replace(/"/g, '""')}"`;
+        }
+        rowContent.push(cell);
+      });
+    } else {
+      rowContent = Object.values(row).map(cell => {
+        cell = cell === null || cell === undefined ? '' : cell.toString();
+        if (cell.search(/("|,|\n)/g) >= 0) {
+          cell = `"${cell.replace(/"/g, '""')}"`;
+        }
+        return cell;
+      });
+    }
+    csvContent += rowContent.join(',') + '\n';
+  });
+
+  // 다운로드 링크 생성 및 실행
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+}
+
+// 상품 데이터 다운로드
+async function downloadProducts() {
+  try {
+    const response = await axios.get(`${API_BASE}/products`);
+    const products = response.data.data;
+
+    const headers = {
+      id: 'ID',
+      sku: 'SKU',
+      name: '상품명',
+      category: '카테고리(대)',
+      category_medium: '카테고리(중)',
+      category_small: '카테고리(소)',
+      purchase_price: '매입가',
+      selling_price: '판매가',
+      current_stock: '현재재고',
+      min_stock_alert: '최소재고알림',
+      supplier: '공급사',
+      brand: '브랜드',
+      status: '상태',
+      created_at: '등록일'
+    };
+
+    downloadCSV(products, `상품목록_${new Date().toISOString().slice(0, 10)}.csv`, headers);
+  } catch (error) {
+    console.error('상품 데이터 다운로드 실패:', error);
+    alert('데이터를 불러오는데 실패했습니다.');
+  }
+}
+
+// 고객 데이터 다운로드
+async function downloadCustomers() {
+  try {
+    const response = await axios.get(`${API_BASE}/customers`);
+    const customers = response.data.data;
+
+    const headers = {
+      id: 'ID',
+      name: '이름',
+      phone: '연락처',
+      email: '이메일',
+      grade: '등급',
+      company: '회사명',
+      department: '부서',
+      position: '직책',
+      total_purchase_amount: '총구매액',
+      purchase_count: '구매횟수',
+      created_at: '등록일'
+    };
+
+    downloadCSV(customers, `고객목록_${new Date().toISOString().slice(0, 10)}.csv`, headers);
+  } catch (error) {
+    console.error('고객 데이터 다운로드 실패:', error);
+    alert('데이터를 불러오는데 실패했습니다.');
+  }
+}
+
+// 판매 데이터 다운로드
+async function downloadSales() {
+  try {
+    const response = await axios.get(`${API_BASE}/sales?limit=1000`); // 충분한 수량 조회
+    const sales = response.data.data;
+
+    const headers = {
+      id: '주문번호',
+      created_at: '주문일시',
+      customer_name: '고객명',
+      customer_phone: '연락처',
+      total_amount: '총금액',
+      discount_amount: '할인금액',
+      final_amount: '최종금액',
+      payment_method: '결제수단',
+      status: '상태',
+      courier: '택배사',
+      tracking_number: '운송장번호'
+    };
+
+    downloadCSV(sales, `판매내역_${new Date().toISOString().slice(0, 10)}.csv`, headers);
+  } catch (error) {
+    console.error('판매 데이터 다운로드 실패:', error);
+    alert('데이터를 불러오는데 실패했습니다.');
+  }
 }
 
 // --- 상품 관리 모달 ---
