@@ -47,3 +47,8 @@ INSERT OR IGNORE INTO stock_movements (product_id, movement_type, quantity, reas
 UPDATE customers SET total_purchase_amount = 1150000, purchase_count = 1 WHERE id = 1;
 UPDATE customers SET total_purchase_amount = 120000, purchase_count = 1 WHERE id = 2;
 UPDATE customers SET total_purchase_amount = 480000, purchase_count = 1 WHERE id = 3;
+
+-- 테스트 사용자 데이터
+INSERT OR IGNORE INTO users (name, email, role, avatar_url) VALUES 
+  ('관리자', 'admin@wow3d.com', 'admin', 'https://ui-avatars.com/api/?name=Admin&background=random');
+

@@ -7,8 +7,29 @@ let currentPage = 'dashboard';
 // 초기화
 document.addEventListener('DOMContentLoaded', () => {
   setupNavigation();
+  loadUserInfo();
   loadPage('dashboard');
 });
+
+// 사용자 정보 로드
+async function loadUserInfo() {
+  try {
+    const response = await axios.get(`${API_BASE}/users/me`);
+    const user = response.data.data;
+
+    document.getElementById('user-name').textContent = user.name;
+    document.getElementById('user-email').textContent = user.email;
+
+    if (user.avatar_url) {
+      const avatarEl = document.getElementById('user-avatar');
+      avatarEl.innerHTML = `<img src="${user.avatar_url}" alt="${user.name}" class="w-full h-full rounded-full object-cover">`;
+    } else {
+      document.getElementById('user-avatar').textContent = user.name.charAt(0).toUpperCase();
+    }
+  } catch (error) {
+    console.error('사용자 정보 로드 실패:', error);
+  }
+}
 
 // 네비게이션 설정
 function setupNavigation() {

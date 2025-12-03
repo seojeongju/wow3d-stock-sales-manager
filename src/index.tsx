@@ -9,6 +9,7 @@ import salesRouter from './routes/sales'
 import stockRouter from './routes/stock'
 import dashboardRouter from './routes/dashboard'
 import claimsRouter from './routes/claims'
+import usersRouter from './routes/users'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -22,6 +23,7 @@ app.route('/api/sales', salesRouter)
 app.route('/api/stock', stockRouter)
 app.route('/api/dashboard', dashboardRouter)
 app.route('/api/claims', claimsRouter)
+app.route('/api/users', usersRouter)
 
 // 메인 페이지
 app.get('/', (c: Context) => {
@@ -135,12 +137,12 @@ app.get('/', (c: Context) => {
                 
                 <div class="p-4 border-t border-slate-800 bg-slate-900">
                     <div class="flex items-center gap-3 px-2">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
-                            A
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-md" id="user-avatar">
+                            U
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-white truncate">Administrator</p>
-                            <p class="text-xs text-slate-500 truncate">admin@wow3d.com</p>
+                            <p class="text-sm font-medium text-white truncate" id="user-name">Loading...</p>
+                            <p class="text-xs text-slate-500 truncate" id="user-email">...</p>
                         </div>
                     </div>
                 </div>
