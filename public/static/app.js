@@ -4216,3 +4216,80 @@ async function deleteUser(userId) {
     showError(error.response?.data?.error || '삭제 실패');
   }
 }
+
+// 상품 내보내기
+async function exportProducts() {
+  try {
+    const response = await axios.get(`${API_BASE}/import-export/products/export`, {
+      responseType: 'blob'
+    });
+
+    // 파일 다운로드 트리거
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+
+    // 파일명 추출 (헤더에서) 또는 기본값
+    const contentDisposition = response.headers['content-disposition'];
+    let fileName = 'products_export.csv';
+    if (contentDisposition) {
+      const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
+      if (fileNameMatch.length === 2) fileName = fileNameMatch[1];
+    }
+
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    showSuccess('상품 목록을 다운로드했습니다.');
+  } catch (error) {
+    console.error('Export failed:', error);
+    showError('내보내기에 실패했습니다.');
+  }
+}
+
+// 상품 가져오기
+async function importProducts(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // 파일 확장자 체크
+  if (!file.name.endsWith('.csv')) {
+    showError('CSV 파일만 업로드 가능합니다.');
+    input.value = '';
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file); // 실제로는 body text로 보냄
+
+  // 텍스트로 읽어서 전송 (간단한 처리를 위해)
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const text = e.target.result;
+
+    try {
+      const res = await axios.post(`${API_BASE}/import-export/products/import`, text, {
+        headers: {
+          'Content-Type': 'text/plain'
+        }
+      });
+
+      if (res.data.success) {
+        showSuccess(res.data.message);
+        if (res.data.errors && res.data.errors.length > 0) {
+          alert('일부 오류가 발생했습니다:\n' + res.data.errors.join('\n'));
+        }
+        loadProducts(document.getElementById('content')); // 목록 새로고침
+      }
+    } catch (error) {
+      console.error('Import failed:', error);
+      showError(error.response?.data?.error || '가져오기에 실패했습니다.');
+    } finally {
+      input.value = ''; // 초기화
+    }
+  };
+  reader.readAsText(file);
+}

@@ -14,6 +14,7 @@ import usersRouter from './routes/users'
 import outboundRouter from './routes/outbound'
 import authRouter from './routes/auth'
 import subscriptionRouter from './routes/subscription'
+import importExportRouter from './routes/import-export'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -26,6 +27,7 @@ app.use('/api/*', tenantMiddleware)
 // API 라우트 등록
 app.route('/api/auth', authRouter)
 app.route('/api/subscription', subscriptionRouter)
+app.route('/api/import-export', importExportRouter)
 app.route('/api/products', productsRouter)
 app.route('/api/customers', customersRouter)
 app.route('/api/sales', salesRouter)
