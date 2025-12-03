@@ -2439,3 +2439,413 @@ async function submitStockMovement(e) {
     alert(msg);
   }
 }
+
+// --- 출고 관리 로드 ---
+async function loadOutbound(content) {
+    content.innerHTML = `
+    <div class="flex flex-col h-full">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">
+          <i class="fas fa-truck-loading mr-2 text-indigo-600"></i>출고 관리
+        </h1>
+      </div>
+
+      <!-- 프로세스 탭 -->
+      <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
+        <button id="tab-instruction" class="px-6 py-4 font-bold text-indigo-600 border-b-2 border-indigo-600 transition-colors flex items-center" onclick="switchOutboundTab('instruction')">
+          <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs mr-2">1</div>
+          출고 지시
+        </button>
+        <button id="tab-picking" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchOutboundTab('picking')">
+          <div class="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xs mr-2">2</div>
+          피킹/검수
+        </button>
+        <button id="tab-packing" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchOutboundTab('packing')">
+          <div class="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xs mr-2">3</div>
+          패킹/송장
+        </button>
+        <button id="tab-confirmation" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchOutboundTab('confirmation')">
+          <div class="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xs mr-2">4</div>
+          출고 확정
+        </button>
+      </div>
+
+      <!-- 탭 컨텐츠 영역 -->
+      <div id="outboundTabContent" class="flex-1 overflow-hidden flex flex-col relative">
+        <!-- 동적 로드 -->
+      </div>
+    </div>
+  `;
+
+    switchOutboundTab('instruction');
+}
+
+async function switchOutboundTab(tabName) {
+    // 탭 스타일 업데이트
+    document.querySelectorAll('[id^="tab-"]').forEach(el => {
+        el.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+        el.classList.add('text-slate-500', 'font-medium', 'border-transparent');
+        el.querySelector('div').classList.remove('bg-indigo-100', 'text-indigo-600');
+        el.querySelector('div').classList.add('bg-slate-100', 'text-slate-500');
+    });
+    const activeTab = document.getElementById(`tab-${tabName}`);
+    if (activeTab) {
+        activeTab.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
+        activeTab.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+        activeTab.querySelector('div').classList.remove('bg-slate-100', 'text-slate-500');
+        activeTab.querySelector('div').classList.add('bg-indigo-100', 'text-indigo-600');
+    }
+
+    const container = document.getElementById('outboundTabContent');
+
+    switch (tabName) {
+        case 'instruction': await renderOutboundInstruction(container); break;
+        case 'picking': await renderOutboundPicking(container); break;
+        case 'packing': await renderOutboundPacking(container); break;
+        case 'confirmation': await renderOutboundConfirmation(container); break;
+    }
+}
+
+// 1. 출고 지시 (Instruction)
+async function renderOutboundInstruction(container) {
+    try {
+        // 배송 준비중인 주문 목록 조회 (아직 출고지시 안된 것들)
+        // 실제로는 API 필터링이 필요하지만 여기서는 sales API 활용
+        const salesRes = await axios.get(`${API_BASE}/sales?status=completed`);
+        const sales = salesRes.data.data;
+
+        container.innerHTML = `
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
+        <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <h3 class="font-bold text-slate-800">출고 대기 주문 목록</h3>
+          <button onclick="createOutboundOrder()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+            <i class="fas fa-file-alt mr-2"></i>출고지시서 생성
+          </button>
+        </div>
+        <div class="overflow-auto flex-1">
+          <table class="min-w-full text-sm divide-y divide-slate-200">
+            <thead class="bg-slate-50 sticky top-0">
+              <tr>
+                <th class="px-6 py-3 text-left"><input type="checkbox" id="checkAllSales" onchange="toggleAllSales(this)"></th>
+                <th class="px-6 py-3 text-left font-semibold text-slate-500">주문번호</th>
+                <th class="px-6 py-3 text-left font-semibold text-slate-500">고객명</th>
+                <th class="px-6 py-3 text-left font-semibold text-slate-500">배송지</th>
+                <th class="px-6 py-3 text-left font-semibold text-slate-500">주문일시</th>
+                <th class="px-6 py-3 text-right font-semibold text-slate-500">금액</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 bg-white">
+              ${sales.length > 0 ? sales.map(s => `
+                <tr class="hover:bg-slate-50">
+                  <td class="px-6 py-4"><input type="checkbox" class="sale-checkbox" value="${s.id}"></td>
+                  <td class="px-6 py-4 font-mono">#${s.id}</td>
+                  <td class="px-6 py-4">${s.customer_name || '비회원'}</td>
+                  <td class="px-6 py-4 text-slate-600 truncate max-w-xs" title="${s.shipping_address || ''}">${s.shipping_address || '-'}</td>
+                  <td class="px-6 py-4 text-slate-500">${new Date(s.created_at).toLocaleDateString()}</td>
+                  <td class="px-6 py-4 text-right font-bold">${formatCurrency(s.final_amount)}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">출고 대기 중인 주문이 없습니다.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    } catch (error) {
+        console.error(error);
+        showError(container, '주문 목록 로드 실패');
+    }
+}
+
+function toggleAllSales(source) {
+    document.querySelectorAll('.sale-checkbox').forEach(cb => cb.checked = source.checked);
+}
+
+async function createOutboundOrder() {
+    const selected = Array.from(document.querySelectorAll('.sale-checkbox:checked')).map(cb => parseInt(cb.value));
+    if (selected.length === 0) {
+        alert('주문을 선택해주세요.');
+        return;
+    }
+
+    if (!confirm(`${selected.length}건의 주문에 대해 출고지시서를 생성하시겠습니까?`)) return;
+
+    try {
+        await axios.post(`${API_BASE}/outbound/create`, { sale_ids: selected });
+        alert('출고지시서가 생성되었습니다.');
+        switchOutboundTab('instruction'); // Refresh
+    } catch (error) {
+        console.error(error);
+        alert('생성 실패: ' + (error.response?.data?.error || error.message));
+    }
+}
+
+// 2. 피킹/검수 (Picking)
+async function renderOutboundPicking(container) {
+    try {
+        const response = await axios.get(`${API_BASE}/outbound?status=PENDING`); // PENDING or PICKING
+        const orders = response.data.data.filter(o => o.status === 'PENDING' || o.status === 'PICKING');
+
+        container.innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto p-1">
+        ${orders.map(o => `
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow cursor-pointer" onclick="openPickingModal(${o.id})">
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <span class="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded mb-2 inline-block">${o.status}</span>
+                <h4 class="font-bold text-lg text-slate-800">${o.order_number}</h4>
+              </div>
+              <div class="text-right">
+                <p class="text-sm text-slate-500">${new Date(o.created_at).toLocaleDateString()}</p>
+                <p class="text-xs text-slate-400">${new Date(o.created_at).toLocaleTimeString()}</p>
+              </div>
+            </div>
+            <div class="space-y-2 mb-4">
+              <p class="text-sm text-slate-600"><i class="fas fa-user mr-2 w-4"></i>${o.destination_name}</p>
+              <p class="text-sm text-slate-600 truncate"><i class="fas fa-map-marker-alt mr-2 w-4"></i>${o.destination_address}</p>
+            </div>
+            <div class="border-t border-slate-100 pt-4 flex justify-between items-center">
+              <span class="text-sm font-medium text-slate-600">총 ${o.item_count}개 품목</span>
+              <button class="text-indigo-600 hover:text-indigo-800 font-medium text-sm">피킹 시작 <i class="fas fa-arrow-right ml-1"></i></button>
+            </div>
+          </div>
+        `).join('')}
+        ${orders.length === 0 ? '<div class="col-span-full text-center py-10 text-slate-500">피킹 대기 중인 지시서가 없습니다.</div>' : ''}
+      </div>
+    `;
+    } catch (error) {
+        console.error(error);
+        showError(container, '출고 목록 로드 실패');
+    }
+}
+
+async function openPickingModal(id) {
+    // 상세 조회 및 모달 표시
+    try {
+        const res = await axios.get(`${API_BASE}/outbound/${id}`);
+        const order = res.data.data;
+
+        // 모달 HTML 생성 (바코드 스캔 시뮬레이션 포함)
+        const modalHtml = `
+      <div id="pickingModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+          <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 class="text-xl font-bold text-slate-800">피킹 및 검수</h3>
+              <p class="text-sm text-slate-500">${order.order_number} - ${order.destination_name}</p>
+            </div>
+            <button onclick="document.getElementById('pickingModal').remove()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button>
+          </div>
+          
+          <div class="p-6 flex-1 overflow-y-auto">
+            <div class="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <label class="block text-sm font-bold text-slate-700 mb-2">바코드 스캔 (시뮬레이션)</label>
+              <div class="flex gap-2">
+                <input type="text" id="scanInput" class="flex-1 border border-slate-300 rounded px-4 py-2 focus:ring-2 focus:ring-indigo-500" placeholder="상품 SKU 입력 후 엔터" onkeyup="if(event.key==='Enter') simulateScan(this.value, ${id})">
+                <button onclick="simulateScan(document.getElementById('scanInput').value, ${id})" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">스캔</button>
+              </div>
+            </div>
+
+            <table class="min-w-full text-sm">
+              <thead class="bg-slate-50">
+                <tr>
+                  <th class="px-4 py-2 text-left">상품명 / SKU</th>
+                  <th class="px-4 py-2 text-center">지시수량</th>
+                  <th class="px-4 py-2 text-center">피킹수량</th>
+                  <th class="px-4 py-2 text-center">상태</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${order.items.map(item => `
+                  <tr id="row-${item.product_id}" class="${item.quantity_picked >= item.quantity_ordered ? 'bg-emerald-50' : ''}">
+                    <td class="px-4 py-3">
+                      <div class="font-medium text-slate-900">${item.product_name}</div>
+                      <div class="text-xs text-slate-500 font-mono">${item.sku}</div>
+                    </td>
+                    <td class="px-4 py-3 text-center font-bold">${item.quantity_ordered}</td>
+                    <td class="px-4 py-3 text-center font-bold text-indigo-600" id="picked-${item.product_id}">${item.quantity_picked}</td>
+                    <td class="px-4 py-3 text-center">
+                      <span id="status-${item.product_id}" class="px-2 py-1 rounded text-xs font-bold ${item.quantity_picked >= item.quantity_ordered ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}">
+                        ${item.quantity_picked >= item.quantity_ordered ? '완료' : '대기'}
+                      </span>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end">
+             <button onclick="document.getElementById('pickingModal').remove(); switchOutboundTab('picking');" class="bg-slate-800 text-white px-6 py-2 rounded hover:bg-slate-900">닫기</button>
+          </div>
+        </div>
+      </div>
+    `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        document.getElementById('scanInput').focus();
+    } catch (e) {
+        console.error(e);
+        alert('상세 정보 로드 실패');
+    }
+}
+
+async function simulateScan(sku, orderId) {
+    if (!sku) return;
+
+    try {
+        const prodRes = await axios.get(`${API_BASE}/products?search=${sku}`);
+        if (prodRes.data.data.length === 0) {
+            alert('상품을 찾을 수 없습니다.');
+            return;
+        }
+        const product = prodRes.data.data[0]; // 첫번째 매칭
+
+        await axios.post(`${API_BASE}/outbound/${orderId}/picking`, {
+            items: [{ product_id: product.id, quantity: 1 }]
+        });
+
+        // UI 업데이트 (간단히 리로드)
+        document.getElementById('pickingModal').remove();
+        openPickingModal(orderId);
+
+    } catch (e) {
+        console.error(e);
+        alert('스캔 처리 실패');
+    }
+}
+
+// 3. 패킹/송장 (Packing)
+async function renderOutboundPacking(container) {
+    try {
+        const response = await axios.get(`${API_BASE}/outbound?status=PACKING`);
+        const orders = response.data.data;
+
+        container.innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto p-1">
+        ${orders.map(o => `
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
+            <div class="flex justify-between items-start mb-4">
+              <h4 class="font-bold text-lg text-slate-800">${o.order_number}</h4>
+              <span class="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded">패킹 대기</span>
+            </div>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">택배사</label>
+                <select id="courier-${o.id}" class="w-full border border-slate-300 rounded px-2 py-1 text-sm">
+                  <option value="CJ대한통운">CJ대한통운</option>
+                  <option value="우체국택배">우체국택배</option>
+                  <option value="로젠택배">로젠택배</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">운송장 번호</label>
+                <input type="text" id="tracking-${o.id}" class="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="숫자만 입력">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">박스 타입</label>
+                <select id="box-${o.id}" class="w-full border border-slate-300 rounded px-2 py-1 text-sm">
+                  <option value="A형">A형 (소)</option>
+                  <option value="B형">B형 (중)</option>
+                  <option value="C형">C형 (대)</option>
+                </select>
+              </div>
+              <button onclick="submitPacking(${o.id})" class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 font-medium">
+                패킹 완료 및 송장 저장
+              </button>
+            </div>
+          </div>
+        `).join('')}
+        ${orders.length === 0 ? '<div class="col-span-full text-center py-10 text-slate-500">패킹 대기 중인 지시서가 없습니다.</div>' : ''}
+      </div>
+    `;
+    } catch (error) {
+        console.error(error);
+        showError(container, '목록 로드 실패');
+    }
+}
+
+async function submitPacking(id) {
+    const courier = document.getElementById(`courier-${id}`).value;
+    const trackingNumber = document.getElementById(`tracking-${id}`).value;
+    const boxType = document.getElementById(`box-${id}`).value;
+
+    if (!trackingNumber) {
+        alert('운송장 번호를 입력해주세요.');
+        return;
+    }
+
+    try {
+        await axios.post(`${API_BASE}/outbound/${id}/packing`, {
+            courier, tracking_number: trackingNumber, box_type: boxType, box_count: 1
+        });
+        alert('저장되었습니다.');
+        switchOutboundTab('packing');
+    } catch (e) {
+        console.error(e);
+        alert('저장 실패');
+    }
+}
+
+// 4. 출고 확정 (Confirmation)
+async function renderOutboundConfirmation(container) {
+    try {
+        // PACKING 상태이지만 아직 SHIPPED가 아닌 것들? 
+        // 로직상 PACKING 단계에서 송장 입력하면 바로 SHIPPED로 넘기지 않고, 여기서 최종 확정(재고 차감)을 하도록 함.
+        // 하지만 위 packing API에서는 status를 PACKING으로 유지함.
+        const response = await axios.get(`${API_BASE}/outbound?status=PACKING`);
+        // 송장 정보가 있는 것만 필터링해야 하지만 API가 간단하므로 일단 PACKING 상태인 것을 보여줌.
+        const orders = response.data.data;
+
+        container.innerHTML = `
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
+        <div class="p-4 border-b border-slate-200 bg-slate-50">
+          <h3 class="font-bold text-slate-800">출고 확정 대기 목록</h3>
+        </div>
+        <div class="overflow-auto flex-1">
+          <table class="min-w-full text-sm divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="px-6 py-3 text-left font-semibold text-slate-500">지시번호</th>
+                <th class="px-6 py-3 text-left font-semibold text-slate-500">고객명</th>
+                <th class="px-6 py-3 text-center font-semibold text-slate-500">품목수</th>
+                <th class="px-6 py-3 text-center font-semibold text-slate-500">상태</th>
+                <th class="px-6 py-3 text-center font-semibold text-slate-500">관리</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 bg-white">
+              ${orders.map(o => `
+                <tr class="hover:bg-slate-50">
+                  <td class="px-6 py-4 font-mono">${o.order_number}</td>
+                  <td class="px-6 py-4">${o.destination_name}</td>
+                  <td class="px-6 py-4 text-center">${o.item_count}</td>
+                  <td class="px-6 py-4 text-center"><span class="px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-bold">검수완료</span></td>
+                  <td class="px-6 py-4 text-center">
+                    <button onclick="confirmOutbound(${o.id})" class="bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-700 text-xs font-bold">
+                      출고 확정 (재고차감)
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+              ${orders.length === 0 ? '<tr><td colspan="5" class="px-6 py-10 text-center text-slate-500">확정 대기 중인 건이 없습니다.</td></tr>' : ''}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    } catch (error) {
+        console.error(error);
+        showError(container, '목록 로드 실패');
+    }
+}
+
+async function confirmOutbound(id) {
+    if (!confirm('출고를 확정하시겠습니까? 재고가 즉시 차감됩니다.')) return;
+
+    try {
+        await axios.post(`${API_BASE}/outbound/${id}/confirm`);
+        alert('출고가 확정되었습니다.');
+        switchOutboundTab('confirmation');
+    } catch (e) {
+        console.error(e);
+        alert('확정 실패: ' + (e.response?.data?.error || e.message));
+    }
+}
