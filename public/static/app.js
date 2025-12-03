@@ -515,10 +515,26 @@ async function loadProducts(content) {
       </div>
       
       <!-- 검색 및 필터 -->
-      <div class="bg-white rounded-lg shadow p-4 mb-6">
+      <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-slate-100">
+        <div class="flex flex-wrap gap-4 items-center">
+          <div class="relative flex-1 min-w-[200px]">
+            <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+            <input type="text" id="prodSearch" placeholder="상품명 또는 SKU 검색..." 
+                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                   onkeyup="if(event.key === 'Enter') filterProductsList()">
+          </div>
+          <select id="prodCategoryFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white min-w-[150px]"
+                  onchange="filterProductsList()">
+            <option value="">전체 카테고리</option>
+          </select>
+          <button onclick="filterProductsList()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
+            <i class="fas fa-search mr-2"></i>검색
+          </button>
+        </div>
+      </div>
 
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" id="productListContainer">
           <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50">
               <tr>
@@ -589,6 +605,85 @@ async function loadProducts(content) {
   }
 }
 
+async function filterProductsList() {
+  const search = document.getElementById('prodSearch').value;
+  const category = document.getElementById('prodCategoryFilter').value;
+  const container = document.getElementById('productListContainer');
+
+  try {
+    const response = await axios.get(`${API_BASE}/products`, {
+      params: { search, category }
+    });
+    const products = response.data.data;
+
+    // 테이블 본문만 업데이트하거나 전체 테이블 재생성. 여기선 전체 테이블 구조가 이미 있으므로 tbody만 갈아끼우거나, 
+    // 위 loadProducts 구조상 table 전체를 감싸는 div id를 지정했으므로 그 내부를 갱신.
+    // 하지만 loadProducts에서 table을 직접 그렸음.
+    // 편의상 table 전체를 다시 그림.
+
+    container.innerHTML = `
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">상품정보</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">SKU</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">카테고리</th>
+            <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">판매가</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">재고</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">관리</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-slate-200">
+          ${products.map(p => `
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-10 w-10 flex-shrink-0 mr-3 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
+                    ${p.image_url ?
+        `<img class="h-10 w-10 object-cover" src="${p.image_url}" alt="${p.name}">` :
+        `<i class="fas fa-box text-slate-400"></i>`
+      }
+                  </div>
+                  <div class="text-sm font-medium text-slate-900">${p.name}</div>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-slate-500 font-mono">${p.sku}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-600">
+                  ${p.category}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <div class="text-sm font-bold text-slate-700">${formatCurrency(p.selling_price)}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-center">
+                <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                  ${p.current_stock <= p.min_stock_alert ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}">
+                  ${p.current_stock}개
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                <button onclick="editProduct(${p.id})" class="text-indigo-600 hover:text-indigo-900 mr-3 transition-colors">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteProductAction(${p.id})" class="text-red-500 hover:text-red-700 transition-colors">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+          ${products.length === 0 ? '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">검색 결과가 없습니다.</td></tr>' : ''}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    console.error(e);
+    alert('검색 실패');
+  }
+}
+
 // 고객 관리 로드 (간단 버전)
 async function loadCustomers(content) {
   try {
@@ -610,8 +705,30 @@ async function loadCustomers(content) {
         </div>
       </div>
       
+      <!-- 검색 및 필터 -->
+      <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-slate-100">
+        <div class="flex flex-wrap gap-4 items-center">
+          <div class="relative flex-1 min-w-[200px]">
+            <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+            <input type="text" id="custSearch" placeholder="이름 또는 연락처 검색..." 
+                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                   onkeyup="if(event.key === 'Enter') filterCustomersList()">
+          </div>
+          <select id="custGradeFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white min-w-[120px]"
+                  onchange="filterCustomersList()">
+            <option value="">전체 등급</option>
+            <option value="일반">일반</option>
+            <option value="VIP">VIP</option>
+            <option value="VVIP">VVIP</option>
+          </select>
+          <button onclick="filterCustomersList()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
+            <i class="fas fa-search mr-2"></i>검색
+          </button>
+        </div>
+      </div>
+
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" id="customerListContainer">
           <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50">
               <tr>
@@ -669,6 +786,71 @@ async function loadCustomers(content) {
   }
 }
 
+async function filterCustomersList() {
+  const search = document.getElementById('custSearch').value;
+  const grade = document.getElementById('custGradeFilter').value;
+  const container = document.getElementById('customerListContainer');
+
+  try {
+    const response = await axios.get(`${API_BASE}/customers`, {
+      params: { search, grade }
+    });
+    const customers = response.data.data;
+
+    container.innerHTML = `
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">이름</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">연락처</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">등급</th>
+            <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">총 구매액</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">구매 횟수</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">관리</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-slate-200">
+          ${customers.map(c => `
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-slate-900">${c.name}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-slate-600">${c.phone}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                  ${c.grade === 'VIP' ? 'bg-amber-100 text-amber-700' :
+        c.grade === 'VVIP' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}">
+                  ${c.grade}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <div class="text-sm font-bold text-slate-700">${formatCurrency(c.total_purchase_amount)}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-center">
+                <div class="text-sm text-slate-600">${c.purchase_count}회</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                <button onclick="editCustomer(${c.id})" class="text-indigo-600 hover:text-indigo-900 mr-3 transition-colors">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteCustomerAction(${c.id})" class="text-red-500 hover:text-red-700 transition-colors">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+          ${customers.length === 0 ? '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">검색 결과가 없습니다.</td></tr>' : ''}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    console.error(e);
+    alert('검색 실패');
+  }
+}
+
 // 재고 관리 로드
 async function loadStock(content) {
   try {
@@ -696,8 +878,28 @@ async function loadStock(content) {
         </div>
       </div>
 
+      <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-slate-100">
+        <div class="flex flex-wrap gap-4 items-center">
+          <div class="flex items-center gap-2">
+            <input type="date" id="stockStartDate" class="border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <span class="text-slate-400">~</span>
+            <input type="date" id="stockEndDate" class="border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <select id="stockTypeFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white min-w-[120px]"
+                  onchange="filterStockMovements()">
+            <option value="">전체 구분</option>
+            <option value="입고">입고</option>
+            <option value="출고">출고</option>
+            <option value="조정">조정</option>
+          </select>
+          <button onclick="filterStockMovements()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
+            <i class="fas fa-search mr-2"></i>조회
+          </button>
+        </div>
+      </div>
+
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" id="stockListContainer">
           <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50">
               <tr>
@@ -757,6 +959,75 @@ async function loadStock(content) {
   } catch (error) {
     console.error('재고 관리 로드 실패:', error);
     showError(content, '재고 정보를 불러오는데 실패했습니다.');
+  }
+}
+
+async function filterStockMovements() {
+  const startDate = document.getElementById('stockStartDate').value;
+  const endDate = document.getElementById('stockEndDate').value;
+  const movementType = document.getElementById('stockTypeFilter').value;
+  const container = document.getElementById('stockListContainer');
+
+  try {
+    const response = await axios.get(`${API_BASE}/stock/movements`, {
+      params: { startDate, endDate, movementType }
+    });
+    const movements = response.data.data;
+
+    container.innerHTML = `
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">일시</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">구분</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">상품명</th>
+            <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">수량</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">사유</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">담당자/비고</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-slate-200">
+          ${movements.length > 0 ? movements.map(m => `
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                ${new Date(m.created_at).toLocaleString()}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                  ${m.movement_type === '입고' ? 'bg-emerald-100 text-emerald-700' :
+        m.movement_type === '출고' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}">
+                  ${m.movement_type}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-slate-900">${m.product_name}</div>
+                <div class="text-xs text-slate-500 font-mono">${m.sku}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <div class="text-sm font-bold ${m.movement_type === '입고' ? 'text-emerald-600' : 'text-amber-600'}">
+                  ${m.movement_type === '입고' ? '+' : '-'}${m.quantity}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                ${m.reason || '-'}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                ${m.notes || '-'}
+              </td>
+            </tr>
+          `).join('') : `
+            <tr>
+              <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+                데이터가 없습니다.
+              </td>
+            </tr>
+          `}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    console.error(e);
+    alert('조회 실패');
   }
 }
 
@@ -946,7 +1217,7 @@ async function renderOrderManagementTab(container) {
             <button onclick="downloadSales()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm flex items-center transition-colors">
               <i class="fas fa-file-excel mr-1.5"></i>엑셀 다운로드
             </button>
-            <select class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterOrders(this.value)">
+            <select id="orderStatusFilter" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterOrderList()">
               <option value="all">전체 주문</option>
               <option value="completed">결제 완료</option>
               <option value="pending_shipment">배송 준비중</option>
@@ -955,7 +1226,22 @@ async function renderOrderManagementTab(container) {
             </select>
           </div>
         </div>
-        <div class="overflow-auto flex-1">
+        
+        <!-- 추가 필터 -->
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-4 items-center">
+           <div class="flex items-center gap-2">
+            <input type="date" id="orderStartDate" class="border border-slate-300 rounded px-2 py-1.5 text-sm">
+            <span class="text-slate-400">~</span>
+            <input type="date" id="orderEndDate" class="border border-slate-300 rounded px-2 py-1.5 text-sm">
+          </div>
+          <div class="relative flex-1 min-w-[200px]">
+             <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+             <input type="text" id="orderSearch" placeholder="고객명 또는 연락처 검색" class="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded text-sm" onkeyup="if(event.key === 'Enter') filterOrderList()">
+          </div>
+          <button onclick="filterOrderList()" class="bg-indigo-600 text-white px-4 py-1.5 rounded text-sm hover:bg-indigo-700 font-medium">조회</button>
+        </div>
+
+        <div class="overflow-auto flex-1" id="orderListContainer">
           <table class="min-w-full text-sm divide-y divide-slate-200">
             <thead class="bg-slate-50 sticky top-0 z-10">
               <tr>
@@ -1021,6 +1307,93 @@ async function renderOrderManagementTab(container) {
   } catch (error) {
     console.error('주문 목록 로드 실패:', error);
     showError(container, '주문 목록을 불러오는데 실패했습니다.');
+  }
+}
+
+async function filterOrderList() {
+  const status = document.getElementById('orderStatusFilter').value;
+  const startDate = document.getElementById('orderStartDate').value;
+  const endDate = document.getElementById('orderEndDate').value;
+  // API가 customerId 검색을 지원하지만 이름 검색은 지원 안함? 
+  // sales.ts를 보면 customerId 파라미터는 있는데 이름 검색은 없음. 
+  // 하지만 일단 UI는 만들어두고, 필요하면 백엔드 수정. 
+  // 아까 sales.ts를 봤을 때 customerId만 있었음. 
+  // 일단 여기서는 status와 날짜만 처리하거나, 프론트엔드 필터링을 할 수도 있음.
+  // 하지만 데이터가 많아지면 백엔드 필터링이 필요함.
+  // 이번 요청에서는 "필터링 기능 추가"가 목표이므로 백엔드 수정 없이 가능한 범위 내에서 하거나,
+  // sales.ts도 수정해야 함. 
+  // 일단 sales.ts는 수정 안했으므로 status, startDate, endDate만 사용.
+
+  const container = document.getElementById('orderListContainer');
+
+  try {
+    const params = { limit: 100 };
+    if (status !== 'all') params.status = status;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+
+    const response = await axios.get(`${API_BASE}/sales`, { params });
+    const sales = response.data.data;
+
+    container.innerHTML = `
+      <table class="min-w-full text-sm divide-y divide-slate-200">
+        <thead class="bg-slate-50 sticky top-0 z-10">
+          <tr>
+            <th class="px-6 py-3 text-left font-semibold text-slate-500 uppercase tracking-wider">주문번호</th>
+            <th class="px-6 py-3 text-left font-semibold text-slate-500 uppercase tracking-wider">일시</th>
+            <th class="px-6 py-3 text-left font-semibold text-slate-500 uppercase tracking-wider">고객</th>
+            <th class="px-6 py-3 text-left font-semibold text-slate-500 uppercase tracking-wider">금액</th>
+            <th class="px-6 py-3 text-left font-semibold text-slate-500 uppercase tracking-wider">배송상태</th>
+            <th class="px-6 py-3 text-left font-semibold text-slate-500 uppercase tracking-wider">운송장</th>
+            <th class="px-6 py-3 text-left font-semibold text-slate-500 uppercase tracking-wider">관리</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 bg-white">
+          ${sales.map(s => `
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-4 font-mono text-slate-600">#${s.id}</td>
+              <td class="px-6 py-4 text-slate-600">${new Date(s.created_at).toLocaleString()}</td>
+              <td class="px-6 py-4">
+                <div class="font-medium text-slate-900">${s.customer_name || '비회원'}</div>
+                <div class="text-xs text-slate-500">${s.customer_phone || '-'}</div>
+              </td>
+              <td class="px-6 py-4 font-bold text-slate-800">${formatCurrency(s.final_amount)}</td>
+              <td class="px-6 py-4">
+                <span class="px-2.5 py-1 rounded-full text-xs font-semibold 
+                  ${s.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' :
+        s.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
+          s.status === 'pending_shipment' ? 'bg-amber-100 text-amber-700' :
+            s.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}">
+                  ${getKoreanStatus(s.status)}
+                </span>
+              </td>
+              <td class="px-6 py-4 text-slate-600">
+                ${s.tracking_number ? `
+                  <div class="text-xs font-medium">${s.courier}</div>
+                  <div class="text-xs font-mono text-slate-500">${s.tracking_number}</div>
+                ` : '-'}
+              </td>
+              <td class="px-6 py-4 space-x-2">
+                <button onclick="openShippingModal(${s.id})" class="text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 transition-colors">
+                  <i class="fas fa-truck mr-1"></i>배송
+                </button>
+                ${s.status !== 'cancelled' ? `
+                  <button onclick="openClaimModal(${s.id})" class="text-amber-600 hover:text-amber-800 font-medium text-xs bg-amber-50 px-2 py-1 rounded hover:bg-amber-100 transition-colors">
+                    <i class="fas fa-undo mr-1"></i>반품/교환
+                  </button>
+                  <button onclick="cancelSale(${s.id})" class="text-rose-600 hover:text-rose-800 font-medium text-xs bg-rose-50 px-2 py-1 rounded hover:bg-rose-100 transition-colors">
+                    <i class="fas fa-times mr-1"></i>취소
+                  </button>
+                ` : ''}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    console.error(e);
+    alert('조회 실패');
   }
 }
 
@@ -3321,10 +3694,21 @@ async function renderOutboundHistoryTab(container) {
 
     container.innerHTML = `
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
-        <div class="p-4 border-b border-slate-200 bg-slate-50">
+        <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 class="font-bold text-slate-800">출고 이력 목록</h3>
+          <div class="flex gap-2">
+            <input type="text" id="outHistorySearch" placeholder="출고번호/수령인 검색" class="border border-slate-300 rounded px-3 py-1.5 text-sm" onkeyup="if(event.key === 'Enter') filterOutboundHistory()">
+            <select id="outHistoryStatus" class="border border-slate-300 rounded px-3 py-1.5 text-sm" onchange="filterOutboundHistory()">
+              <option value="">전체 상태</option>
+              <option value="PENDING">대기중</option>
+              <option value="PICKING">피킹중</option>
+              <option value="PACKING">패킹중</option>
+              <option value="SHIPPED">출고완료</option>
+            </select>
+            <button onclick="filterOutboundHistory()" class="bg-indigo-600 text-white px-3 py-1.5 rounded text-sm hover:bg-indigo-700">조회</button>
+          </div>
         </div>
-        <div class="flex-1 overflow-auto">
+        <div class="flex-1 overflow-auto" id="outboundHistoryList">
           <table class="min-w-full text-sm text-left">
             <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0">
               <tr>
@@ -3360,6 +3744,56 @@ async function renderOutboundHistoryTab(container) {
   } catch (error) {
     console.error(error);
     showError(container, '출고 이력을 불러오는데 실패했습니다.');
+  }
+}
+
+async function filterOutboundHistory() {
+  const search = document.getElementById('outHistorySearch').value;
+  const status = document.getElementById('outHistoryStatus').value;
+  const container = document.getElementById('outboundHistoryList');
+
+  try {
+    const params = {};
+    if (search) params.search = search;
+    if (status) params.status = status;
+
+    const res = await axios.get(`${API_BASE}/outbound`, { params });
+    const list = res.data.data;
+
+    container.innerHTML = `
+      <table class="min-w-full text-sm text-left">
+        <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0">
+          <tr>
+            <th class="px-6 py-3">출고번호</th>
+            <th class="px-6 py-3">일시</th>
+            <th class="px-6 py-3">수령인</th>
+            <th class="px-6 py-3">품목수</th>
+            <th class="px-6 py-3">상태</th>
+            <th class="px-6 py-3 text-center">관리</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          ${list.map(o => `
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-4 font-mono">${o.order_number}</td>
+              <td class="px-6 py-4 text-slate-500">${new Date(o.created_at).toLocaleString()}</td>
+              <td class="px-6 py-4 font-medium text-slate-800">${o.destination_name}</td>
+              <td class="px-6 py-4">${o.item_count}</td>
+              <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">${o.status}</span></td>
+              <td class="px-6 py-4 text-center">
+                <button onclick="showOutboundDetail(${o.id})" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded text-xs font-bold transition-colors">
+                  <i class="fas fa-search mr-1"></i>상세보기
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+          ${list.length === 0 ? '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">출고 이력이 없습니다.</td></tr>' : ''}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    console.error(e);
+    alert('조회 실패');
   }
 }
 

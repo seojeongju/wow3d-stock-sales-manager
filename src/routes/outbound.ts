@@ -7,6 +7,7 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.get('/', async (c) => {
     const { DB } = c.env
     const status = c.req.query('status')
+    const search = c.req.query('search')
 
     let query = `
     SELECT o.*, 
@@ -19,6 +20,13 @@ app.get('/', async (c) => {
     if (status) {
         query += ' WHERE o.status = ?'
         params.push(status)
+    }
+
+    if (search) {
+        // status가 있으면 WHERE가 이미 있으므로 AND, 없으면 WHERE
+        query += status ? ' AND' : ' WHERE'
+        query += ' (o.order_number LIKE ? OR o.destination_name LIKE ?)'
+        params.push(`%${search}%`, `%${search}%`)
     }
 
     query += ' ORDER BY o.created_at DESC'

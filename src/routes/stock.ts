@@ -8,6 +8,8 @@ app.get('/movements', async (c) => {
   const { DB } = c.env
   const productId = c.req.query('productId') || ''
   const movementType = c.req.query('movementType') || ''
+  const startDate = c.req.query('startDate') || ''
+  const endDate = c.req.query('endDate') || ''
   const limit = parseInt(c.req.query('limit') || '50')
 
   let query = `
@@ -28,11 +30,21 @@ app.get('/movements', async (c) => {
     params.push(movementType)
   }
 
+  if (startDate) {
+    query += ' AND DATE(sm.created_at) >= ?'
+    params.push(startDate)
+  }
+
+  if (endDate) {
+    query += ' AND DATE(sm.created_at) <= ?'
+    params.push(endDate)
+  }
+
   query += ' ORDER BY sm.created_at DESC LIMIT ?'
   params.push(limit)
 
   const { results } = await DB.prepare(query).bind(...params).all()
-  
+
   return c.json({ success: true, data: results })
 })
 
@@ -108,9 +120,9 @@ app.post('/out', async (c) => {
   }
 
   if (product.current_stock < body.quantity) {
-    return c.json({ 
-      success: false, 
-      error: `재고가 부족합니다. (현재 재고: ${product.current_stock})` 
+    return c.json({
+      success: false,
+      error: `재고가 부족합니다. (현재 재고: ${product.current_stock})`
     }, 400)
   }
 
@@ -175,8 +187,8 @@ app.post('/adjust', async (c) => {
     body.notes || `이전 재고: ${currentStock}, 조정 후: ${newStock}`
   ).run()
 
-  return c.json({ 
-    success: true, 
+  return c.json({
+    success: true,
     message: '재고가 조정되었습니다.',
     data: { old_stock: currentStock, new_stock: newStock, difference }
   })
