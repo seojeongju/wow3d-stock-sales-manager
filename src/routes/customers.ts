@@ -25,7 +25,7 @@ app.get('/', async (c) => {
   query += ' ORDER BY total_purchase_amount DESC'
 
   const { results } = await DB.prepare(query).bind(...params).all<Customer>()
-  
+
   return c.json({ success: true, data: results })
 })
 
@@ -60,20 +60,25 @@ app.post('/', async (c) => {
   }
 
   const result = await DB.prepare(`
-    INSERT INTO customers (name, phone, email, address, birthday, grade, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO customers (name, phone, email, zip_code, address, address_detail, company, department, position, birthday, grade, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.name,
     body.phone,
     body.email || null,
+    body.zip_code || null,
     body.address || null,
+    body.address_detail || null,
+    body.company || null,
+    body.department || null,
+    body.position || null,
     body.birthday || null,
     body.grade || '일반',
     body.notes || null
   ).run()
 
-  return c.json({ 
-    success: true, 
+  return c.json({
+    success: true,
     data: { id: result.meta.last_row_id },
     message: '고객이 등록되었습니다.'
   })
@@ -105,11 +110,11 @@ app.put('/:id', async (c) => {
     const existing = await DB.prepare('SELECT id FROM customers WHERE phone = ? AND id != ?')
       .bind(body.phone, id)
       .first()
-    
+
     if (existing) {
       return c.json({ success: false, error: '이미 등록된 연락처입니다.' }, 400)
     }
-    
+
     updates.push('phone = ?')
     params.push(body.phone)
   }
@@ -117,9 +122,29 @@ app.put('/:id', async (c) => {
     updates.push('email = ?')
     params.push(body.email)
   }
+  if (body.zip_code !== undefined) {
+    updates.push('zip_code = ?')
+    params.push(body.zip_code)
+  }
   if (body.address !== undefined) {
     updates.push('address = ?')
     params.push(body.address)
+  }
+  if (body.address_detail !== undefined) {
+    updates.push('address_detail = ?')
+    params.push(body.address_detail)
+  }
+  if (body.company !== undefined) {
+    updates.push('company = ?')
+    params.push(body.company)
+  }
+  if (body.department !== undefined) {
+    updates.push('department = ?')
+    params.push(body.department)
+  }
+  if (body.position !== undefined) {
+    updates.push('position = ?')
+    params.push(body.position)
   }
   if (body.birthday !== undefined) {
     updates.push('birthday = ?')
@@ -167,9 +192,9 @@ app.delete('/:id', async (c) => {
     .first<{ count: number }>()
 
   if (salesCount && salesCount.count > 0) {
-    return c.json({ 
-      success: false, 
-      error: '판매 이력이 있는 고객은 삭제할 수 없습니다.' 
+    return c.json({
+      success: false,
+      error: '판매 이력이 있는 고객은 삭제할 수 없습니다.'
     }, 400)
   }
 

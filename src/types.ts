@@ -28,7 +28,12 @@ export interface Customer {
   name: string;
   phone: string;
   email?: string;
+  zip_code?: string;
   address?: string;
+  address_detail?: string;
+  company?: string;
+  department?: string;
+  position?: string;
   birthday?: string;
   grade: string;
   notes?: string;
@@ -130,7 +135,12 @@ export interface CreateCustomerRequest {
   name: string;
   phone: string;
   email?: string;
+  zip_code?: string;
   address?: string;
+  address_detail?: string;
+  company?: string;
+  department?: string;
+  position?: string;
   birthday?: string;
   grade?: string;
   notes?: string;

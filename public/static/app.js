@@ -1230,8 +1230,8 @@ function injectCustomerModal() {
 
   const modalHtml = `
     <div id="customerModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 transition-all duration-300">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 transform transition-all border border-slate-100">
-        <div class="flex justify-between items-center p-6 border-b border-slate-100">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 transform transition-all border border-slate-100 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center p-6 border-b border-slate-100 sticky top-0 bg-white z-10">
           <h3 id="customerModalTitle" class="text-xl font-bold text-slate-800">고객 등록</h3>
           <button onclick="closeCustomerModal()" class="text-slate-400 hover:text-slate-600 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100">
             <i class="fas fa-times"></i>
@@ -1239,30 +1239,79 @@ function injectCustomerModal() {
         </div>
         
         <form id="customerForm" onsubmit="submitCustomer(event)">
-          <div class="p-6 space-y-5">
+          <div class="p-6 space-y-6">
+            <!-- 기본 정보 -->
             <div>
-              <label class="block text-sm font-semibold text-slate-700 mb-2">이름</label>
-              <input type="text" id="custName" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+              <h4 class="text-sm font-bold text-slate-900 mb-3 border-b border-slate-100 pb-2">기본 정보</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">이름 <span class="text-red-500">*</span></label>
+                  <input type="text" id="custName" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">연락처 <span class="text-red-500">*</span></label>
+                  <input type="tel" id="custPhone" required placeholder="010-0000-0000" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">이메일</label>
+                  <input type="email" id="custEmail" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">등급</label>
+                  <select id="custGrade" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+                    <option value="일반">일반</option>
+                    <option value="VIP">VIP</option>
+                    <option value="VVIP">VVIP</option>
+                  </select>
+                </div>
+              </div>
             </div>
+
+            <!-- 회사 정보 -->
             <div>
-              <label class="block text-sm font-semibold text-slate-700 mb-2">연락처</label>
-              <input type="tel" id="custPhone" required placeholder="010-0000-0000" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+              <h4 class="text-sm font-bold text-slate-900 mb-3 border-b border-slate-100 pb-2">회사/소속 정보</h4>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">회사명</label>
+                  <input type="text" id="custCompany" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">부서</label>
+                  <input type="text" id="custDept" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">직책</label>
+                  <input type="text" id="custPosition" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                </div>
+              </div>
             </div>
+
+            <!-- 주소 정보 -->
             <div>
-              <label class="block text-sm font-semibold text-slate-700 mb-2">등급</label>
-              <select id="custGrade" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
-                <option value="General">General</option>
-                <option value="VIP">VIP</option>
-                <option value="VVIP">VVIP</option>
-              </select>
+              <h4 class="text-sm font-bold text-slate-900 mb-3 border-b border-slate-100 pb-2">주소 정보</h4>
+              <div class="grid grid-cols-1 gap-4">
+                <div class="flex gap-2">
+                  <div class="w-1/3">
+                    <input type="text" id="custZipCode" placeholder="우편번호" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                  </div>
+                  <div class="flex-1">
+                    <input type="text" id="custAddress" placeholder="기본 주소" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                  </div>
+                </div>
+                <div>
+                  <input type="text" id="custAddressDetail" placeholder="상세 주소" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                </div>
+              </div>
             </div>
+
+            <!-- 기타 -->
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">메모</label>
               <textarea id="custNotes" rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow resize-none"></textarea>
             </div>
           </div>
           
-          <div class="bg-slate-50 px-6 py-4 flex justify-end space-x-3 rounded-b-2xl border-t border-slate-100">
+          <div class="bg-slate-50 px-6 py-4 flex justify-end space-x-3 rounded-b-2xl border-t border-slate-100 sticky bottom-0">
             <button type="button" onclick="closeCustomerModal()" class="px-5 py-2.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200">
               취소
             </button>
@@ -1300,11 +1349,18 @@ async function editCustomer(id) {
     const customer = response.data.data;
 
     window.editingCustomerId = id;
-
     document.getElementById('customerModalTitle').textContent = '고객 수정';
+
     document.getElementById('custName').value = customer.name;
     document.getElementById('custPhone').value = customer.phone;
+    document.getElementById('custEmail').value = customer.email || '';
     document.getElementById('custGrade').value = customer.grade;
+    document.getElementById('custCompany').value = customer.company || '';
+    document.getElementById('custDept').value = customer.department || '';
+    document.getElementById('custPosition').value = customer.position || '';
+    document.getElementById('custZipCode').value = customer.zip_code || '';
+    document.getElementById('custAddress').value = customer.address || '';
+    document.getElementById('custAddressDetail').value = customer.address_detail || '';
     document.getElementById('custNotes').value = customer.notes || '';
 
     document.getElementById('customerModal').classList.remove('hidden');
@@ -1324,7 +1380,14 @@ async function submitCustomer(e) {
   const payload = {
     name: document.getElementById('custName').value,
     phone: document.getElementById('custPhone').value,
+    email: document.getElementById('custEmail').value,
     grade: document.getElementById('custGrade').value,
+    company: document.getElementById('custCompany').value,
+    department: document.getElementById('custDept').value,
+    position: document.getElementById('custPosition').value,
+    zip_code: document.getElementById('custZipCode').value,
+    address: document.getElementById('custAddress').value,
+    address_detail: document.getElementById('custAddressDetail').value,
     notes: document.getElementById('custNotes').value
   };
 
