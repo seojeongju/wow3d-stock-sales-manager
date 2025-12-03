@@ -2963,8 +2963,61 @@ async function confirmOutbound(id) {
   }
 }
 
-// --- 출고 관리 로드 (간편 모드) ---
+// --- 출고 관리 로드 (탭 구조) ---
 async function loadOutbound(content) {
+  content.innerHTML = `
+    <div class="flex flex-col h-full">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">
+          <i class="fas fa-truck-loading mr-2 text-indigo-600"></i>출고 관리
+        </h1>
+      </div>
+
+      <!-- 탭 네비게이션 -->
+      <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
+        <button id="tab-out-reg" class="px-6 py-4 font-bold text-indigo-600 border-b-2 border-indigo-600 transition-colors flex items-center" onclick="switchOutboundTab('reg')">
+          <i class="fas fa-edit mr-2"></i>간편 출고 등록
+        </button>
+        <button id="tab-out-hist" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchOutboundTab('hist')">
+          <i class="fas fa-history mr-2"></i>출고 이력 조회
+        </button>
+      </div>
+
+      <!-- 탭 컨텐츠 영역 -->
+      <div id="outboundTabContent" class="flex-1 overflow-hidden flex flex-col relative">
+        <!-- 동적 로드 -->
+      </div>
+    </div>
+  `;
+
+  // 기본 탭 로드
+  switchOutboundTab('reg');
+}
+
+async function switchOutboundTab(tabName) {
+  // 탭 스타일 업데이트
+  const tabs = ['reg', 'hist'];
+  tabs.forEach(t => {
+    const btn = document.getElementById(`tab-out-${t}`);
+    if (t === tabName) {
+      btn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
+      btn.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+    } else {
+      btn.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+      btn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
+    }
+  });
+
+  const container = document.getElementById('outboundTabContent');
+
+  if (tabName === 'reg') {
+    await renderOutboundRegistrationTab(container);
+  } else {
+    await renderOutboundHistoryTab(container);
+  }
+}
+
+async function renderOutboundRegistrationTab(container) {
   // 상품 목록 로드
   if (!window.products) {
     try {
@@ -2975,117 +3028,107 @@ async function loadOutbound(content) {
     }
   }
 
-  // 출고 장바구니 초기화
-  window.outboundCart = [];
+  // 출고 장바구니 초기화 (이미 있으면 유지)
+  if (!window.outboundCart) window.outboundCart = [];
 
-  content.innerHTML = `
-    <div class="flex flex-col h-full">
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-slate-800">
-          <i class="fas fa-truck-loading mr-2 text-indigo-600"></i>간편 출고 등록
-        </h1>
-        <button onclick="loadOutboundHistory()" class="text-indigo-600 hover:text-indigo-800 font-medium">
-          <i class="fas fa-history mr-1"></i>출고 이력 조회
-        </button>
+  container.innerHTML = `
+    <div class="flex flex-1 gap-6 overflow-hidden h-full pb-4">
+      <!-- 좌측: 상품 선택 -->
+      <div class="w-1/2 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 bg-slate-50">
+          <h3 class="font-bold text-slate-800 mb-3">1. 출고 상품 선택</h3>
+          <div class="relative">
+            <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+            <input type="text" id="outboundSearch" placeholder="상품명 또는 SKU 검색..." 
+                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                   onkeyup="filterOutboundProducts()">
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-2" id="outboundProductList">
+          <!-- 상품 목록 렌더링 -->
+        </div>
       </div>
 
-      <div class="flex flex-1 gap-6 overflow-hidden">
-        <!-- 좌측: 상품 선택 -->
-        <div class="w-1/2 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          <div class="p-4 border-b border-slate-200 bg-slate-50">
-            <h3 class="font-bold text-slate-800 mb-3">1. 출고 상품 선택</h3>
-            <div class="relative">
-              <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
-              <input type="text" id="outboundSearch" placeholder="상품명 또는 SKU 검색..." 
-                     class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
-                     onkeyup="filterOutboundProducts()">
-            </div>
+      <!-- 우측: 출고 정보 입력 -->
+      <div class="w-1/2 flex flex-col gap-6 overflow-y-auto pr-2">
+        <!-- 선택된 상품 목록 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <h3 class="font-bold text-slate-800 mb-4">2. 선택된 상품</h3>
+          <div id="outboundCartItems" class="space-y-3 mb-4 min-h-[100px]">
+            <p class="text-center text-slate-400 py-8">상품을 선택해주세요.</p>
           </div>
-          <div class="flex-1 overflow-y-auto p-2" id="outboundProductList">
-            <!-- 상품 목록 렌더링 -->
+          <div class="flex justify-between items-center pt-4 border-t border-slate-100">
+            <span class="font-bold text-slate-600">총 수량</span>
+            <span class="font-bold text-indigo-600 text-lg" id="outboundTotalQty">0개</span>
           </div>
         </div>
 
-        <!-- 우측: 출고 정보 입력 -->
-        <div class="w-1/2 flex flex-col gap-6 overflow-y-auto">
-          <!-- 선택된 상품 목록 -->
-          <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <h3 class="font-bold text-slate-800 mb-4">2. 선택된 상품</h3>
-            <div id="outboundCartItems" class="space-y-3 mb-4 min-h-[100px]">
-              <p class="text-center text-slate-400 py-8">상품을 선택해주세요.</p>
-            </div>
-            <div class="flex justify-between items-center pt-4 border-t border-slate-100">
-              <span class="font-bold text-slate-600">총 수량</span>
-              <span class="font-bold text-indigo-600 text-lg" id="outboundTotalQty">0개</span>
-            </div>
-          </div>
-
-          <!-- 배송 정보 입력 -->
-          <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <h3 class="font-bold text-slate-800 mb-4">3. 배송 정보</h3>
-            <div class="space-y-4">
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-xs font-bold text-slate-500 mb-1">수령인</label>
-                  <input type="text" id="outDestName" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-500 mb-1">연락처</label>
-                  <input type="text" id="outDestPhone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
-                </div>
+        <!-- 배송 정보 입력 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <h3 class="font-bold text-slate-800 mb-4">3. 배송 정보</h3>
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">수령인</label>
+                <input type="text" id="outDestName" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
               </div>
               <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1">주소</label>
-                <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 mb-2" placeholder="기본 주소">
+                <label class="block text-xs font-bold text-slate-500 mb-1">연락처</label>
+                <input type="text" id="outDestPhone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
               </div>
             </div>
-          </div>
-
-          <!-- 운송장 정보 -->
-          <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <h3 class="font-bold text-slate-800 mb-4">4. 운송장 정보</h3>
-            <div class="space-y-4">
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-xs font-bold text-slate-500 mb-1">택배사</label>
-                  <select id="outCourier" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white">
-                    <option value="CJ대한통운">CJ대한통운</option>
-                    <option value="우체국택배">우체국택배</option>
-                    <option value="로젠택배">로젠택배</option>
-                    <option value="롯데택배">롯데택배</option>
-                    <option value="한진택배">한진택배</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-500 mb-1">박스 타입</label>
-                  <select id="outBoxType" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white">
-                    <option value="A형">A형 (소)</option>
-                    <option value="B형">B형 (중)</option>
-                    <option value="C형">C형 (대)</option>
-                    <option value="D형">D형 (특대)</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1">운송장 번호</label>
-                <input type="text" id="outTracking" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="운송장 번호 입력">
-              </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1">비고</label>
-                <input type="text" id="outNotes" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="배송 메모 등">
-              </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 mb-1">주소</label>
+              <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 mb-2" placeholder="기본 주소">
             </div>
           </div>
-
-          <button onclick="submitDirectOutbound()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.99]">
-            출고 등록 완료
-          </button>
         </div>
+
+        <!-- 운송장 정보 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <h3 class="font-bold text-slate-800 mb-4">4. 운송장 정보</h3>
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">택배사</label>
+                <select id="outCourier" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white">
+                  <option value="CJ대한통운">CJ대한통운</option>
+                  <option value="우체국택배">우체국택배</option>
+                  <option value="로젠택배">로젠택배</option>
+                  <option value="롯데택배">롯데택배</option>
+                  <option value="한진택배">한진택배</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">박스 타입</label>
+                <select id="outBoxType" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white">
+                  <option value="A형">A형 (소)</option>
+                  <option value="B형">B형 (중)</option>
+                  <option value="C형">C형 (대)</option>
+                  <option value="D형">D형 (특대)</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 mb-1">운송장 번호</label>
+              <input type="text" id="outTracking" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="운송장 번호 입력">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 mb-1">비고</label>
+              <input type="text" id="outNotes" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="배송 메모 등">
+            </div>
+          </div>
+        </div>
+
+        <button onclick="submitDirectOutbound()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.99] mb-6">
+          출고 등록 완료
+        </button>
       </div>
     </div>
   `;
 
   renderOutboundProducts();
+  renderOutboundCart();
 }
 
 function renderOutboundProducts(filterText = '') {
@@ -3255,48 +3298,45 @@ async function submitDirectOutbound() {
   }
 }
 
-async function loadOutboundHistory() {
-  // 간단한 모달로 이력 보여주기
+async function renderOutboundHistoryTab(container) {
   try {
     const res = await axios.get(`${API_BASE}/outbound`);
     const list = res.data.data;
 
-    const modalHtml = `
-      <div id="outHistoryModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 h-[80vh] flex flex-col">
-          <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-            <h3 class="text-xl font-bold text-slate-800">출고 이력</h3>
-            <button onclick="document.getElementById('outHistoryModal').remove()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button>
-          </div>
-          <div class="flex-1 overflow-auto p-6">
-            <table class="min-w-full text-sm text-left">
-              <thead class="bg-slate-50 font-bold text-slate-500">
-                <tr>
-                  <th class="px-4 py-3">출고번호</th>
-                  <th class="px-4 py-3">일시</th>
-                  <th class="px-4 py-3">수령인</th>
-                  <th class="px-4 py-3">품목수</th>
-                  <th class="px-4 py-3">상태</th>
+    container.innerHTML = `
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
+        <div class="p-4 border-b border-slate-200 bg-slate-50">
+          <h3 class="font-bold text-slate-800">출고 이력 목록</h3>
+        </div>
+        <div class="flex-1 overflow-auto">
+          <table class="min-w-full text-sm text-left">
+            <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0">
+              <tr>
+                <th class="px-6 py-3">출고번호</th>
+                <th class="px-6 py-3">일시</th>
+                <th class="px-6 py-3">수령인</th>
+                <th class="px-6 py-3">품목수</th>
+                <th class="px-6 py-3">상태</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${list.map(o => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-6 py-4 font-mono">${o.order_number}</td>
+                  <td class="px-6 py-4 text-slate-500">${new Date(o.created_at).toLocaleString()}</td>
+                  <td class="px-6 py-4 font-medium text-slate-800">${o.destination_name}</td>
+                  <td class="px-6 py-4">${o.item_count}</td>
+                  <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">${o.status}</span></td>
                 </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100">
-                ${list.map(o => `
-                  <tr>
-                    <td class="px-4 py-3 font-mono">${o.order_number}</td>
-                    <td class="px-4 py-3 text-slate-500">${new Date(o.created_at).toLocaleString()}</td>
-                    <td class="px-4 py-3">${o.destination_name}</td>
-                    <td class="px-4 py-3">${o.item_count}</td>
-                    <td class="px-4 py-3"><span class="px-2 py-1 rounded bg-slate-100 text-xs font-bold">${o.status}</span></td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
+              `).join('')}
+              ${list.length === 0 ? '<tr><td colspan="5" class="px-6 py-10 text-center text-slate-500">출고 이력이 없습니다.</td></tr>' : ''}
+            </tbody>
+          </table>
         </div>
       </div>
     `;
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-  } catch (e) {
-    alert('이력 로드 실패');
+  } catch (error) {
+    console.error(error);
+    showError(container, '출고 이력을 불러오는데 실패했습니다.');
   }
 }
