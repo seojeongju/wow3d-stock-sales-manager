@@ -123,6 +123,14 @@ app.get('/', (c: Context) => {
                         <i class="fas fa-cash-register w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                         <span class="font-medium">판매 관리</span>
                     </a>
+                    <a href="#" data-page="outbound" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
+                        <i class="fas fa-truck-loading w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
+                        <span class="font-medium">출고 관리</span>
+                    </a>
+                    <a href="#" data-page="customers" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
+                        <i class="fas fa-users w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
+                        <span class="font-medium">고객 관리</span>
+                    </a>
                     <a href="#" data-page="products" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
                         <i class="fas fa-box w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                         <span class="font-medium">상품 관리</span>
@@ -130,14 +138,6 @@ app.get('/', (c: Context) => {
                     <a href="#" data-page="stock" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
                         <i class="fas fa-warehouse w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                         <span class="font-medium">재고 관리</span>
-                    </a>
-                    <a href="#" data-page="customers" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
-                        <i class="fas fa-users w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                        <span class="font-medium">고객 관리</span>
-                    </a>
-                    <a href="#" data-page="outbound" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
-                        <i class="fas fa-truck-loading w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                        <span class="font-medium">출고 관리</span>
                     </a>
                 </nav>
                 
