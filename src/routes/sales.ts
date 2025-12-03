@@ -47,6 +47,14 @@ app.get('/', async (c) => {
 
   query += ' ORDER BY s.created_at DESC'
 
+  // Pagination
+  const limit = parseInt(c.req.query('limit') || '0')
+  const offset = parseInt(c.req.query('offset') || '0')
+  if (limit > 0) {
+    query += ' LIMIT ? OFFSET ?'
+    params.push(limit, offset)
+  }
+
   const { results } = await DB.prepare(query).bind(...params).all()
 
   return c.json({ success: true, data: results })

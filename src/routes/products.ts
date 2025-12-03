@@ -29,6 +29,14 @@ app.get('/', async (c) => {
 
   query += ' ORDER BY created_at DESC'
 
+  // Pagination
+  const limit = parseInt(c.req.query('limit') || '0')
+  const offset = parseInt(c.req.query('offset') || '0')
+  if (limit > 0) {
+    query += ' LIMIT ? OFFSET ?'
+    params.push(limit, offset)
+  }
+
   const { results } = await DB.prepare(query).bind(...params).all<Product>()
 
   return c.json({ success: true, data: results })
@@ -233,7 +241,7 @@ app.get('/meta/categories', async (c) => {
 
   return c.json({
     success: true,
-    data: results.map(r => r.category)
+    data: results.map((r: { category: string }) => r.category)
   })
 })
 

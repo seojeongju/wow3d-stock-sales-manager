@@ -127,21 +127,21 @@ async function loadPage(page) {
 async function loadDashboard(content) {
   try {
     // 병렬 데이터 로드
-    const [summaryRes, salesChartRes, categoryStatsRes, bestsellersRes, lowStockRes, vipRes] = await Promise.all([
+    const [summaryRes, salesChartRes, categoryStatsRes, lowStockRes, productsRes, salesRes] = await Promise.all([
       axios.get(`${API_BASE}/dashboard/summary`),
       axios.get(`${API_BASE}/dashboard/sales-chart?days=7`),
       axios.get(`${API_BASE}/dashboard/category-stats`),
-      axios.get(`${API_BASE}/dashboard/bestsellers?limit=5`),
       axios.get(`${API_BASE}/dashboard/low-stock-alerts`),
-      axios.get(`${API_BASE}/dashboard/vip-customers?limit=5`)
+      axios.get(`${API_BASE}/products?limit=5&offset=0`),
+      axios.get(`${API_BASE}/sales?limit=5&offset=0`)
     ]);
 
     const data = summaryRes.data.data;
     const chartData = salesChartRes.data.data;
     const categoryStats = categoryStatsRes.data.data;
-    const bestsellers = bestsellersRes.data.data;
     const lowStockAlerts = lowStockRes.data.data;
-    const vipCustomers = vipRes.data.data;
+    const products = productsRes.data.data;
+    const sales = salesRes.data.data;
 
     content.innerHTML = `
       <!-- 주요 지표 -->
@@ -236,61 +236,41 @@ async function loadDashboard(content) {
 
       <!-- 하단 정보 그리드 -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <!-- 베스트셀러 -->
-        <div class="bg-white rounded-xl shadow-lg p-6">
-          <div class="flex items-center mb-4">
-            <div class="bg-indigo-100 rounded-lg p-2 mr-3">
-              <i class="fas fa-trophy text-indigo-600"></i>
-            </div>
-            <h2 class="text-xl font-bold text-gray-800">베스트셀러 TOP 5</h2>
-          </div>
-          <div class="space-y-3">
-            ${bestsellers.map((item, index) => `
-              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:shadow-md transition">
-                <div class="flex items-center">
-                  <div class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold mr-3">
-                    ${index + 1}
-                  </div>
-                  <div>
-                    <p class="font-semibold text-gray-800 text-sm">${item.name}</p>
-                    <p class="text-xs text-gray-500">${item.category}</p>
-                  </div>
-                </div>
-                <div class="text-right">
-                  <p class="font-bold text-blue-600 text-sm">${item.total_sold}개</p>
-                  <p class="text-xs text-gray-500">${formatCurrency(item.total_revenue)}</p>
-                </div>
+        <!-- 최근 상품 목록 -->
+        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+              <div class="bg-indigo-100 rounded-lg p-2 mr-3">
+                <i class="fas fa-box text-indigo-600"></i>
               </div>
-            `).join('')}
+              <h2 class="text-xl font-bold text-gray-800">최근 상품 목록</h2>
+            </div>
+            <div class="flex gap-1">
+              <button onclick="loadDashboardProducts(Math.max(0, window.dashProdPage - 1))" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"><i class="fas fa-chevron-left"></i></button>
+              <button onclick="loadDashboardProducts(window.dashProdPage + 1)" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"><i class="fas fa-chevron-right"></i></button>
+            </div>
+          </div>
+          <div id="dashProductList" class="space-y-3 flex-1">
+            <!-- 상품 목록 렌더링 -->
           </div>
         </div>
 
-        <!-- VIP 고객 -->
-        <div class="bg-white rounded-xl shadow-lg p-6">
-          <div class="flex items-center mb-4">
-            <div class="bg-yellow-100 rounded-lg p-2 mr-3">
-              <i class="fas fa-crown text-yellow-600"></i>
-            </div>
-            <h2 class="text-xl font-bold text-gray-800">우수 고객 TOP 5</h2>
-          </div>
-          <div class="space-y-3">
-            ${vipCustomers.map((c, index) => `
-              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:shadow-md transition">
-                <div class="flex items-center">
-                  <div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 mr-3">
-                    <i class="fas fa-user"></i>
-                  </div>
-                  <div>
-                    <p class="font-semibold text-gray-800 text-sm">${c.name}</p>
-                    <p class="text-xs text-gray-500">${c.grade}</p>
-                  </div>
-                </div>
-                <div class="text-right">
-                  <p class="font-bold text-gray-800 text-sm">${formatCurrency(c.total_purchase_amount)}</p>
-                  <p class="text-xs text-gray-500">${c.purchase_count}회 구매</p>
-                </div>
+        <!-- 최근 판매 현황 -->
+        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+              <div class="bg-emerald-100 rounded-lg p-2 mr-3">
+                <i class="fas fa-shopping-cart text-emerald-600"></i>
               </div>
-            `).join('')}
+              <h2 class="text-xl font-bold text-gray-800">최근 판매 현황</h2>
+            </div>
+            <div class="flex gap-1">
+              <button onclick="loadDashboardSales(Math.max(0, window.dashSalePage - 1))" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"><i class="fas fa-chevron-left"></i></button>
+              <button onclick="loadDashboardSales(window.dashSalePage + 1)" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"><i class="fas fa-chevron-right"></i></button>
+            </div>
+          </div>
+          <div id="dashSaleList" class="space-y-3 flex-1">
+            <!-- 판매 목록 렌더링 -->
           </div>
         </div>
 
@@ -333,10 +313,84 @@ async function loadDashboard(content) {
     // 차트 렌더링
     renderCharts(chartData, categoryStats);
 
+    // 초기 리스트 렌더링
+    window.dashProdPage = 0;
+    window.dashSalePage = 0;
+    renderDashboardProducts(products);
+    renderDashboardSales(sales);
+
   } catch (error) {
     console.error('대시보드 로드 실패:', error);
     showError(content, '대시보드를 불러오는데 실패했습니다.');
   }
+}
+
+async function loadDashboardProducts(page) {
+  try {
+    const res = await axios.get(`${API_BASE}/products?limit=5&offset=${page * 5}`);
+    if (res.data.data.length === 0 && page > 0) return; // 더 이상 데이터 없음
+    window.dashProdPage = page;
+    renderDashboardProducts(res.data.data);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function renderDashboardProducts(products) {
+  const container = document.getElementById('dashProductList');
+  if (!container) return;
+
+  if (products.length === 0) {
+    container.innerHTML = '<div class="text-center text-slate-400 py-4">상품이 없습니다.</div>';
+    return;
+  }
+
+  container.innerHTML = products.map(p => `
+    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:shadow-md transition">
+      <div>
+        <p class="font-semibold text-gray-800 text-sm truncate max-w-[150px]">${p.name}</p>
+        <p class="text-xs text-gray-500">${p.category}</p>
+      </div>
+      <div class="text-right">
+        <p class="font-bold text-indigo-600 text-sm">${formatCurrency(p.selling_price)}</p>
+        <p class="text-xs text-slate-500">재고: ${p.current_stock}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadDashboardSales(page) {
+  try {
+    const res = await axios.get(`${API_BASE}/sales?limit=5&offset=${page * 5}`);
+    if (res.data.data.length === 0 && page > 0) return; // 더 이상 데이터 없음
+    window.dashSalePage = page;
+    renderDashboardSales(res.data.data);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function renderDashboardSales(sales) {
+  const container = document.getElementById('dashSaleList');
+  if (!container) return;
+
+  if (sales.length === 0) {
+    container.innerHTML = '<div class="text-center text-slate-400 py-4">판매 내역이 없습니다.</div>';
+    return;
+  }
+
+  container.innerHTML = sales.map(s => `
+    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:shadow-md transition">
+      <div>
+        <p class="font-semibold text-gray-800 text-sm">${s.customer_name || '비회원'}</p>
+        <p class="text-xs text-gray-500">${new Date(s.created_at).toLocaleDateString()}</p>
+      </div>
+      <div class="text-right">
+        <p class="font-bold text-emerald-600 text-sm">${formatCurrency(s.final_amount)}</p>
+        <span class="text-xs px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">${s.status === 'completed' ? '완료' : s.status}</span>
+      </div>
+    </div>
+  `).join('');
 }
 
 function renderCharts(salesData, categoryData) {
