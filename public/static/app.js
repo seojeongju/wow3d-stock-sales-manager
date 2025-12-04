@@ -605,22 +605,74 @@ async function loadProducts(content) {
         </div>
       </div>
       
-      <!-- 검색 및 필터 -->
-      <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-slate-100">
-        <div class="flex flex-wrap gap-4 items-center">
-          <div class="relative flex-1 min-w-[200px]">
-            <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
-            <input type="text" id="prodSearch" placeholder="상품명 또는 SKU 검색..." 
-                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
-                   onkeyup="if(event.key === 'Enter') filterProductsList()">
+      <!-- 필터 및 검색 -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6">
+        <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div class="flex flex-1 gap-4 w-full md:w-auto">
+            <div class="relative flex-1 md:max-w-xs">
+              <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+              <input type="text" id="prodSearch" placeholder="상품명 또는 SKU 검색" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeyup="if(event.key === 'Enter') filterProductsList()">
+            </div>
+            <select id="prodCategoryFilter" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterProductsList()">
+              <option value="">전체 카테고리</option>
+            </select>
+            <button onclick="toggleProductFilters()" class="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 flex items-center gap-2">
+              <i class="fas fa-filter"></i>상세 필터
+            </button>
           </div>
-          <select id="prodCategoryFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white min-w-[150px]"
-                  onchange="filterProductsList()">
-            <option value="">전체 카테고리</option>
-          </select>
-          <button onclick="filterProductsList()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
-            <i class="fas fa-search mr-2"></i>검색
-          </button>
+          <div class="flex gap-2">
+            <button onclick="openImportModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
+              <i class="fas fa-file-import mr-2"></i>엑셀 가져오기
+            </button>
+            <button onclick="exportProducts()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
+              <i class="fas fa-file-export mr-2"></i>내보내기
+            </button>
+            <button onclick="openProductModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
+              <i class="fas fa-plus mr-2"></i>상품 등록
+            </button>
+          </div>
+        </div>
+
+        <!-- 상세 필터 영역 -->
+        <div id="productDetailFilters" class="hidden mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">중분류</label>
+            <input type="text" id="prodCatMedium" class="w-full border border-slate-200 rounded px-3 py-2 text-sm" placeholder="중분류 입력">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">소분류</label>
+            <input type="text" id="prodCatSmall" class="w-full border border-slate-200 rounded px-3 py-2 text-sm" placeholder="소분류 입력">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">재고 상태</label>
+            <select id="prodStockStatus" class="w-full border border-slate-200 rounded px-3 py-2 text-sm">
+              <option value="">전체</option>
+              <option value="in_stock">재고 있음</option>
+              <option value="low_stock">재고 부족</option>
+              <option value="out_of_stock">품절</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">판매가 범위</label>
+            <div class="flex gap-2 items-center">
+              <input type="number" id="prodMinPrice" class="w-full border border-slate-200 rounded px-3 py-2 text-sm" placeholder="최소">
+              <span class="text-slate-400">~</span>
+              <input type="number" id="prodMaxPrice" class="w-full border border-slate-200 rounded px-3 py-2 text-sm" placeholder="최대">
+            </div>
+          </div>
+          <div class="md:col-span-2 lg:col-span-2">
+            <label class="block text-xs font-medium text-slate-500 mb-1">등록일</label>
+            <div class="flex gap-2 items-center">
+              <input type="date" id="prodStartDate" class="border border-slate-200 rounded px-3 py-2 text-sm">
+              <span class="text-slate-400">~</span>
+              <input type="date" id="prodEndDate" class="border border-slate-200 rounded px-3 py-2 text-sm">
+            </div>
+          </div>
+          <div class="flex items-end">
+            <button onclick="filterProductsList()" class="w-full bg-slate-800 text-white px-4 py-2 rounded hover:bg-slate-700 text-sm">
+              적용하기
+            </button>
+          </div>
         </div>
       </div>
 
@@ -696,15 +748,37 @@ async function loadProducts(content) {
   }
 }
 
+function toggleProductFilters() {
+  const filters = document.getElementById('productDetailFilters');
+  filters.classList.toggle('hidden');
+}
+
 async function filterProductsList() {
   const search = document.getElementById('prodSearch').value;
   const category = document.getElementById('prodCategoryFilter').value;
+
+  // 상세 필터 값
+  const categoryMedium = document.getElementById('prodCatMedium')?.value || '';
+  const categorySmall = document.getElementById('prodCatSmall')?.value || '';
+  const stockStatus = document.getElementById('prodStockStatus')?.value || '';
+  const minPrice = document.getElementById('prodMinPrice')?.value || '';
+  const maxPrice = document.getElementById('prodMaxPrice')?.value || '';
+  const startDate = document.getElementById('prodStartDate')?.value || '';
+  const endDate = document.getElementById('prodEndDate')?.value || '';
+
   const container = document.getElementById('productListContainer');
 
   try {
-    const response = await axios.get(`${API_BASE}/products`, {
-      params: { search, category }
-    });
+    const params = { search, category };
+    if (categoryMedium) params.category_medium = categoryMedium;
+    if (categorySmall) params.category_small = categorySmall;
+    if (stockStatus) params.stock_status = stockStatus;
+    if (minPrice) params.min_price = minPrice;
+    if (maxPrice) params.max_price = maxPrice;
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+
+    const response = await axios.get(`${API_BASE}/products`, { params });
     const products = response.data.data;
 
     // 테이블 본문만 업데이트하거나 전체 테이블 재생성. 여기선 전체 테이블 구조가 이미 있으므로 tbody만 갈아끼우거나, 
@@ -3784,74 +3858,98 @@ async function submitDirectOutbound() {
 }
 
 async function renderOutboundHistoryTab(container) {
-  try {
-    const res = await axios.get(`${API_BASE}/outbound`);
-    const list = res.data.data;
-
-    container.innerHTML = `
-      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
-        <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-          <h3 class="font-bold text-slate-800">출고 이력 목록</h3>
-          <div class="flex gap-2">
-            <input type="text" id="outHistorySearch" placeholder="출고번호/수령인 검색" class="border border-slate-300 rounded px-3 py-1.5 text-sm" onkeyup="if(event.key === 'Enter') filterOutboundHistory()">
-            <select id="outHistoryStatus" class="border border-slate-300 rounded px-3 py-1.5 text-sm" onchange="filterOutboundHistory()">
+  // 초기 UI 렌더링 (필터 포함)
+  container.innerHTML = `
+    <div class="flex flex-col h-full">
+      <!-- 필터 -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6">
+        <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div class="flex flex-1 gap-4 w-full md:w-auto">
+            <div class="relative flex-1 md:max-w-xs">
+              <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+              <input type="text" id="outHistorySearch" placeholder="주문번호 또는 받는분 검색" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeyup="if(event.key === 'Enter') filterOutboundHistory()">
+            </div>
+            <select id="outHistoryStatus" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterOutboundHistory()">
               <option value="">전체 상태</option>
-              <option value="PENDING">대기중</option>
-              <option value="PICKING">피킹중</option>
-              <option value="PACKING">패킹중</option>
-              <option value="SHIPPED">출고완료</option>
+              <option value="PENDING">출고 대기</option>
+              <option value="PICKING">피킹 중</option>
+              <option value="PACKING">패킹 중</option>
+              <option value="SHIPPED">출고 완료</option>
+              <option value="CANCELLED">취소됨</option>
             </select>
-            <button onclick="filterOutboundHistory()" class="bg-indigo-600 text-white px-3 py-1.5 rounded text-sm hover:bg-indigo-700">조회</button>
+            <button onclick="toggleOutboundFilters()" class="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 flex items-center gap-2">
+              <i class="fas fa-filter"></i>상세 필터
+            </button>
+          </div>
+          <button onclick="filterOutboundHistory()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
+            <i class="fas fa-search mr-2"></i>조회
+          </button>
+        </div>
+
+        <!-- 상세 필터 영역 -->
+        <div id="outboundDetailFilters" class="hidden mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">기간 조회</label>
+            <div class="flex gap-2 items-center">
+              <input type="date" id="outStartDate" class="w-full border border-slate-200 rounded px-3 py-2 text-sm">
+              <span class="text-slate-400">~</span>
+              <input type="date" id="outEndDate" class="w-full border border-slate-200 rounded px-3 py-2 text-sm">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">택배사</label>
+            <select id="outCourier" class="w-full border border-slate-200 rounded px-3 py-2 text-sm">
+              <option value="">전체</option>
+              <option value="CJ대한통운">CJ대한통운</option>
+              <option value="우체국택배">우체국택배</option>
+              <option value="한진택배">한진택배</option>
+              <option value="로젠택배">로젠택배</option>
+              <option value="롯데택배">롯데택배</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button onclick="filterOutboundHistory()" class="w-full bg-slate-800 text-white px-4 py-2 rounded hover:bg-slate-700 text-sm">
+              적용하기
+            </button>
           </div>
         </div>
-        <div class="flex-1 overflow-auto" id="outboundHistoryList">
-          <table class="min-w-full text-sm text-left">
-            <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0">
-              <tr>
-                <th class="px-6 py-3">출고번호</th>
-                <th class="px-6 py-3">일시</th>
-                <th class="px-6 py-3">수령인</th>
-                <th class="px-6 py-3">품목수</th>
-                <th class="px-6 py-3">상태</th>
-                <th class="px-6 py-3 text-center">관리</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              ${list.map(o => `
-                <tr class="hover:bg-slate-50 transition-colors">
-                  <td class="px-6 py-4 font-mono">${o.order_number}</td>
-                  <td class="px-6 py-4 text-slate-500">${new Date(o.created_at).toLocaleString()}</td>
-                  <td class="px-6 py-4 font-medium text-slate-800">${o.destination_name}</td>
-                  <td class="px-6 py-4">${o.item_count}</td>
-                  <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">${o.status}</span></td>
-                  <td class="px-6 py-4 text-center">
-                    <button onclick="showOutboundDetail(${o.id})" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded text-xs font-bold transition-colors">
-                      <i class="fas fa-search mr-1"></i>상세보기
-                    </button>
-                  </td>
-                </tr>
-              `).join('')}
-              ${list.length === 0 ? '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">출고 이력이 없습니다.</td></tr>' : ''}
-            </tbody>
-          </table>
+      </div>
+
+      <!-- 리스트 -->
+      <div id="outboundHistoryList" class="flex-1 overflow-auto bg-white rounded-xl shadow-sm border border-slate-100">
+        <!-- 동적 로드 -->
+        <div class="flex items-center justify-center h-full text-slate-400">
+          <i class="fas fa-spinner fa-spin mr-2"></i>데이터 로딩 중...
         </div>
       </div>
-    `;
-  } catch (error) {
-    console.error(error);
-    showError(container, '출고 이력을 불러오는데 실패했습니다.');
-  }
+    </div>
+  `;
+
+  // 초기 데이터 로드
+  await filterOutboundHistory();
+}
+
+function toggleOutboundFilters() {
+  const filters = document.getElementById('outboundDetailFilters');
+  filters.classList.toggle('hidden');
 }
 
 async function filterOutboundHistory() {
   const search = document.getElementById('outHistorySearch').value;
   const status = document.getElementById('outHistoryStatus').value;
+  const startDate = document.getElementById('outStartDate')?.value || '';
+  const endDate = document.getElementById('outEndDate')?.value || '';
+  const courier = document.getElementById('outCourier')?.value || '';
+
   const container = document.getElementById('outboundHistoryList');
 
   try {
     const params = {};
     if (search) params.search = search;
     if (status) params.status = status;
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    if (courier) params.courier = courier;
 
     const res = await axios.get(`${API_BASE}/outbound`, { params });
     const list = res.data.data;

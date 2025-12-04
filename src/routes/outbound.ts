@@ -8,25 +8,42 @@ app.get('/', async (c) => {
     const { DB } = c.env
     const status = c.req.query('status')
     const search = c.req.query('search')
+    const startDate = c.req.query('start_date')
+    const endDate = c.req.query('end_date')
+    const courier = c.req.query('courier')
 
     let query = `
     SELECT o.*, 
            (SELECT COUNT(*) FROM outbound_items WHERE outbound_order_id = o.id) as item_count,
            (SELECT SUM(quantity_ordered) FROM outbound_items WHERE outbound_order_id = o.id) as total_quantity
     FROM outbound_orders o
+    WHERE 1=1
   `
     const params: any[] = []
 
     if (status) {
-        query += ' WHERE o.status = ?'
+        query += ' AND o.status = ?'
         params.push(status)
     }
 
     if (search) {
-        // status가 있으면 WHERE가 이미 있으므로 AND, 없으면 WHERE
-        query += status ? ' AND' : ' WHERE'
-        query += ' (o.order_number LIKE ? OR o.destination_name LIKE ?)'
+        query += ' AND (o.order_number LIKE ? OR o.destination_name LIKE ?)'
         params.push(`%${search}%`, `%${search}%`)
+    }
+
+    if (startDate) {
+        query += ' AND DATE(o.created_at) >= ?'
+        params.push(startDate)
+    }
+
+    if (endDate) {
+        query += ' AND DATE(o.created_at) <= ?'
+        params.push(endDate)
+    }
+
+    if (courier) {
+        query += ' AND EXISTS (SELECT 1 FROM outbound_packages op WHERE op.outbound_order_id = o.id AND op.courier = ?)'
+        params.push(courier)
     }
 
     query += ' ORDER BY o.created_at DESC'

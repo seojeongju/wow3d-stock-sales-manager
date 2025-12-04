@@ -10,7 +10,13 @@ app.get('/', async (c) => {
   const tenantId = c.get('tenantId')
   const search = c.req.query('search') || ''
   const category = c.req.query('category') || ''
-  const lowStock = c.req.query('lowStock') === 'true'
+  const categoryMedium = c.req.query('category_medium') || ''
+  const categorySmall = c.req.query('category_small') || ''
+  const stockStatus = c.req.query('stock_status') || '' // out_of_stock, low_stock, in_stock
+  const minPrice = parseInt(c.req.query('min_price') || '0')
+  const maxPrice = parseInt(c.req.query('max_price') || '0')
+  const startDate = c.req.query('start_date') || ''
+  const endDate = c.req.query('end_date') || ''
 
   let query = 'SELECT * FROM products WHERE is_active = 1 AND tenant_id = ?'
   const params: any[] = [tenantId]
@@ -25,8 +31,44 @@ app.get('/', async (c) => {
     params.push(category)
   }
 
-  if (lowStock) {
-    query += ' AND current_stock <= min_stock_alert'
+  if (categoryMedium) {
+    query += ' AND category_medium = ?'
+    params.push(categoryMedium)
+  }
+
+  if (categorySmall) {
+    query += ' AND category_small = ?'
+    params.push(categorySmall)
+  }
+
+  if (stockStatus) {
+    if (stockStatus === 'out_of_stock') {
+      query += ' AND current_stock <= 0'
+    } else if (stockStatus === 'low_stock') {
+      query += ' AND current_stock <= min_stock_alert AND current_stock > 0'
+    } else if (stockStatus === 'in_stock') {
+      query += ' AND current_stock > min_stock_alert'
+    }
+  }
+
+  if (minPrice > 0) {
+    query += ' AND selling_price >= ?'
+    params.push(minPrice)
+  }
+
+  if (maxPrice > 0) {
+    query += ' AND selling_price <= ?'
+    params.push(maxPrice)
+  }
+
+  if (startDate) {
+    query += ' AND DATE(created_at) >= ?'
+    params.push(startDate)
+  }
+
+  if (endDate) {
+    query += ' AND DATE(created_at) <= ?'
+    params.push(endDate)
   }
 
   query += ' ORDER BY created_at DESC'
