@@ -185,81 +185,82 @@ async function loadPage(page) {
 async function loadDashboard(content) {
   try {
     // 병렬 데이터 로드
-    const [summaryRes, salesChartRes, categoryStatsRes, lowStockRes, productsRes, salesRes] = await Promise.all([
+    const [summaryRes, salesChartRes, categoryStatsRes, lowStockRes, productsRes, salesRes, actionRes, profitRes] = await Promise.all([
       axios.get(`${API_BASE}/dashboard/summary`),
-      axios.get(`${API_BASE}/dashboard/sales-chart?days=7`),
+      axios.get(`${API_BASE}/dashboard/sales-chart?days=30`),
       axios.get(`${API_BASE}/dashboard/category-stats`),
       axios.get(`${API_BASE}/dashboard/low-stock-alerts`),
       axios.get(`${API_BASE}/products?limit=5&offset=0`),
-      axios.get(`${API_BASE}/sales?limit=5&offset=0`)
+      axios.get(`${API_BASE}/sales?limit=5&offset=0`),
+      axios.get(`${API_BASE}/dashboard/action-items`),
+      axios.get(`${API_BASE}/dashboard/profit-chart?days=30`)
     ]);
 
     const data = summaryRes.data.data;
     const chartData = salesChartRes.data.data;
     const categoryStats = categoryStatsRes.data.data;
-    const lowStockAlerts = lowStockRes.data.data;
-    const products = productsRes.data.data;
-    const sales = salesRes.data.data;
+    const actionItems = actionRes.data.data;
+    const profitData = profitRes.data.data;
 
     content.innerHTML = `
-      <!-- 주요 지표 -->
+      <!-- Action Board (오늘의 업무) -->
+      <div class="mb-4 flex items-center gap-2">
+        <h2 class="text-xl font-bold text-slate-800">오늘의 업무</h2>
+        <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">Action Board</span>
+      </div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition-shadow">
+        <!-- 출고 대기 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all group" onclick="loadPage('outbound')">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-slate-500 text-sm font-medium">오늘의 매출</p>
-              <p class="text-2xl font-bold text-slate-800 mt-2">${formatCurrency(data.today_revenue)}</p>
-              <p class="text-sm text-slate-400 mt-1 flex items-center">
-                <i class="fas fa-receipt mr-1.5"></i>${data.today_sales_count}건
-              </p>
+              <p class="text-slate-500 text-sm font-medium group-hover:text-indigo-600 transition-colors">출고 대기</p>
+              <p class="text-3xl font-bold text-slate-800 mt-2">${actionItems.pending_shipment}</p>
+              <p class="text-xs text-slate-400 mt-1">건의 주문 처리 필요</p>
             </div>
-            <div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-xl">
-              <i class="fas fa-dollar-sign"></i>
+            <div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-xl group-hover:scale-110 transition-transform">
+              <i class="fas fa-box-open"></i>
             </div>
           </div>
         </div>
         
-        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition-shadow">
+        <!-- 배송 중 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group" onclick="loadPage('sales')">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-slate-500 text-sm font-medium">이번 달 매출</p>
-              <p class="text-2xl font-bold text-slate-800 mt-2">${formatCurrency(data.month_revenue)}</p>
-              <p class="text-sm text-slate-400 mt-1 flex items-center">
-                <i class="fas fa-calendar mr-1.5"></i>${data.month_sales_count}건
-              </p>
+              <p class="text-slate-500 text-sm font-medium group-hover:text-blue-600 transition-colors">배송 중</p>
+              <p class="text-3xl font-bold text-slate-800 mt-2">${actionItems.shipping}</p>
+              <p class="text-xs text-slate-400 mt-1">건이 배송되고 있습니다</p>
             </div>
-            <div class="w-12 h-12 bg-violet-50 rounded-xl flex items-center justify-center text-violet-600 text-xl">
-              <i class="fas fa-chart-bar"></i>
+            <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-xl group-hover:scale-110 transition-transform">
+              <i class="fas fa-truck"></i>
             </div>
           </div>
         </div>
         
-        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition-shadow">
+        <!-- 반품/교환 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 cursor-pointer hover:shadow-md hover:border-amber-200 transition-all group" onclick="loadPage('sales')">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-slate-500 text-sm font-medium">총 재고 가치</p>
-              <p class="text-2xl font-bold text-slate-800 mt-2">${formatCurrency(data.total_stock_value)}</p>
-              <p class="text-sm text-slate-400 mt-1 flex items-center">
-                <i class="fas fa-box mr-1.5"></i>${data.total_products}개 상품
-              </p>
+              <p class="text-slate-500 text-sm font-medium group-hover:text-amber-600 transition-colors">반품/교환 요청</p>
+              <p class="text-3xl font-bold text-slate-800 mt-2">${actionItems.claims}</p>
+              <p class="text-xs text-slate-400 mt-1">건의 클레임 확인</p>
             </div>
-            <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-xl">
-              <i class="fas fa-warehouse"></i>
+            <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-xl group-hover:scale-110 transition-transform">
+              <i class="fas fa-undo"></i>
             </div>
           </div>
         </div>
         
-        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition-shadow">
+        <!-- 재고 부족 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 cursor-pointer hover:shadow-md hover:border-rose-200 transition-all group" onclick="loadPage('stock')">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-slate-500 text-sm font-medium">총 고객 수</p>
-              <p class="text-2xl font-bold text-slate-800 mt-2">${data.total_customers}</p>
-              <p class="text-sm text-slate-400 mt-1 flex items-center">
-                <i class="fas fa-crown mr-1.5 text-amber-500"></i>VIP ${data.vip_customers}명
-              </p>
+              <p class="text-slate-500 text-sm font-medium group-hover:text-rose-600 transition-colors">재고 부족</p>
+              <p class="text-3xl font-bold text-slate-800 mt-2">${actionItems.low_stock}</p>
+              <p class="text-xs text-slate-400 mt-1">건의 상품 발주 필요</p>
             </div>
-            <div class="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center text-sky-600 text-xl">
-              <i class="fas fa-users"></i>
+            <div class="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 text-xl group-hover:scale-110 transition-transform">
+              <i class="fas fa-exclamation-triangle"></i>
             </div>
           </div>
         </div>
@@ -269,10 +270,14 @@ async function loadDashboard(content) {
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <!-- 매출 추이 (2칸 차지) -->
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-          <div class="flex items-center mb-6">
+          <div class="flex items-center mb-6 justify-between">
             <h2 class="text-lg font-bold text-slate-800 flex items-center">
-              <i class="fas fa-chart-line text-indigo-500 mr-2"></i>최근 7일 매출 추이
+              <i class="fas fa-chart-line text-indigo-500 mr-2"></i>Profit Insight (순이익 분석)
             </h2>
+            <div class="flex gap-2 text-xs font-medium">
+              <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-indigo-500 mr-1"></span>매출</span>
+              <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-emerald-500 mr-1"></span>순이익</span>
+            </div>
           </div>
           <div class="h-72">
             <canvas id="salesChart"></canvas>
@@ -368,7 +373,8 @@ async function loadDashboard(content) {
     `;
 
     // 차트 렌더링
-    renderCharts(chartData, categoryStats);
+    // 차트 렌더링
+    renderCharts(chartData, categoryStats, profitData);
 
     // 초기 리스트 렌더링
     window.dashProdPage = 0;
@@ -466,25 +472,42 @@ function renderDashboardSales(sales) {
   `).join('');
 }
 
-function renderCharts(salesData, categoryData) {
-  // 매출 추이 차트 (Line)
+function renderCharts(salesData, categoryData, profitData) {
+  // Profit Insight 차트 (Line)
   const salesCtx = document.getElementById('salesChart').getContext('2d');
   new Chart(salesCtx, {
     type: 'line',
     data: {
-      labels: salesData.map(d => d.date),
-      datasets: [{
-        label: '일별 매출',
-        data: salesData.map(d => d.revenue),
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true,
-        pointBackgroundColor: '#ffffff',
-        pointBorderColor: '#3b82f6',
-        pointRadius: 4
-      }]
+      labels: profitData.map(d => d.date),
+      datasets: [
+        {
+          label: '매출액',
+          data: profitData.map(d => d.revenue),
+          borderColor: '#6366f1', // Indigo 500
+          backgroundColor: 'rgba(99, 102, 241, 0.05)',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: '#6366f1',
+          pointRadius: 4,
+          order: 2
+        },
+        {
+          label: '순이익',
+          data: profitData.map(d => d.profit),
+          borderColor: '#10b981', // Emerald 500
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          tension: 0.4,
+          fill: false,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: '#10b981',
+          pointRadius: 4,
+          order: 1
+        }
+      ]
     },
     options: {
       responsive: true,

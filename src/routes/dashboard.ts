@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
-import type { Bindings } from '../types'
+import type { Bindings, Variables } from '../types'
 
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // 대시보드 요약 정보
 app.get('/summary', async (c) => {
@@ -45,8 +45,8 @@ app.get('/summary', async (c) => {
     FROM customers
   `).first()
 
-  return c.json({ 
-    success: true, 
+  return c.json({
+    success: true,
     data: {
       today_revenue: todaySales?.today_revenue || 0,
       today_sales_count: todaySales?.today_sales_count || 0,
@@ -174,6 +174,76 @@ app.get('/vip-customers', async (c) => {
     ORDER BY total_purchase_amount DESC
     LIMIT ?
   `).bind(limit).all()
+
+  return c.json({ success: true, data: results })
+})
+
+// Action Board (오늘의 업무)
+app.get('/action-items', async (c) => {
+  const { DB } = c.env
+  const tenantId = c.get('tenantId')
+
+  // 1. 출고 대기 (결제 완료 + 배송 준비중)
+  const pendingShipment = await DB.prepare(`
+    SELECT COUNT(*) as count FROM sales 
+    WHERE tenant_id = ? AND (status = 'paid' OR status = 'pending_shipment')
+  `).bind(tenantId).first('count')
+
+  // 2. 배송 중
+  const shipping = await DB.prepare(`
+    SELECT COUNT(*) as count FROM sales 
+    WHERE tenant_id = ? AND status = 'shipped'
+  `).bind(tenantId).first('count')
+
+  // 3. 반품/교환 요청
+  let claimCount = 0;
+  try {
+    const res = await DB.prepare(`
+      SELECT COUNT(*) as count FROM claims 
+      WHERE tenant_id = ? AND status = 'requested'
+    `).bind(tenantId).first('count')
+    claimCount = res as number
+  } catch (e) {
+    console.error('Claims table query error', e)
+  }
+
+  // 4. 재고 부족
+  const lowStock = await DB.prepare(`
+    SELECT COUNT(*) as count FROM products 
+    WHERE tenant_id = ? AND is_active = 1 AND current_stock <= min_stock_alert
+  `).bind(tenantId).first('count')
+
+  return c.json({
+    success: true,
+    data: {
+      pending_shipment: pendingShipment,
+      shipping: shipping,
+      claims: claimCount,
+      low_stock: lowStock
+    }
+  })
+})
+
+// Profit Insight (순이익 분석)
+app.get('/profit-chart', async (c) => {
+  const { DB } = c.env
+  const tenantId = c.get('tenantId')
+  const days = parseInt(c.req.query('days') || '30')
+
+  const { results } = await DB.prepare(`
+    SELECT 
+      DATE(s.created_at) as date,
+      SUM(s.final_amount) as revenue,
+      SUM(si.quantity * p.purchase_price) as cost,
+      (SUM(s.final_amount) - SUM(si.quantity * p.purchase_price)) as profit
+    FROM sales s
+    JOIN sale_items si ON s.id = si.sale_id
+    JOIN products p ON si.product_id = p.id
+    WHERE s.tenant_id = ? AND s.status = 'completed'
+      AND DATE(s.created_at) >= DATE('now', 'localtime', '-' || ? || ' days')
+    GROUP BY DATE(s.created_at)
+    ORDER BY date ASC
+  `).bind(tenantId, days).all()
 
   return c.json({ success: true, data: results })
 })
