@@ -230,6 +230,11 @@ app.get('/profit-chart', async (c) => {
   const tenantId = c.get('tenantId')
   const days = parseInt(c.req.query('days') || '30')
 
+  // 날짜 계산 (JS에서 처리)
+  const pastDate = new Date()
+  pastDate.setDate(pastDate.getDate() - days)
+  const startDate = pastDate.toISOString().split('T')[0]
+
   const { results } = await DB.prepare(`
     SELECT 
       DATE(s.created_at) as date,
@@ -240,10 +245,10 @@ app.get('/profit-chart', async (c) => {
     JOIN sale_items si ON s.id = si.sale_id
     JOIN products p ON si.product_id = p.id
     WHERE s.tenant_id = ? AND s.status = 'completed'
-      AND DATE(s.created_at) >= DATE('now', 'localtime', '-' || ? || ' days')
+      AND DATE(s.created_at) >= ?
     GROUP BY DATE(s.created_at)
     ORDER BY date ASC
-  `).bind(tenantId, days).all()
+  `).bind(tenantId, startDate).all()
 
   return c.json({ success: true, data: results })
 })

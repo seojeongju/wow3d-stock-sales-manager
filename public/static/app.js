@@ -184,23 +184,32 @@ async function loadPage(page) {
 // 대시보드 로드
 async function loadDashboard(content) {
   try {
+    // 실패해도 전체가 죽지 않도록 개별 에러 처리
+    const fetchWithFallback = (url, fallback) => axios.get(url).catch(e => {
+      console.error(`Failed to fetch ${url}`, e);
+      return { data: { data: fallback } };
+    });
+
     // 병렬 데이터 로드
     const [summaryRes, salesChartRes, categoryStatsRes, lowStockRes, productsRes, salesRes, actionRes, profitRes] = await Promise.all([
-      axios.get(`${API_BASE}/dashboard/summary`),
-      axios.get(`${API_BASE}/dashboard/sales-chart?days=30`),
-      axios.get(`${API_BASE}/dashboard/category-stats`),
-      axios.get(`${API_BASE}/dashboard/low-stock-alerts`),
-      axios.get(`${API_BASE}/products?limit=5&offset=0`),
-      axios.get(`${API_BASE}/sales?limit=5&offset=0`),
-      axios.get(`${API_BASE}/dashboard/action-items`),
-      axios.get(`${API_BASE}/dashboard/profit-chart?days=30`)
+      fetchWithFallback(`${API_BASE}/dashboard/summary`, {}),
+      fetchWithFallback(`${API_BASE}/dashboard/sales-chart?days=30`, []),
+      fetchWithFallback(`${API_BASE}/dashboard/category-stats`, []),
+      fetchWithFallback(`${API_BASE}/dashboard/low-stock-alerts`, []),
+      fetchWithFallback(`${API_BASE}/products?limit=5&offset=0`, []),
+      fetchWithFallback(`${API_BASE}/sales?limit=5&offset=0`, []),
+      fetchWithFallback(`${API_BASE}/dashboard/action-items`, { pending_shipment: 0, shipping: 0, claims: 0, low_stock: 0 }),
+      fetchWithFallback(`${API_BASE}/dashboard/profit-chart?days=30`, [])
     ]);
 
-    const data = summaryRes.data.data;
-    const chartData = salesChartRes.data.data;
-    const categoryStats = categoryStatsRes.data.data;
-    const actionItems = actionRes.data.data;
-    const profitData = profitRes.data.data;
+    const data = summaryRes.data.data || {};
+    const chartData = salesChartRes.data.data || [];
+    const categoryStats = categoryStatsRes.data.data || [];
+    const lowStockAlerts = lowStockRes.data.data || [];
+    const products = productsRes.data.data || [];
+    const sales = salesRes.data.data || [];
+    const actionItems = actionRes.data.data || { pending_shipment: 0, shipping: 0, claims: 0, low_stock: 0 };
+    const profitData = profitRes.data.data || [];
 
     content.innerHTML = `
       <!-- Action Board (오늘의 업무) -->
