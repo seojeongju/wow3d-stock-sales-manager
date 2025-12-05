@@ -359,16 +359,21 @@ function switchTab(tab) {
     if (tab === 'login') {
         loginForm.classList.remove('hidden');
         registerForm.classList.add('hidden');
-        loginBtn.classList.add('text-indigo-600', 'border-indigo-600');
-        loginBtn.classList.remove('text-slate-500');
-        registerBtn.classList.remove('text-indigo-600', 'border-indigo-600');
-        registerBtn.classList.add('text-slate-500');
+        
+        loginBtn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        loginBtn.classList.remove('text-slate-400', 'font-medium');
+        
+        registerBtn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        registerBtn.classList.add('text-slate-400', 'font-medium');
     } else {
+        loginForm.classList.add('hidden');
         registerForm.classList.remove('hidden');
-        registerBtn.classList.add('text-indigo-600', 'border-indigo-600');
-        registerBtn.classList.remove('text-slate-500');
-        loginBtn.classList.remove('text-indigo-600', 'border-indigo-600');
-        loginBtn.classList.add('text-slate-500');
+        
+        registerBtn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        registerBtn.classList.remove('text-slate-400', 'font-medium');
+        
+        loginBtn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        loginBtn.classList.add('text-slate-400', 'font-medium');
     }
 }
 
