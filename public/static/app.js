@@ -250,14 +250,183 @@ async function loadCustomers(content) {
 // 출고 관리 페이지 로드
 async function renderOutboundPage() {
   const content = document.getElementById('content');
+
   content.innerHTML = `
-        <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold text-gray-800">출고 관리</h1>
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold text-gray-800">
+        <i class="fas fa-truck-loading mr-2"></i>출고 관리
+      </h1>
+    </div>
+
+    <!-- 필터 및 검색 -->
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6">
+      <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div class="flex flex-1 gap-4 w-full md:w-auto">
+          <div class="relative flex-1 md:max-w-xs">
+            <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+            <input type="text" id="outboundSearch" placeholder="주문번호, 고객명, 상품명" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeyup="if(event.key === 'Enter') loadOutboundOrders()">
+          </div>
+          <select id="outboundStatusFilter" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="loadOutboundOrders()">
+            <option value="">전체 상태</option>
+            <option value="pending">출고 대기</option>
+            <option value="shipping">배송 중</option>
+            <option value="completed">배송 완료</option>
+            <option value="cancelled">취소됨</option>
+          </select>
+          <button onclick="loadOutboundOrders()" class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors">
+            조회
+          </button>
         </div>
-        <div class="bg-white rounded-xl shadow-lg p-6">
-        <p class="text-slate-500 text-center py-10">출고 관리 기능 준비 중입니다.</p>
-        </div>
-    `;
+      </div>
+    </div>
+
+    <!-- 출고 목록 -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">주문번호/일자</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">고객 정보</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">상품 정보</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">수량</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">상태</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">관리</th>
+            </tr>
+          </thead>
+          <tbody id="outboundList" class="bg-white divide-y divide-slate-200">
+            <!-- 자바스크립트로 로드 -->
+          </tbody>
+        </table>
+      </div>
+      <!-- 페이지네이션 -->
+      <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-center gap-4">
+        <button onclick="changeOutboundPage(-1)" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <span id="outboundPageDisplay" class="text-sm font-medium text-slate-600">1 페이지</span>
+        <button onclick="changeOutboundPage(1)" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  `;
+
+  // 초기 데이터 로드
+  window.outboundPage = 0;
+  loadOutboundOrders();
+}
+
+// 출고 목록 로드
+async function loadOutboundOrders() {
+  const container = document.getElementById('outboundList');
+  const search = document.getElementById('outboundSearch').value;
+  const status = document.getElementById('outboundStatusFilter').value;
+  const page = window.outboundPage || 0;
+
+  try {
+    // 쿼리 파라미터 구성
+    const params = new URLSearchParams({
+      limit: 10,
+      offset: page * 10
+    });
+    if (search) params.append('search', search);
+    if (status) params.append('status', status);
+
+    const res = await axios.get(`${API_BASE}/outbound?${params.toString()}`);
+    const orders = res.data.data;
+
+    // 페이지 표시 업데이트
+    const pageDisplay = document.getElementById('outboundPageDisplay');
+    if (pageDisplay) pageDisplay.textContent = `${page + 1} 페이지`;
+
+    if (orders.length === 0) {
+      container.innerHTML = `
+        <tr>
+          <td colspan="6" class="px-6 py-10 text-center text-slate-500">
+            <i class="fas fa-box-open text-4xl mb-3 text-slate-300 block"></i>
+            출고 내역이 없습니다.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    container.innerHTML = orders.map(order => `
+      <tr class="hover:bg-slate-50 transition-colors">
+        <td class="px-6 py-4 whitespace-nowrap">
+          <div class="text-sm font-bold text-indigo-600">#${order.id}</div>
+          <div class="text-xs text-slate-500">${new Date(order.created_at).toLocaleDateString()}</div>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap">
+          <div class="text-sm font-medium text-slate-900">${order.customer_name || '비회원'}</div>
+          <div class="text-xs text-slate-500">${order.customer_contact || '-'}</div>
+        </td>
+        <td class="px-6 py-4">
+          <div class="text-sm text-slate-900 truncate max-w-xs" title="${order.product_name}">
+            ${order.product_name}
+          </div>
+          <div class="text-xs text-slate-500">${order.sku || '-'}</div>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-center">
+          <span class="text-sm font-bold text-slate-700">${order.quantity}개</span>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-center">
+          <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+            ${order.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+        order.status === 'shipping' ? 'bg-blue-100 text-blue-700' :
+          order.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+            'bg-slate-100 text-slate-600'}">
+            ${order.status === 'pending' ? '출고 대기' :
+        order.status === 'shipping' ? '배송 중' :
+          order.status === 'completed' ? '배송 완료' :
+            order.status === 'cancelled' ? '취소됨' : order.status}
+          </span>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-center">
+          ${order.status === 'pending' ? `
+            <button onclick="updateOutboundStatus(${order.id}, 'shipping')" class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-2">
+              <i class="fas fa-truck mr-1"></i>배송처리
+            </button>
+          ` : order.status === 'shipping' ? `
+            <button onclick="updateOutboundStatus(${order.id}, 'completed')" class="text-emerald-600 hover:text-emerald-800 text-sm font-medium mr-2">
+              <i class="fas fa-check mr-1"></i>완료처리
+            </button>
+          ` : '-'}
+        </td>
+      </tr>
+    `).join('');
+
+  } catch (e) {
+    console.error('출고 목록 로드 실패:', e);
+    showToast('출고 목록을 불러오지 못했습니다.', 'error');
+  }
+}
+
+// 페이지 변경
+function changeOutboundPage(delta) {
+  const newPage = (window.outboundPage || 0) + delta;
+  if (newPage < 0) return;
+
+  window.outboundPage = newPage;
+  loadOutboundOrders();
+}
+
+// 출고 상태 변경
+async function updateOutboundStatus(id, status) {
+  if (!confirm(`주문 #${id}의 상태를 '${status === 'shipping' ? '배송 중' : '배송 완료'}'(으)로 변경하시겠습니까?`)) return;
+
+  try {
+    const res = await axios.put(`${API_BASE}/outbound/${id}/status`, { status });
+    if (res.data.success) {
+      showToast('상태가 변경되었습니다.');
+      loadOutboundOrders();
+      // 대시보드 데이터 갱신을 위해 필요하다면...
+    }
+  } catch (e) {
+    console.error('상태 변경 실패:', e);
+    showToast(e.response?.data?.error || '상태 변경에 실패했습니다.', 'error');
+  }
 }
 
 // 대시보드 로드
