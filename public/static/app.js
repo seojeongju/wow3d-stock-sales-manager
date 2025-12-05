@@ -264,14 +264,14 @@ async function renderOutboundPage() {
         <div class="flex flex-1 gap-4 w-full md:w-auto">
           <div class="relative flex-1 md:max-w-xs">
             <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
-            <input type="text" id="outboundSearch" placeholder="주문번호, 고객명, 상품명" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeyup="if(event.key === 'Enter') loadOutboundOrders()">
+            <input type="text" id="outboundSearch" placeholder="주문번호, 고객명" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeyup="if(event.key === 'Enter') loadOutboundOrders()">
           </div>
           <select id="outboundStatusFilter" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="loadOutboundOrders()">
             <option value="">전체 상태</option>
-            <option value="pending">출고 대기</option>
-            <option value="shipping">배송 중</option>
-            <option value="completed">배송 완료</option>
-            <option value="cancelled">취소됨</option>
+            <option value="PENDING">출고 대기</option>
+            <option value="PICKING">피킹 중</option>
+            <option value="PACKING">패킹 중</option>
+            <option value="SHIPPED">출고 완료</option>
           </select>
           <button onclick="loadOutboundOrders()" class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors">
             조회
@@ -308,6 +308,53 @@ async function renderOutboundPage() {
         <button onclick="changeOutboundPage(1)" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
           <i class="fas fa-chevron-right"></i>
         </button>
+      </div>
+    </div>
+
+    <!-- 패킹 모달 -->
+    <div id="packingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-bold text-slate-800">패킹 및 송장 입력</h3>
+          <button onclick="closePackingModal()" class="text-slate-400 hover:text-slate-600">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <form onsubmit="handlePackingSubmit(event)" class="space-y-4">
+          <input type="hidden" id="packingOrderId">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">택배사</label>
+            <select id="packingCourier" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="CJ대한통운">CJ대한통운</option>
+              <option value="우체국택배">우체국택배</option>
+              <option value="한진택배">한진택배</option>
+              <option value="롯데택배">롯데택배</option>
+              <option value="로젠택배">로젠택배</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">운송장 번호</label>
+            <input type="text" id="packingTrackingNumber" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="1234567890">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+             <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">박스 타입</label>
+                <input type="text" id="packingBoxType" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" value="A형">
+             </div>
+             <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">박스 수량</label>
+                <input type="number" id="packingBoxCount" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" value="1" min="1">
+             </div>
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button type="button" onclick="closePackingModal()" class="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+              취소
+            </button>
+            <button type="submit" class="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+              저장
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   `;
@@ -355,42 +402,46 @@ async function loadOutboundOrders() {
     container.innerHTML = orders.map(order => `
       <tr class="hover:bg-slate-50 transition-colors">
         <td class="px-6 py-4 whitespace-nowrap">
-          <div class="text-sm font-bold text-indigo-600">#${order.id}</div>
+          <div class="text-sm font-bold text-indigo-600">${order.order_number}</div>
           <div class="text-xs text-slate-500">${new Date(order.created_at).toLocaleDateString()}</div>
         </td>
         <td class="px-6 py-4 whitespace-nowrap">
-          <div class="text-sm font-medium text-slate-900">${order.customer_name || '비회원'}</div>
-          <div class="text-xs text-slate-500">${order.customer_contact || '-'}</div>
+          <div class="text-sm font-medium text-slate-900">${order.destination_name || '비회원'}</div>
+          <div class="text-xs text-slate-500">${order.destination_phone || '-'}</div>
         </td>
         <td class="px-6 py-4">
-          <div class="text-sm text-slate-900 truncate max-w-xs" title="${order.product_name}">
-            ${order.product_name}
+          <div class="text-sm text-slate-900 truncate max-w-xs" title="${order.first_product_name}">
+            ${order.first_product_name} ${order.item_count > 1 ? `외 ${order.item_count - 1}건` : ''}
           </div>
-          <div class="text-xs text-slate-500">${order.sku || '-'}</div>
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-center">
-          <span class="text-sm font-bold text-slate-700">${order.quantity}개</span>
+          <span class="text-sm font-bold text-slate-700">${order.total_quantity}개</span>
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-center">
           <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-            ${order.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-        order.status === 'shipping' ? 'bg-blue-100 text-blue-700' :
-          order.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-            'bg-slate-100 text-slate-600'}">
-            ${order.status === 'pending' ? '출고 대기' :
-        order.status === 'shipping' ? '배송 중' :
-          order.status === 'completed' ? '배송 완료' :
-            order.status === 'cancelled' ? '취소됨' : order.status}
+            ${order.status === 'PENDING' ? 'bg-slate-100 text-slate-600' :
+        order.status === 'PICKING' ? 'bg-amber-100 text-amber-700' :
+          order.status === 'PACKING' ? 'bg-blue-100 text-blue-700' :
+            order.status === 'SHIPPED' ? 'bg-emerald-100 text-emerald-700' :
+              'bg-gray-100 text-gray-600'}">
+            ${order.status === 'PENDING' ? '출고 대기' :
+        order.status === 'PICKING' ? '피킹 중' :
+          order.status === 'PACKING' ? '패킹 중' :
+            order.status === 'SHIPPED' ? '출고 완료' : order.status}
           </span>
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-center">
-          ${order.status === 'pending' ? `
-            <button onclick="updateOutboundStatus(${order.id}, 'shipping')" class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-2">
-              <i class="fas fa-truck mr-1"></i>배송처리
+          ${order.status === 'PENDING' ? `
+            <button onclick="handlePicking(${order.id})" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-2">
+              <i class="fas fa-hand-holding-box mr-1"></i>피킹 시작
             </button>
-          ` : order.status === 'shipping' ? `
-            <button onclick="updateOutboundStatus(${order.id}, 'completed')" class="text-emerald-600 hover:text-emerald-800 text-sm font-medium mr-2">
-              <i class="fas fa-check mr-1"></i>완료처리
+          ` : order.status === 'PICKING' ? `
+            <button onclick="openPackingModal(${order.id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-2">
+              <i class="fas fa-box mr-1"></i>패킹/송장
+            </button>
+          ` : order.status === 'PACKING' ? `
+            <button onclick="handleConfirm(${order.id})" class="text-emerald-600 hover:text-emerald-800 text-sm font-medium mr-2">
+              <i class="fas fa-check-circle mr-1"></i>출고 확정
             </button>
           ` : '-'}
         </td>
@@ -407,25 +458,89 @@ async function loadOutboundOrders() {
 function changeOutboundPage(delta) {
   const newPage = (window.outboundPage || 0) + delta;
   if (newPage < 0) return;
-
   window.outboundPage = newPage;
   loadOutboundOrders();
 }
 
-// 출고 상태 변경
-async function updateOutboundStatus(id, status) {
-  if (!confirm(`주문 #${id}의 상태를 '${status === 'shipping' ? '배송 중' : '배송 완료'}'(으)로 변경하시겠습니까?`)) return;
+// 1. 피킹 처리 (일괄 피킹 처리)
+async function handlePicking(id) {
+  if (!confirm('해당 주문의 피킹을 시작하시겠습니까?\n(모든 상품이 피킹된 것으로 처리됩니다)')) return;
 
   try {
-    const res = await axios.put(`${API_BASE}/outbound/${id}/status`, { status });
+    // 상세 정보 조회하여 아이템 목록 확보
+    const detailRes = await axios.get(`${API_BASE}/outbound/${id}`);
+    const items = detailRes.data.data.items;
+
+    // 피킹 요청 (모든 수량 피킹 처리)
+    const pickingItems = items.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity_ordered // 전체 수량 피킹
+    }));
+
+    const res = await axios.post(`${API_BASE}/outbound/${id}/picking`, { items: pickingItems });
     if (res.data.success) {
-      showToast('상태가 변경되었습니다.');
+      showToast('피킹이 완료되었습니다.');
       loadOutboundOrders();
-      // 대시보드 데이터 갱신을 위해 필요하다면...
     }
   } catch (e) {
-    console.error('상태 변경 실패:', e);
-    showToast(e.response?.data?.error || '상태 변경에 실패했습니다.', 'error');
+    console.error('피킹 처리 실패:', e);
+    showToast(e.response?.data?.error || '피킹 처리에 실패했습니다.', 'error');
+  }
+}
+
+// 2. 패킹 모달 열기
+function openPackingModal(id) {
+  document.getElementById('packingOrderId').value = id;
+  document.getElementById('packingTrackingNumber').value = '';
+  document.getElementById('packingModal').classList.remove('hidden');
+}
+
+function closePackingModal() {
+  document.getElementById('packingModal').classList.add('hidden');
+}
+
+// 3. 패킹 및 송장 저장
+async function handlePackingSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById('packingOrderId').value;
+  const courier = document.getElementById('packingCourier').value;
+  const tracking_number = document.getElementById('packingTrackingNumber').value;
+  const box_type = document.getElementById('packingBoxType').value;
+  const box_count = document.getElementById('packingBoxCount').value;
+
+  try {
+    const res = await axios.post(`${API_BASE}/outbound/${id}/packing`, {
+      courier,
+      tracking_number,
+      box_type,
+      box_count: parseInt(box_count),
+      weight: 0 // 무게는 선택사항
+    });
+
+    if (res.data.success) {
+      showToast('패킹 정보가 저장되었습니다.');
+      closePackingModal();
+      loadOutboundOrders();
+    }
+  } catch (e) {
+    console.error('패킹 처리 실패:', e);
+    showToast(e.response?.data?.error || '패킹 처리에 실패했습니다.', 'error');
+  }
+}
+
+// 4. 출고 확정
+async function handleConfirm(id) {
+  if (!confirm('출고를 확정하시겠습니까?\n(재고가 차감되고 주문 상태가 배송중으로 변경됩니다)')) return;
+
+  try {
+    const res = await axios.post(`${API_BASE}/outbound/${id}/confirm`);
+    if (res.data.success) {
+      showToast('출고가 확정되었습니다.');
+      loadOutboundOrders();
+    }
+  } catch (e) {
+    console.error('출고 확정 실패:', e);
+    showToast(e.response?.data?.error || '출고 확정에 실패했습니다.', 'error');
   }
 }
 
