@@ -49,148 +49,259 @@ app.get('/login', (c: Context) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로그인 - 재고/판매 관리 시스템</title>
+    <title>로그인 - WOW Sales ERP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+            overflow: hidden;
+        }
+        
+        /* Animated Background */
+        .bg-animate {
+            background-image: url('/static/login_bg.jpg');
+            background-size: cover;
+            background-position: center;
+            animation: zoomEffect 20s infinite alternate ease-in-out;
+        }
+
+        @keyframes zoomEffect {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+
+        /* Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        /* Floating Particles */
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        .particle {
+            position: absolute;
+            display: block;
+            list-style: none;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            animation: animate 25s linear infinite;
+            bottom: -150px;
+            border-radius: 50%;
+        }
+
+        .particle:nth-child(1) { left: 25%; width: 80px; height: 80px; animation-delay: 0s; }
+        .particle:nth-child(2) { left: 10%; width: 20px; height: 20px; animation-delay: 2s; animation-duration: 12s; }
+        .particle:nth-child(3) { left: 70%; width: 20px; height: 20px; animation-delay: 4s; }
+        .particle:nth-child(4) { left: 40%; width: 60px; height: 60px; animation-delay: 0s; animation-duration: 18s; }
+        .particle:nth-child(5) { left: 65%; width: 20px; height: 20px; animation-delay: 0s; }
+        .particle:nth-child(6) { left: 75%; width: 110px; height: 110px; animation-delay: 3s; }
+        .particle:nth-child(7) { left: 35%; width: 150px; height: 150px; animation-delay: 7s; }
+        .particle:nth-child(8) { left: 50%; width: 25px; height: 25px; animation-delay: 15s; animation-duration: 45s; }
+        .particle:nth-child(9) { left: 20%; width: 15px; height: 15px; animation-delay: 2s; animation-duration: 35s; }
+        .particle:nth-child(10) { left: 85%; width: 150px; height: 150px; animation-delay: 0s; animation-duration: 11s; }
+
+        @keyframes animate {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+                border-radius: 0;
+            }
+            100% {
+                transform: translateY(-1000px) rotate(720deg);
+                opacity: 0;
+                border-radius: 50%;
+            }
+        }
+
+        /* Input Animation */
+        .input-group {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .input-group:focus-within {
+            transform: translateY(-2px);
+        }
+        .input-group:focus-within i {
+            color: #4f46e5;
+        }
+    </style>
 </head>
-<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-        <div class="p-8">
-            <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-indigo-600 mb-2">Stock Manager</h1>
-                <p class="text-slate-500">재고와 판매를 한 곳에서 관리하세요</p>
+<body class="h-screen w-full overflow-hidden relative">
+    
+    <!-- Background & Overlay -->
+    <div class="absolute inset-0 bg-animate z-0"></div>
+    <div class="absolute inset-0 bg-slate-900/40 z-0"></div>
+
+    <!-- Particles -->
+    <ul class="particles">
+        <li class="particle"></li>
+        <li class="particle"></li>
+        <li class="particle"></li>
+        <li class="particle"></li>
+        <li class="particle"></li>
+        <li class="particle"></li>
+        <li class="particle"></li>
+        <li class="particle"></li>
+        <li class="particle"></li>
+        <li class="particle"></li>
+    </ul>
+
+    <!-- Main Content -->
+    <div class="relative z-10 w-full h-full flex items-center justify-center p-4">
+        <div class="glass-panel rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-500 hover:shadow-indigo-500/20">
+            <div class="p-8">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-slate-800 mb-2 tracking-tight">WOW Sales ERP</h1>
+                    <p class="text-slate-500 font-medium">Transforming Your Business</p>
+                </div>
+
+                <!-- 탭 버튼 -->
+                <div class="flex mb-6 border-b border-slate-200/50">
+                    <button onclick="switchTab('login')" id="loginTabBtn" class="flex-1 py-3 text-sm font-bold text-indigo-600 border-b-2 border-indigo-600 focus:outline-none transition-all">로그인</button>
+                    <button onclick="switchTab('register')" id="registerTabBtn" class="flex-1 py-3 text-sm font-medium text-slate-500 hover:text-indigo-600 focus:outline-none transition-all">회원가입</button>
+                </div>
+
+                <!-- 로그인 폼 -->
+                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
+                    <div class="input-group">
+                        <label class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Email</label>
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-3 top-3.5 text-slate-400 transition-colors"></i>
+                            <input type="email" id="loginEmail" required class="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="example@company.com">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Password</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-3 top-3.5 text-slate-400 transition-colors"></i>
+                            <input type="password" id="loginPassword" required class="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="••••••••">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3.5 rounded-xl font-bold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/30 transform hover:-translate-y-0.5 mt-4">
+                        로그인
+                    </button>
+                    
+                    <!-- 아이디/비밀번호 찾기 링크 -->
+                    <div class="flex justify-center gap-4 text-sm mt-6">
+                        <button type="button" onclick="showFindEmailModal()" class="text-slate-500 hover:text-indigo-600 font-medium transition-colors">아이디 찾기</button>
+                        <span class="text-slate-300">|</span>
+                        <button type="button" onclick="showResetPasswordModal()" class="text-slate-500 hover:text-indigo-600 font-medium transition-colors">비밀번호 찾기</button>
+                    </div>
+                </form>
+
+                <!-- 회원가입 폼 -->
+                <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+                    <div class="input-group">
+                        <label class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Email</label>
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-3 top-3.5 text-slate-400"></i>
+                            <input type="email" id="regEmail" required class="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="example@company.com">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Password</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-3 top-3.5 text-slate-400"></i>
+                            <input type="password" id="regPassword" required class="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="••••••••">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Name</label>
+                        <div class="relative">
+                            <i class="fas fa-user absolute left-3 top-3.5 text-slate-400"></i>
+                            <input type="text" id="regName" required class="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="홍길동">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Company</label>
+                        <div class="relative">
+                            <i class="fas fa-building absolute left-3 top-3.5 text-slate-400"></i>
+                            <input type="text" id="regCompany" required class="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="(주)와우3D">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3.5 rounded-xl font-bold hover:from-emerald-600 hover:to-teal-700 transition-all shadow-lg shadow-emerald-500/30 transform hover:-translate-y-0.5 mt-4">
+                        회원가입 및 조직 생성
+                    </button>
+                </form>
             </div>
-
-            <!-- 탭 버튼 -->
-            <div class="flex mb-6 border-b border-slate-200">
-                <button onclick="switchTab('login')" id="loginTabBtn" class="flex-1 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 focus:outline-none transition-colors">로그인</button>
-                <button onclick="switchTab('register')" id="registerTabBtn" class="flex-1 py-3 text-sm font-medium text-slate-500 hover:text-indigo-600 focus:outline-none transition-colors">회원가입</button>
+            <div class="bg-slate-50/50 px-8 py-4 border-t border-slate-200/50 text-center text-xs text-slate-500 font-medium">
+                &copy; 2025 WOW Sales ERP. All rights reserved.
             </div>
-
-            <!-- 로그인 폼 -->
-            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-                    <div class="relative">
-                        <i class="fas fa-envelope absolute left-3 top-3 text-slate-400"></i>
-                        <input type="email" id="loginEmail" required class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow" placeholder="example@company.com">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
-                    <div class="relative">
-                        <i class="fas fa-lock absolute left-3 top-3 text-slate-400"></i>
-                        <input type="password" id="loginPassword" required class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow" placeholder="••••••••">
-                    </div>
-                </div>
-                <button type="submit" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm mt-2">
-                    로그인
-                </button>
-                
-                <!-- 아이디/비밀번호 찾기 링크 -->
-                <div class="flex justify-center gap-4 text-sm mt-4">
-                    <button type="button" onclick="showFindEmailModal()" class="text-indigo-600 hover:text-indigo-700 hover:underline">아이디 찾기</button>
-                    <span class="text-slate-300">|</span>
-                    <button type="button" onclick="showResetPasswordModal()" class="text-indigo-600 hover:text-indigo-700 hover:underline">비밀번호 찾기</button>
-                </div>
-            </form>
-
-            <!-- 회원가입 폼 -->
-            <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-                    <div class="relative">
-                        <i class="fas fa-envelope absolute left-3 top-3 text-slate-400"></i>
-                        <input type="email" id="regEmail" required class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow" placeholder="example@company.com">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
-                    <div class="relative">
-                        <i class="fas fa-lock absolute left-3 top-3 text-slate-400"></i>
-                        <input type="password" id="regPassword" required class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow" placeholder="••••••••">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
-                    <div class="relative">
-                        <i class="fas fa-user absolute left-3 top-3 text-slate-400"></i>
-                        <input type="text" id="regName" required class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow" placeholder="홍길동">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">회사명 (조직 이름)</label>
-                    <div class="relative">
-                        <i class="fas fa-building absolute left-3 top-3 text-slate-400"></i>
-                        <input type="text" id="regCompany" required class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow" placeholder="(주)와우3D">
-                    </div>
-                </div>
-                <button type="submit" class="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors shadow-sm mt-2">
-                    회원가입 및 조직 생성
-                </button>
-            </form>
         </div>
-        <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center text-xs text-slate-500">
-            &copy; 2025 Stock Sales Manager. All rights reserved.
+
+        <!-- 아이디 찾기 모달 -->
+        <div id="findEmailModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-slate-800">아이디 찾기</h3>
+                    <button onclick="closeFindEmailModal()" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form onsubmit="handleFindEmail(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">이름</label>
+                        <input type="text" id="findEmailName" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="홍길동">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors">
+                        찾기
+                    </button>
+                </form>
+                <div id="findEmailResult" class="hidden mt-4 p-4 bg-green-50 border border-green-100 rounded-xl">
+                    <p class="text-sm text-green-800 font-bold mb-1"><i class="fas fa-check-circle mr-2"></i>아이디를 찾았습니다!</p>
+                    <p class="text-sm text-slate-600 pl-6" id="foundEmailMessage"></p>
+                    <p class="text-xs text-slate-500 mt-2 pl-6">📧 등록된 이메일로 전체 주소를 전송했습니다.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 비밀번호 찾기 모달 -->
+        <div id="resetPasswordModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-slate-800">비밀번호 재설정</h3>
+                    <button onclick="closeResetPasswordModal()" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form onsubmit="handleResetPassword(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">이메일</label>
+                        <input type="email" id="resetEmail" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="example@company.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">이름</label>
+                        <input type="text" id="resetName" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="홍길동">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors">
+                        임시 비밀번호 발급
+                    </button>
+                </form>
+                <div id="resetPasswordResult" class="hidden mt-4 p-4 bg-green-50 border border-green-100 rounded-xl">
+                    <p class="text-sm text-green-800 font-bold mb-2" id="resetSuccessMessage"></p>
+                    <p class="text-sm text-slate-600 mb-2" id="tempPasswordDisplay" style="display: none;">임시 비밀번호: <span class="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded" id="tempPassword"></span></p>
+                    <p class="text-xs text-amber-600"><i class="fas fa-exclamation-triangle mr-1"></i>로그인 후 반드시 비밀번호를 변경해주세요.</p>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- 아이디 찾기 모달 -->
-    <div id="findEmailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-slate-800">아이디(이메일) 찾기</h3>
-                <button onclick="closeFindEmailModal()" class="text-slate-400 hover:text-slate-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <form onsubmit="handleFindEmail(event)" class=\"space-y-4\">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
-                    <input type="text" id="findEmailName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="홍길동">
-                </div>
-                <button type="submit" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
-                    찾기
-                </button>
-            </form>
-            <div id="findEmailResult" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p class="text-sm text-green-800 font-medium mb-1">아이디를 찾았습니다!</p>
-                <p class="text-sm text-slate-600" id="foundEmailMessage"></p>
-                <p class="text-xs text-slate-500 mt-2">📧 등록된 이메일로 전체 주소를 전송했습니다.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- 비밀번호 찾기 모달 -->
-    <div id="resetPasswordModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-slate-800">비밀번호 재설정</h3>
-                <button onclick="closeResetPasswordModal()" class="text-slate-400 hover:text-slate-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <form onsubmit="handleResetPassword(event)" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-                    <input type="email" id="resetEmail" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="example@company.com">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
-                    <input type="text" id="resetName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="홍길동">
-                </div>
-                <button type="submit" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
-                    임시 비밀번호 발급
-                </button>
-            </form>
-            <div id="resetPasswordResult" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p class="text-sm text-green-800 font-medium mb-2" id="resetSuccessMessage"></p>
-                <p class="text-sm text-slate-600 mb-2" id="tempPasswordDisplay" style="display: none;">임시 비밀번호: <span class="font-mono font-bold text-indigo-600" id="tempPassword"></span></p>
-                <p class="text-xs text-amber-600">⚠️ 로그인 후 반드시 비밀번호를 변경해주세요.</p>
-            </div>
-        </div>
-    </div
 
 >
 

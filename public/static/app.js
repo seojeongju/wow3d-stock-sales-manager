@@ -6095,6 +6095,7 @@ function renderDashboardLowStock(alerts) {
 
 // 설정 페이지 렌더링
 async function renderSettingsPage() {
+  window.selectedLogoBase64 = null; // 초기화
   const content = document.getElementById('content');
   const pageTitle = document.getElementById('page-title');
   pageTitle.textContent = '설정';
@@ -6141,12 +6142,26 @@ async function renderSettingsPage() {
               <input type="text" id="settingCompanyName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">로고 URL</label>
-              <div class="flex gap-2">
-                  <input type="url" id="settingLogoUrl" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="https://example.com/logo.png">
-                  <button type="button" onclick="previewLogo()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">미리보기</button>
+              <label class="block text-sm font-medium text-slate-700 mb-1">로고 설정</label>
+              <div class="flex flex-col gap-3">
+                  <!-- URL 입력 -->
+                  <div class="flex gap-2">
+                      <input type="url" id="settingLogoUrl" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="https://example.com/logo.png (선택사항)">
+                      <button type="button" onclick="previewLogo()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors whitespace-nowrap">URL 미리보기</button>
+                  </div>
+                  
+                  <div class="text-center text-slate-400 text-sm font-medium">- 또는 -</div>
+
+                  <!-- 파일 선택 -->
+                  <div class="flex gap-2 items-center">
+                      <input type="file" id="logoFileInput" accept="image/*" class="hidden" onchange="handleLogoFileSelect(event)">
+                      <button type="button" onclick="document.getElementById('logoFileInput').click()" class="w-full px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2">
+                          <i class="fas fa-image"></i>
+                          <span>내 컴퓨터에서 이미지 선택</span>
+                      </button>
+                  </div>
               </div>
-              <p class="text-xs text-slate-500 mt-1">이미지 주소를 입력하세요. (직접 업로드 기능은 추후 제공 예정)</p>
+              <p class="text-xs text-slate-500 mt-2">권장 사이즈: 200x200px 이상, 투명 배경 PNG (최대 2MB)</p>
             </div>
             <div id="logoPreviewArea" class="hidden mt-2 p-4 border border-slate-200 rounded-lg bg-slate-50 text-center">
                 <p class="text-xs text-slate-400 mb-2">미리보기</p>
@@ -6257,6 +6272,12 @@ function previewLogo(url = null) {
   const previewImg = document.getElementById('logoPreviewImg');
 
   if (inputUrl) {
+    // URL로 미리보기 시 선택된 파일 초기화
+    if (!url) { // 직접 호출된 경우에만 초기화
+      window.selectedLogoBase64 = null;
+      const fileInput = document.getElementById('logoFileInput');
+      if (fileInput) fileInput.value = '';
+    }
     previewImg.src = inputUrl;
     previewArea.classList.remove('hidden');
   } else {
@@ -6264,11 +6285,48 @@ function previewLogo(url = null) {
   }
 }
 
+function handleLogoFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // 파일 크기 체크 (2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('이미지 크기는 2MB 이하여야 합니다.', 'error');
+    event.target.value = ''; // 초기화
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const base64 = e.target.result;
+
+    // URL 입력창 비우기
+    const urlInput = document.getElementById('settingLogoUrl');
+    if (urlInput) urlInput.value = '';
+
+    // 미리보기 업데이트
+    const previewArea = document.getElementById('logoPreviewArea');
+    const previewImg = document.getElementById('logoPreviewImg');
+
+    if (previewImg) previewImg.src = base64;
+    if (previewArea) previewArea.classList.remove('hidden');
+
+    // 저장용 변수 설정
+    window.selectedLogoBase64 = base64;
+  };
+  reader.readAsDataURL(file);
+}
+
 // 회사 정보 저장
 async function handleCompanyInfoSubmit(e) {
   e.preventDefault();
   const name = document.getElementById('settingCompanyName').value;
-  const logo_url = document.getElementById('settingLogoUrl').value;
+  let logo_url = document.getElementById('settingLogoUrl').value;
+
+  // 파일 선택된 것이 있으면 그것을 사용
+  if (window.selectedLogoBase64) {
+    logo_url = window.selectedLogoBase64;
+  }
 
   try {
     const res = await axios.put(`${API_BASE}/settings/company`, { name, logo_url });
@@ -6282,6 +6340,11 @@ async function handleCompanyInfoSubmit(e) {
       localStorage.setItem('tenant', JSON.stringify(tenant));
 
       updateCompanyName();
+
+      // 선택된 파일 초기화
+      window.selectedLogoBase64 = null;
+      const fileInput = document.getElementById('logoFileInput');
+      if (fileInput) fileInput.value = '';
     }
   } catch (e) {
     console.error('회사 정보 저장 실패:', e);
