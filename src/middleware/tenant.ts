@@ -3,14 +3,20 @@ import { verify } from 'hono/jwt'
 
 export const tenantMiddleware = async (c: Context, next: Next) => {
     // 인증이 필요 없는 경로 제외
-    if (c.req.path.startsWith('/api/auth')) {
+    const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/find-email', '/api/auth/reset-password'];
+    // /api/auth/me는 인증이 필요하므로 제외 목록에 포함하지 않음
+    if (publicPaths.some(path => c.req.path === path || c.req.path.startsWith(path + '/'))) {
         await next()
         return
     }
 
+    console.log('[TENANT MIDDLEWARE] Path:', c.req.path)
+
     const authHeader = c.req.header('Authorization')
+    console.log('[TENANT MIDDLEWARE] Auth header:', authHeader)
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log('[TENANT MIDDLEWARE] No auth header or invalid format')
         return c.json({ success: false, error: '인증이 필요합니다.' }, 401)
     }
 
@@ -19,6 +25,7 @@ export const tenantMiddleware = async (c: Context, next: Next) => {
 
     try {
         const payload = await verify(token, secret)
+        console.log('[TENANT MIDDLEWARE] Token verified. Payload:', payload)
 
         // 컨텍스트에 저장
         c.set('tenantId', payload.tenantId)
@@ -27,6 +34,7 @@ export const tenantMiddleware = async (c: Context, next: Next) => {
 
         await next()
     } catch (e) {
+        console.log('[TENANT MIDDLEWARE] Token verification failed:', e)
         return c.json({ success: false, error: '유효하지 않은 토큰입니다.' }, 401)
     }
 }

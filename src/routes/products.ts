@@ -148,12 +148,33 @@ app.post('/', async (c) => {
     body.specifications || null
   ).run()
 
-  // 재고 이동 기록 (초기 재고)
+  // 재고 이동 기록 (초기 재고) & 기본 창고 할당
   if (body.current_stock > 0) {
+    // 1. 기본 창고 확인 또는 생성
+    let defaultWarehouse = await DB.prepare('SELECT id FROM warehouses WHERE tenant_id = ? AND name = ?')
+      .bind(tenantId, '기본 창고')
+      .first<{ id: number }>()
+
+    if (!defaultWarehouse) {
+      const res = await DB.prepare('INSERT INTO warehouses (tenant_id, name, location, description) VALUES (?, ?, ?, ?) RETURNING id')
+        .bind(tenantId, '기본 창고', '본사', '초기 재고 할당용 기본 창고')
+        .first<{ id: number }>()
+      defaultWarehouse = { id: res.id }
+    }
+
+    const warehouseId = defaultWarehouse.id
+
+    // 2. 창고 재고 등록
     await DB.prepare(`
-      INSERT INTO stock_movements (tenant_id, product_id, movement_type, quantity, reason)
-      VALUES (?, ?, '입고', ?, '초기 재고')
-    `).bind(tenantId, result.meta.last_row_id, body.current_stock).run()
+      INSERT INTO product_warehouse_stocks (tenant_id, product_id, warehouse_id, quantity)
+      VALUES (?, ?, ?, ?)
+    `).bind(tenantId, result.meta.last_row_id, warehouseId, body.current_stock).run()
+
+    // 3. 이동 내역 기록 (창고 ID 포함)
+    await DB.prepare(`
+      INSERT INTO stock_movements (tenant_id, product_id, warehouse_id, movement_type, quantity, reason)
+      VALUES (?, ?, ?, '입고', ?, '초기 재고')
+    `).bind(tenantId, result.meta.last_row_id, warehouseId, body.current_stock).run()
   }
 
   return c.json({

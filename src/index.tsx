@@ -1,4 +1,4 @@
-import { Hono, Context } from 'hono'
+﻿import { Hono, Context } from 'hono'
 import { cors } from 'hono/cors'
 import type { Bindings, Variables } from './types'
 import { tenantMiddleware } from './middleware/tenant'
@@ -12,9 +12,11 @@ import dashboardRouter from './routes/dashboard'
 import claimsRouter from './routes/claims'
 import usersRouter from './routes/users'
 import outboundRouter from './routes/outbound'
+import warehouseRouter from './routes/warehouse'
 import authRouter from './routes/auth'
 import subscriptionRouter from './routes/subscription'
 import importExportRouter from './routes/import-export'
+import settingsRouter from './routes/settings'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -36,6 +38,8 @@ app.route('/api/dashboard', dashboardRouter)
 app.route('/api/claims', claimsRouter)
 app.route('/api/users', usersRouter)
 app.route('/api/outbound', outboundRouter)
+app.route('/api/warehouses', warehouseRouter)
+app.route('/api/settings', settingsRouter)
 
 // 로그인 페이지
 app.get('/login', (c: Context) => {
@@ -83,6 +87,13 @@ app.get('/login', (c: Context) => {
                 <button type="submit" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm mt-2">
                     로그인
                 </button>
+                
+                <!-- 아이디/비밀번호 찾기 링크 -->
+                <div class="flex justify-center gap-4 text-sm mt-4">
+                    <button type="button" onclick="showFindEmailModal()" class="text-indigo-600 hover:text-indigo-700 hover:underline">아이디 찾기</button>
+                    <span class="text-slate-300">|</span>
+                    <button type="button" onclick="showResetPasswordModal()" class="text-indigo-600 hover:text-indigo-700 hover:underline">비밀번호 찾기</button>
+                </div>
             </form>
 
             <!-- 회원가입 폼 -->
@@ -125,6 +136,64 @@ app.get('/login', (c: Context) => {
         </div>
     </div>
 
+    <!-- 아이디 찾기 모달 -->
+    <div id="findEmailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-slate-800">아이디(이메일) 찾기</h3>
+                <button onclick="closeFindEmailModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form onsubmit="handleFindEmail(event)" class=\"space-y-4\">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
+                    <input type="text" id="findEmailName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="홍길동">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+                    찾기
+                </button>
+            </form>
+            <div id="findEmailResult" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p class="text-sm text-green-800 font-medium mb-1">아이디를 찾았습니다!</p>
+                <p class="text-sm text-slate-600" id="foundEmailMessage"></p>
+                <p class="text-xs text-slate-500 mt-2">📧 등록된 이메일로 전체 주소를 전송했습니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 비밀번호 찾기 모달 -->
+    <div id="resetPasswordModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-slate-800">비밀번호 재설정</h3>
+                <button onclick="closeResetPasswordModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form onsubmit="handleResetPassword(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+                    <input type="email" id="resetEmail" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="example@company.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
+                    <input type="text" id="resetName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="홍길동">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+                    임시 비밀번호 발급
+                </button>
+            </form>
+            <div id="resetPasswordResult" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p class="text-sm text-green-800 font-medium mb-2" id="resetSuccessMessage"></p>
+                <p class="text-sm text-slate-600 mb-2" id="tempPasswordDisplay" style="display: none;">임시 비밀번호: <span class="font-mono font-bold text-indigo-600" id="tempPassword"></span></p>
+                <p class="text-xs text-amber-600">⚠️ 로그인 후 반드시 비밀번호를 변경해주세요.</p>
+            </div>
+        </div>
+    </div
+
+>
+
     <script>
         const API_BASE = '/api';
 
@@ -142,7 +211,6 @@ app.get('/login', (c: Context) => {
                 registerBtn.classList.remove('text-indigo-600', 'border-indigo-600');
                 registerBtn.classList.add('text-slate-500');
             } else {
-                loginForm.classList.add('hidden');
                 registerForm.classList.remove('hidden');
                 registerBtn.classList.add('text-indigo-600', 'border-indigo-600');
                 registerBtn.classList.remove('text-slate-500');
@@ -159,11 +227,20 @@ app.get('/login', (c: Context) => {
             try {
                 const res = await axios.post(\`\${API_BASE}/auth/login\`, { email, password });
                 if (res.data.success) {
-                    localStorage.setItem('token', res.data.data.token);
-                    localStorage.setItem('user', JSON.stringify(res.data.data.user));
-                    window.location.href = '/';
+                    try {
+                        localStorage.setItem('token', res.data.data.token);
+                        localStorage.setItem('user', JSON.stringify(res.data.data.user));
+                        if (res.data.data.tenant) {
+                            localStorage.setItem('tenant', JSON.stringify(res.data.data.tenant));
+                        }
+                        window.location.href = '/';
+                    } catch (storageErr) {
+                        console.error('Storage error:', storageErr);
+                        alert('브라우저 저장소 접근 권한이 없습니다. 쿠키/사이트 데이터 설정을 확인해주세요.');
+                    }
                 }
             } catch (err) {
+                console.error('Login API error:', err);
                 alert(err.response?.data?.error || '로그인 실패');
             }
         }
@@ -183,10 +260,81 @@ app.get('/login', (c: Context) => {
                     alert('회원가입이 완료되었습니다. 자동 로그인됩니다.');
                     localStorage.setItem('token', res.data.data.token);
                     localStorage.setItem('user', JSON.stringify(res.data.data.user));
+                    if (res.data.data.tenant) {
+                        localStorage.setItem('tenant', JSON.stringify(res.data.data.tenant));
+                    }
                     window.location.href = '/';
                 }
             } catch (err) {
                 alert(err.response?.data?.error || '회원가입 실패');
+            }
+        }
+
+        // 아이디 찾기 모달
+        function showFindEmailModal() {
+            document.getElementById('findEmailModal').classList.remove('hidden');
+            document.getElementById('findEmailResult').classList.add('hidden');
+            document.getElementById('findEmailName').value = '';
+        }
+
+        function closeFindEmailModal() {
+            document.getElementById('findEmailModal').classList.add('hidden');
+        }
+
+        async function handleFindEmail(e) {
+            e.preventDefault();
+            const name = document.getElementById('findEmailName').value;
+
+            try {
+                const res = await axios.post(\`\${API_BASE}/auth/find-email\`, { name });
+                if (res.data.success) {
+                    const maskedEmail = res.data.data.maskedEmail || '';
+                    const message = res.data.data.message || '아이디를 찾았습니다.';
+                    document.getElementById('foundEmailMessage').textContent = '마스킹된 주소: ' + maskedEmail;
+                    document.getElementById('findEmailResult').classList.remove('hidden');
+                }
+            } catch (err) {
+                alert(err.response?.data?.error || '아이디 찾기 실패');
+            }
+        }
+
+        // 비밀번호 재설정 모달
+        function showResetPasswordModal() {
+            document.getElementById('resetPasswordModal').classList.remove('hidden');
+            document.getElementById('resetPasswordResult').classList.add('hidden');
+            document.getElementById('resetEmail').value = '';
+            document.getElementById('resetName').value = '';
+        }
+
+        function closeResetPasswordModal() {
+            document.getElementById('resetPasswordModal').classList.add('hidden');
+        }
+
+        async function handleResetPassword(e) {
+            e.preventDefault();
+            const email = document.getElementById('resetEmail').value;
+            const name = document.getElementById('resetName').value;
+
+            try {
+                const res = await axios.post(\`\${API_BASE}/auth/reset-password\`, { email, name });
+                if (res.data.success) {
+                    const message = res.data.data.message;
+                    const emailSent = res.data.data.emailSent;
+                    
+                    document.getElementById('resetSuccessMessage').textContent = message;
+                    
+                    // 이메일 전송이 안된 경우에만 화면에 비밀번호 표시
+                    if (!emailSent && res.data.data.tempPassword) {
+                        document.getElementById('tempPassword').textContent = res.data.data.tempPassword;
+                        document.getElementById('tempPasswordDisplay').style.display = 'block';
+                    } else {
+                        document.getElementById('tempPasswordDisplay').style.display = 'none';
+                    }
+                    
+                    document.getElementById('resetPasswordResult').classList.remove('hidden');
+                }
+            } catch (err) {
+                alert(err.response?.data?.error || '비밀번호 재설정 실패');
             }
         }
     </script>
@@ -269,50 +417,46 @@ app.get('/', (c: Context) => {
     </head>
     <body class="text-slate-800 antialiased">
         <div id="app" class="flex h-screen overflow-hidden">
+            <!-- 모바일 사이드바 오버레이 -->
+            <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden md:hidden transition-opacity" onclick="toggleSidebar()"></div>
+
             <!-- 사이드바 -->
-            <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-20">
-                <div class="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-900">
+            <aside id="sidebar" class="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-30 fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out">
+                <div class="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-900 justify-between">
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/30">W</div>
+                        <div class="relative w-8 h-8">
+                            <div id="companyLogoPlaceholder" class="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/30 absolute inset-0">W</div>
+                            <img id="companyLogo" src="" alt="Logo" class="w-8 h-8 rounded-lg object-cover shadow-lg hidden relative z-10">
+                        </div>
                         <div>
-                            <h1 class="text-white font-bold text-lg leading-none">WOW3D</h1>
+                            <h1 id="companyName" class="text-white font-bold text-lg leading-none">WOW3D</h1>
                             <p class="text-xs text-slate-500 font-medium mt-0.5">Sales Manager</p>
                         </div>
                     </div>
+                    <!-- 모바일 닫기 버튼 -->
+                    <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
                 </div>
 
                 <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                     <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Menu</p>
-                    <a href="#" data-page="dashboard" class="nav-link active flex items-center px-3 py-2.5 rounded-lg group">
+                    <a href="#" data-page="dashboard" class="nav-link active flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
                         <i class="fas fa-chart-pie w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                         <span class="font-medium">대시보드</span>
                     </a>
-                    <a href="#" data-page="sales" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
+                    <a href="#" data-page="sales" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
                         <i class="fas fa-cash-register w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                         <span class="font-medium">판매 관리</span>
                     </a>
-                    <a href="#" data-page="outbound" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
+                    <a href="#" data-page="outbound" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
                         <i class="fas fa-truck-loading w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                         <span class="font-medium">출고 관리</span>
                     </a>
-                    <a href="#" data-page="customers" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
+                    <a href="#" data-page="customers" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
                         <i class="fas fa-users w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                         <span class="font-medium">고객 관리</span>
                     </a>
-                    <a href="#" data-page="products" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
-                        <i class="fas fa-box w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                        <span class="font-medium">상품 관리</span>
-                    </a>
-                    <a href="#" data-page="stock" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
-                        <i class="fas fa-warehouse w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                        <span class="font-medium">재고 관리</span>
-                    </a>
-                    <a href="#" data-page="settings" class="nav-link flex items-center px-3 py-2.5 rounded-lg group">
-                        <i class="fas fa-cog w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                        <span class="font-medium">설정</span>
-                    </a>
-                </nav>
-                
                 <div class="p-4 border-t border-slate-800 bg-slate-900">
                     <div class="flex items-center gap-3 px-2">
                         <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-md" id="user-avatar">
@@ -330,11 +474,15 @@ app.get('/', (c: Context) => {
             </aside>
 
             <!-- 메인 컨텐츠 -->
-            <div class="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50">
+            <div class="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50 w-full">
                 <!-- 헤더 -->
-                <header class="h-16 glass-header border-b border-slate-200 flex items-center justify-between px-8 z-10 sticky top-0">
+                <header class="h-16 glass-header border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 z-10 sticky top-0">
                     <div class="flex items-center">
-                        <h2 id="page-title" class="text-xl font-bold text-slate-800">대시보드</h2>
+                        <!-- 햄버거 메뉴 버튼 -->
+                        <button onclick="toggleSidebar()" class="mr-4 text-slate-500 hover:text-slate-700 md:hidden focus:outline-none">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        <h2 id="page-title" class="text-xl font-bold text-slate-800 truncate">대시보드</h2>
                     </div>
                     <div class="flex items-center gap-4">
                         <div class="text-right hidden sm:block">
@@ -347,13 +495,36 @@ app.get('/', (c: Context) => {
                     </div>
                 </header>
                 
-                <main id="content" class="flex-1 overflow-y-auto p-6 scroll-smooth">
+                <main id="content" class="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth w-full">
                     <!-- 동적 컨텐츠 영역 -->
                 </main>
             </div>
         </div>
 
         <script>
+            // 사이드바 토글 함수
+            function toggleSidebar() {
+                const sidebar = document.getElementById('sidebar');
+                const overlay = document.getElementById('sidebarOverlay');
+                
+                if (sidebar.classList.contains('-translate-x-full')) {
+                    // 열기
+                    sidebar.classList.remove('-translate-x-full');
+                    overlay.classList.remove('hidden');
+                } else {
+                    // 닫기
+                    sidebar.classList.add('-translate-x-full');
+                    overlay.classList.add('hidden');
+                }
+            }
+
+            // 모바일에서 메뉴 클릭 시 사이드바 닫기
+            function closeSidebarOnMobile() {
+                if (window.innerWidth < 768) { // md breakpoint
+                    toggleSidebar();
+                }
+            }
+
             // 현재 시간 표시
             function updateTime() {
                 const now = new Date();
@@ -365,10 +536,11 @@ app.get('/', (c: Context) => {
             updateTime();
             setInterval(updateTime, 1000);
         </script>
-        <script src="/static/app.js"></script>
+        <script src="/static/app.js?v=2"></script>
     </body>
     </html>
   `)
 })
 
 export default app
+

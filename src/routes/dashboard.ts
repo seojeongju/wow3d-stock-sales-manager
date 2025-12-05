@@ -7,14 +7,16 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 app.get('/summary', async (c) => {
   const { DB } = c.env
 
+  const tenantId = c.get('tenantId')
+
   // 오늘의 매출
   const todaySales = await DB.prepare(`
     SELECT 
       COALESCE(SUM(final_amount), 0) as today_revenue,
       COUNT(*) as today_sales_count
     FROM sales
-    WHERE status = 'completed' AND DATE(created_at) = DATE('now', 'localtime')
-  `).first()
+    WHERE tenant_id = ? AND status = 'completed' AND DATE(created_at) = DATE('now', 'localtime')
+  `).bind(tenantId).first()
 
   // 이번 달 매출
   const monthSales = await DB.prepare(`
@@ -22,9 +24,9 @@ app.get('/summary', async (c) => {
       COALESCE(SUM(final_amount), 0) as month_revenue,
       COUNT(*) as month_sales_count
     FROM sales
-    WHERE status = 'completed' 
+    WHERE tenant_id = ? AND status = 'completed' 
     AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'localtime')
-  `).first()
+  `).bind(tenantId).first()
 
   // 재고 정보
   const stockInfo = await DB.prepare(`
@@ -34,8 +36,8 @@ app.get('/summary', async (c) => {
       SUM(current_stock * purchase_price) as total_stock_value,
       COUNT(CASE WHEN current_stock <= min_stock_alert THEN 1 END) as low_stock_count
     FROM products
-    WHERE is_active = 1
-  `).first()
+    WHERE tenant_id = ? AND is_active = 1
+  `).bind(tenantId).first()
 
   // 고객 정보
   const customerInfo = await DB.prepare(`
@@ -43,7 +45,8 @@ app.get('/summary', async (c) => {
       COUNT(*) as total_customers,
       COUNT(CASE WHEN grade = 'VIP' THEN 1 END) as vip_customers
     FROM customers
-  `).first()
+    WHERE tenant_id = ?
+  `).bind(tenantId).first()
 
   return c.json({
     success: true,
@@ -65,6 +68,7 @@ app.get('/summary', async (c) => {
 // 매출 차트 데이터 (최근 7일 또는 30일)
 app.get('/sales-chart', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const days = parseInt(c.req.query('days') || '7')
 
   const { results } = await DB.prepare(`
@@ -73,11 +77,11 @@ app.get('/sales-chart', async (c) => {
       COUNT(*) as sales_count,
       SUM(final_amount) as revenue
     FROM sales
-    WHERE status = 'completed' 
+    WHERE tenant_id = ? AND status = 'completed' 
     AND DATE(created_at) >= DATE('now', 'localtime', '-' || ? || ' days')
     GROUP BY DATE(created_at)
     ORDER BY date ASC
-  `).bind(days).all()
+  `).bind(tenantId, days).all()
 
   return c.json({ success: true, data: results })
 })
@@ -85,6 +89,7 @@ app.get('/sales-chart', async (c) => {
 // 카테고리별 판매 통계
 app.get('/category-stats', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
 
   const { results } = await DB.prepare(`
     SELECT 
@@ -95,10 +100,10 @@ app.get('/category-stats', async (c) => {
     FROM sale_items si
     JOIN products p ON si.product_id = p.id
     JOIN sales s ON si.sale_id = s.id
-    WHERE s.status = 'completed'
+    WHERE s.tenant_id = ? AND s.status = 'completed'
     GROUP BY p.category
     ORDER BY total_revenue DESC
-  `).all()
+  `).bind(tenantId).all()
 
   return c.json({ success: true, data: results })
 })
@@ -106,6 +111,7 @@ app.get('/category-stats', async (c) => {
 // 베스트셀러 상품 TOP 5
 app.get('/bestsellers', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const limit = parseInt(c.req.query('limit') || '5')
 
   const { results } = await DB.prepare(`
@@ -116,11 +122,11 @@ app.get('/bestsellers', async (c) => {
     FROM sale_items si
     JOIN products p ON si.product_id = p.id
     JOIN sales s ON si.sale_id = s.id
-    WHERE s.status = 'completed'
+    WHERE s.tenant_id = ? AND s.status = 'completed'
     GROUP BY p.id
     ORDER BY total_sold DESC
     LIMIT ?
-  `).bind(limit).all()
+  `).bind(tenantId, limit).all()
 
   return c.json({ success: true, data: results })
 })
@@ -128,6 +134,7 @@ app.get('/bestsellers', async (c) => {
 // 최근 판매 내역
 app.get('/recent-sales', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const limit = parseInt(c.req.query('limit') || '10')
 
   const { results } = await DB.prepare(`
@@ -138,11 +145,11 @@ app.get('/recent-sales', async (c) => {
     FROM sales s
     LEFT JOIN customers c ON s.customer_id = c.id
     LEFT JOIN sale_items si ON s.id = si.sale_id
-    WHERE s.status = 'completed'
+    WHERE s.tenant_id = ? AND s.status = 'completed'
     GROUP BY s.id
     ORDER BY s.created_at DESC
     LIMIT ?
-  `).bind(limit).all()
+  `).bind(tenantId, limit).all()
 
   return c.json({ success: true, data: results })
 })
@@ -150,14 +157,18 @@ app.get('/recent-sales', async (c) => {
 // 재고 부족 경고
 app.get('/low-stock-alerts', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
+  const limit = parseInt(c.req.query('limit') || '5')
+  const offset = parseInt(c.req.query('offset') || '0')
 
   const { results } = await DB.prepare(`
     SELECT 
-      id, sku, name, category, current_stock, min_stock_alert
+      id, sku, name, category, category_medium, category_small, current_stock, min_stock_alert
     FROM products
-    WHERE is_active = 1 AND current_stock <= min_stock_alert
+    WHERE tenant_id = ? AND is_active = 1 AND current_stock <= min_stock_alert
     ORDER BY current_stock ASC
-  `).all()
+    LIMIT ? OFFSET ?
+  `).bind(tenantId, limit, offset).all()
 
   return c.json({ success: true, data: results })
 })
@@ -165,15 +176,17 @@ app.get('/low-stock-alerts', async (c) => {
 // VIP 고객 목록
 app.get('/vip-customers', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const limit = parseInt(c.req.query('limit') || '10')
 
   const { results } = await DB.prepare(`
     SELECT 
       id, name, phone, grade, total_purchase_amount, purchase_count
     FROM customers
+    WHERE tenant_id = ?
     ORDER BY total_purchase_amount DESC
     LIMIT ?
-  `).bind(limit).all()
+  `).bind(tenantId, limit).all()
 
   return c.json({ success: true, data: results })
 })

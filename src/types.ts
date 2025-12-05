@@ -2,6 +2,7 @@
 export type Bindings = {
   DB: D1Database;
   JWT_SECRET: string;
+  RESEND_API_KEY: string;
 }
 
 export type Variables = {
@@ -71,7 +72,8 @@ export interface Customer {
   department?: string;
   position?: string;
   birthday?: string;
-  grade: string;
+  grade?: string; // @deprecated
+  purchase_path?: string;
   notes?: string;
   total_purchase_amount: number;
   purchase_count: number;
@@ -191,7 +193,7 @@ export interface CreateCustomerRequest {
   department?: string;
   position?: string;
   birthday?: string;
-  grade?: string;
+  purchase_path?: string;
   notes?: string;
 }
 
@@ -288,6 +290,48 @@ export interface OutboundPackage {
   box_count: number;
   weight?: number;
   created_at: string;
+}
+
+export interface Warehouse {
+  id: number;
+  tenant_id: number;
+  name: string;
+  location?: string;
+  description?: string;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductWarehouseStock {
+  id: number;
+  tenant_id: number;
+  product_id: number;
+  warehouse_id: number;
+  quantity: number;
+  location_code?: string;
+  warehouse_name?: string;
+}
+
+export interface CreateWarehouseRequest {
+  name: string;
+  location?: string;
+  description?: string;
+}
+
+export interface UpdateWarehouseRequest {
+  name?: string;
+  location?: string;
+  description?: string;
+  is_active?: number;
+}
+
+export interface StockTransferRequest {
+  product_id: number;
+  from_warehouse_id: number;
+  to_warehouse_id: number;
+  quantity: number;
+  reason?: string;
 }
 
 export interface CreateOutboundRequest {

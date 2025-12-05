@@ -1,11 +1,12 @@
 import { Hono } from 'hono'
-import type { Bindings, OutboundOrder, CreateOutboundRequest, PickingRequest, PackingRequest } from '../types'
+import type { Bindings, Variables, OutboundOrder, CreateOutboundRequest, PickingRequest, PackingRequest } from '../types'
 
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // 출고 목록 조회
 app.get('/', async (c) => {
     const { DB } = c.env
+    const tenantId = c.get('tenantId')
     const status = c.req.query('status')
     const search = c.req.query('search')
     const startDate = c.req.query('start_date')
@@ -15,11 +16,16 @@ app.get('/', async (c) => {
     let query = `
     SELECT o.*, 
            (SELECT COUNT(*) FROM outbound_items WHERE outbound_order_id = o.id) as item_count,
-           (SELECT SUM(quantity_ordered) FROM outbound_items WHERE outbound_order_id = o.id) as total_quantity
+           (SELECT SUM(quantity_ordered) FROM outbound_items WHERE outbound_order_id = o.id) as total_quantity,
+           u.name as created_by_name,
+           (SELECT p.name FROM outbound_items oi JOIN products p ON oi.product_id = p.id WHERE oi.outbound_order_id = o.id LIMIT 1) as first_product_name,
+           (SELECT tracking_number FROM outbound_packages WHERE outbound_order_id = o.id LIMIT 1) as tracking_number,
+           (SELECT courier FROM outbound_packages WHERE outbound_order_id = o.id LIMIT 1) as courier_name
     FROM outbound_orders o
-    WHERE 1=1
+    LEFT JOIN users u ON o.created_by = u.id
+    WHERE o.tenant_id = ?
   `
-    const params: any[] = []
+    const params: any[] = [tenantId]
 
     if (status) {
         query += ' AND o.status = ?'
@@ -56,9 +62,10 @@ app.get('/', async (c) => {
 // 출고 상세 조회
 app.get('/:id', async (c) => {
     const { DB } = c.env
+    const tenantId = c.get('tenantId')
     const id = c.req.param('id')
 
-    const order = await DB.prepare('SELECT * FROM outbound_orders WHERE id = ?').bind(id).first<OutboundOrder>()
+    const order = await DB.prepare('SELECT * FROM outbound_orders WHERE id = ? AND tenant_id = ?').bind(id, tenantId).first<OutboundOrder>()
 
     if (!order) {
         return c.json({ success: false, error: '출고 지시서를 찾을 수 없습니다.' }, 404)
@@ -121,14 +128,15 @@ app.post('/create', async (c) => {
 
         // 1. 출고 지시서 생성
         const insertOrder = DB.prepare(`
-      INSERT INTO outbound_orders (order_number, destination_name, destination_address, destination_phone, status, notes)
-      VALUES (?, ?, ?, ?, 'PENDING', ?)
+      INSERT INTO outbound_orders (order_number, destination_name, destination_address, destination_phone, status, notes, created_by)
+      VALUES (?, ?, ?, ?, 'PENDING', ?, ?)
     `).bind(
             orderNumber,
             firstSale.customer_name || '비회원',
             firstSale.shipping_address || '주소 미입력',
             firstSale.customer_phone || '',
-            body.notes || null
+            body.notes || null,
+            c.get('userId')
         )
 
         // 실행하여 ID 획득 필요 -> D1은 last_row_id를 반환하지만 batch에서는 까다로움.
@@ -264,9 +272,9 @@ app.post('/:id/confirm', async (c) => {
 
         // 3. 재고 이동 기록 (OUT)
         await DB.prepare(`
-      INSERT INTO stock_movements (product_id, movement_type, quantity, reason, reference_id)
-      VALUES (?, '출고', ?, '출고 확정', ?)
-    `).bind(item.product_id, item.quantity_packed, id).run()
+      INSERT INTO stock_movements (product_id, movement_type, quantity, reason, reference_id, created_by)
+      VALUES (?, '출고', ?, '출고 확정', ?, ?)
+    `).bind(item.product_id, item.quantity_packed, id, c.get('userId')).run()
     }
 
     // 상태 업데이트
@@ -309,10 +317,17 @@ app.post('/direct', async (c) => {
             box_type?: string;
         };
         notes?: string;
+        warehouse_id?: number;
+        purchase_path?: string;
     }>()
 
     if (!body.items || body.items.length === 0) {
         return c.json({ success: false, error: '상품이 선택되지 않았습니다.' }, 400)
+    }
+
+    const warehouseId = body.warehouse_id;
+    if (!warehouseId) {
+        return c.json({ success: false, error: '출고 창고가 선택되지 않았습니다.' }, 400)
     }
 
     const orderNumber = `DO-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
@@ -320,14 +335,17 @@ app.post('/direct', async (c) => {
     try {
         // 1. 출고 지시서 생성 (바로 SHIPPED 상태로)
         const insertOrder = DB.prepare(`
-            INSERT INTO outbound_orders (order_number, destination_name, destination_address, destination_phone, status, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, 'SHIPPED', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO outbound_orders (order_number, destination_name, destination_address, destination_phone, status, notes, created_at, updated_at, created_by, purchase_path, tenant_id)
+            VALUES (?, ?, ?, ?, 'SHIPPED', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
         `).bind(
             orderNumber,
             body.destination.name,
             body.destination.address,
             body.destination.phone,
-            body.notes || null
+            body.notes || null,
+            c.get('userId'),
+            body.purchase_path || null,
+            c.get('tenantId')
         )
 
         const orderResult = await insertOrder.run()
@@ -341,16 +359,27 @@ app.post('/direct', async (c) => {
                 VALUES (?, ?, ?, ?, ?, 'PACKED')
             `).bind(orderId, item.product_id, item.quantity, item.quantity, item.quantity).run()
 
-            // 재고 차감 (FIFO 무시하고 총 재고에서 단순 차감 - 간편 모드이므로)
-            // 필요하다면 FIFO 로직을 여기에도 적용할 수 있음. 일단은 단순 차감.
+            // 창고 재고 확인
+            const whStock = await DB.prepare('SELECT quantity FROM product_warehouse_stocks WHERE product_id = ? AND warehouse_id = ?')
+                .bind(item.product_id, warehouseId).first<{ quantity: number }>()
+
+            if (!whStock || whStock.quantity < item.quantity) {
+                throw new Error(`상품 ID ${item.product_id}의 창고 재고가 부족합니다.`);
+            }
+
+            // 창고 재고 차감
+            await DB.prepare('UPDATE product_warehouse_stocks SET quantity = quantity - ? WHERE product_id = ? AND warehouse_id = ?')
+                .bind(item.quantity, item.product_id, warehouseId).run()
+
+            // 총 재고 차감 (FIFO 무시하고 총 재고에서 단순 차감 - 간편 모드이므로)
             await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
                 .bind(item.quantity, item.product_id).run()
 
             // 재고 이동 기록
             await DB.prepare(`
-                INSERT INTO stock_movements (product_id, movement_type, quantity, reason, reference_id)
-                VALUES (?, '출고', ?, '간편 출고', ?)
-            `).bind(item.product_id, item.quantity, orderId).run()
+                INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, reason, reference_id, created_by)
+                VALUES (?, ?, '출고', ?, '간편 출고', ?, ?)
+            `).bind(item.product_id, warehouseId, item.quantity, orderId, c.get('userId')).run()
         }
 
         // 3. 패키지(송장) 정보 등록

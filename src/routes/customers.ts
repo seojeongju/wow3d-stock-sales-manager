@@ -1,25 +1,26 @@
 import { Hono } from 'hono'
-import type { Bindings, Customer, CreateCustomerRequest } from '../types'
+import type { Bindings, Variables, Customer, CreateCustomerRequest } from '../types'
 
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // 고객 목록 조회
 app.get('/', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const search = c.req.query('search') || ''
-  const grade = c.req.query('grade') || ''
+  const purchase_path = c.req.query('purchase_path') || ''
 
-  let query = 'SELECT * FROM customers WHERE 1=1'
-  const params: any[] = []
+  let query = 'SELECT * FROM customers WHERE tenant_id = ?'
+  const params: any[] = [tenantId]
 
   if (search) {
     query += ' AND (name LIKE ? OR phone LIKE ?)'
     params.push(`%${search}%`, `%${search}%`)
   }
 
-  if (grade) {
-    query += ' AND grade = ?'
-    params.push(grade)
+  if (purchase_path) {
+    query += ' AND purchase_path = ?'
+    params.push(purchase_path)
   }
 
   query += ' ORDER BY total_purchase_amount DESC'
@@ -32,10 +33,11 @@ app.get('/', async (c) => {
 // 고객 상세 조회
 app.get('/:id', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const id = c.req.param('id')
 
-  const customer = await DB.prepare('SELECT * FROM customers WHERE id = ?')
-    .bind(id)
+  const customer = await DB.prepare('SELECT * FROM customers WHERE id = ? AND tenant_id = ?')
+    .bind(id, tenantId)
     .first<Customer>()
 
   if (!customer) {
@@ -48,11 +50,12 @@ app.get('/:id', async (c) => {
 // 고객 등록
 app.post('/', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const body = await c.req.json<CreateCustomerRequest>()
 
-  // 연락처 중복 체크
-  const existing = await DB.prepare('SELECT id FROM customers WHERE phone = ?')
-    .bind(body.phone)
+  // 연락처 중복 체크 (같은 테넌트 내에서만)
+  const existing = await DB.prepare('SELECT id FROM customers WHERE phone = ? AND tenant_id = ?')
+    .bind(body.phone, tenantId)
     .first()
 
   if (existing) {
@@ -60,8 +63,8 @@ app.post('/', async (c) => {
   }
 
   const result = await DB.prepare(`
-    INSERT INTO customers (name, phone, email, zip_code, address, address_detail, company, department, position, birthday, grade, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO customers (name, phone, email, zip_code, address, address_detail, company, department, position, birthday, purchase_path, notes, tenant_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.name,
     body.phone,
@@ -73,8 +76,9 @@ app.post('/', async (c) => {
     body.department || null,
     body.position || null,
     body.birthday || null,
-    body.grade || '일반',
-    body.notes || null
+    body.purchase_path || '기타',
+    body.notes || null,
+    tenantId
   ).run()
 
   return c.json({
@@ -87,11 +91,12 @@ app.post('/', async (c) => {
 // 고객 수정
 app.put('/:id', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const id = c.req.param('id')
   const body = await c.req.json<Partial<CreateCustomerRequest>>()
 
-  const customer = await DB.prepare('SELECT * FROM customers WHERE id = ?')
-    .bind(id)
+  const customer = await DB.prepare('SELECT * FROM customers WHERE id = ? AND tenant_id = ?')
+    .bind(id, tenantId)
     .first()
 
   if (!customer) {
@@ -106,9 +111,9 @@ app.put('/:id', async (c) => {
     params.push(body.name)
   }
   if (body.phone !== undefined) {
-    // 다른 고객이 같은 번호를 사용하는지 체크
-    const existing = await DB.prepare('SELECT id FROM customers WHERE phone = ? AND id != ?')
-      .bind(body.phone, id)
+    // 다른 고객이 같은 번호를 사용하는지 체크 (같은 테넌트 내에서만)
+    const existing = await DB.prepare('SELECT id FROM customers WHERE phone = ? AND id != ? AND tenant_id = ?')
+      .bind(body.phone, id, tenantId)
       .first()
 
     if (existing) {
@@ -150,9 +155,9 @@ app.put('/:id', async (c) => {
     updates.push('birthday = ?')
     params.push(body.birthday)
   }
-  if (body.grade !== undefined) {
-    updates.push('grade = ?')
-    params.push(body.grade)
+  if (body.purchase_path !== undefined) {
+    updates.push('purchase_path = ?')
+    params.push(body.purchase_path)
   }
   if (body.notes !== undefined) {
     updates.push('notes = ?')
@@ -176,10 +181,11 @@ app.put('/:id', async (c) => {
 // 고객 삭제
 app.delete('/:id', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const id = c.req.param('id')
 
-  const customer = await DB.prepare('SELECT * FROM customers WHERE id = ?')
-    .bind(id)
+  const customer = await DB.prepare('SELECT * FROM customers WHERE id = ? AND tenant_id = ?')
+    .bind(id, tenantId)
     .first()
 
   if (!customer) {
@@ -208,10 +214,11 @@ app.delete('/:id', async (c) => {
 // 고객 구매 이력 조회
 app.get('/:id/purchases', async (c) => {
   const { DB } = c.env
+  const tenantId = c.get('tenantId')
   const id = c.req.param('id')
 
-  const customer = await DB.prepare('SELECT * FROM customers WHERE id = ?')
-    .bind(id)
+  const customer = await DB.prepare('SELECT * FROM customers WHERE id = ? AND tenant_id = ?')
+    .bind(id, tenantId)
     .first()
 
   if (!customer) {

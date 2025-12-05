@@ -14,9 +14,10 @@ app.get('/', async (c) => {
   const status = c.req.query('status') || 'completed'
 
   let query = `
-    SELECT s.*, c.name as customer_name, c.phone as customer_phone
+    SELECT s.*, c.name as customer_name, c.phone as customer_phone, u.name as created_by_name
     FROM sales s
     LEFT JOIN customers c ON s.customer_id = c.id
+    LEFT JOIN users u ON s.created_by = u.id
     WHERE s.tenant_id = ?
   `
   const params: any[] = [tenantId]
@@ -68,9 +69,10 @@ app.get('/:id', async (c) => {
   const id = c.req.param('id')
 
   const sale = await DB.prepare(`
-    SELECT s.*, c.name as customer_name, c.phone as customer_phone
+    SELECT s.*, c.name as customer_name, c.phone as customer_phone, u.name as created_by_name
     FROM sales s
     LEFT JOIN customers c ON s.customer_id = c.id
+    LEFT JOIN users u ON s.created_by = u.id
     WHERE s.id = ? AND s.tenant_id = ?
   `).bind(id, tenantId).first()
 
@@ -93,6 +95,7 @@ app.get('/:id', async (c) => {
 app.post('/', async (c) => {
   const { DB } = c.env
   const tenantId = c.get('tenantId')
+  const userId = c.get('userId')
   const body = await c.req.json<CreateSaleRequest>()
 
   // 상품 정보 및 재고 확인
@@ -140,8 +143,8 @@ app.post('/', async (c) => {
 
   // 판매 등록
   const saleResult = await DB.prepare(`
-    INSERT INTO sales (tenant_id, customer_id, total_amount, discount_amount, final_amount, payment_method, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sales (tenant_id, customer_id, total_amount, discount_amount, final_amount, payment_method, notes, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     tenantId,
     body.customer_id || null,
@@ -149,7 +152,8 @@ app.post('/', async (c) => {
     discountAmount,
     finalAmount,
     body.payment_method,
-    body.notes || null
+    body.notes || null,
+    userId
   ).run()
 
   const saleId = saleResult.meta.last_row_id
@@ -177,9 +181,9 @@ app.post('/', async (c) => {
 
     // 재고 이동 기록
     await DB.prepare(`
-      INSERT INTO stock_movements (tenant_id, product_id, movement_type, quantity, reason, reference_id)
-      VALUES (?, ?, '출고', ?, '판매', ?)
-    `).bind(tenantId, detail.product_id, -detail.quantity, saleId).run()
+      INSERT INTO stock_movements (tenant_id, product_id, movement_type, quantity, reason, reference_id, created_by)
+      VALUES (?, ?, '출고', ?, '판매', ?, ?)
+    `).bind(tenantId, detail.product_id, -detail.quantity, saleId, userId).run()
   }
 
   // 고객 구매 금액 및 횟수 업데이트
@@ -204,6 +208,7 @@ app.post('/', async (c) => {
 app.put('/:id/cancel', async (c) => {
   const { DB } = c.env
   const tenantId = c.get('tenantId')
+  const userId = c.get('userId')
   const id = c.req.param('id')
 
   const sale = await DB.prepare('SELECT * FROM sales WHERE id = ? AND status = ? AND tenant_id = ?')
@@ -229,9 +234,9 @@ app.put('/:id/cancel', async (c) => {
 
     // 재고 이동 기록
     await DB.prepare(`
-      INSERT INTO stock_movements (tenant_id, product_id, movement_type, quantity, reason, reference_id)
-      VALUES (?, ?, '입고', ?, '판매 취소', ?)
-    `).bind(tenantId, item.product_id, item.quantity, id).run()
+      INSERT INTO stock_movements (tenant_id, product_id, movement_type, quantity, reason, reference_id, created_by)
+      VALUES (?, ?, '입고', ?, '판매 취소', ?, ?)
+    `).bind(tenantId, item.product_id, item.quantity, id, userId).run()
   }
 
   // 고객 구매 금액 및 횟수 복구
@@ -263,6 +268,7 @@ app.put('/:id/shipping', async (c) => {
     tracking_number?: string;
     courier?: string;
     status?: string;
+    warehouse_id?: number;
   }>()
 
   const updates: string[] = []
@@ -283,6 +289,10 @@ app.put('/:id/shipping', async (c) => {
   if (body.status !== undefined) {
     updates.push('status = ?')
     params.push(body.status)
+  }
+  if (body.warehouse_id !== undefined) {
+    updates.push('warehouse_id = ?')
+    params.push(body.warehouse_id)
   }
 
   if (updates.length === 0) {
