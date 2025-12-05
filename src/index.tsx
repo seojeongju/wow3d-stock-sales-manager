@@ -186,7 +186,7 @@ app.get('/login', (c: Context) => {
         <div class="glass-panel rounded-3xl overflow-hidden p-8 animate-fade-in-up">
             <!-- Logo Section -->
             <div class="text-center mb-10">
-                <img src="/static/login_logo.png" alt="WOW Sales ERP" class="h-16 mx-auto mb-6 object-contain drop-shadow-md brightness-0 invert">
+                <img src="/static/login_logo.png" alt="WOW Sales ERP" class="h-48 mx-auto mb-6 object-contain drop-shadow-md max-w-full">
                 <p class="text-indigo-100 text-sm font-medium tracking-wide">Enterprise Resource Planning</p>
             </div>
 
