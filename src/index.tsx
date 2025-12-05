@@ -457,6 +457,22 @@ app.get('/', (c: Context) => {
                         <i class="fas fa-users w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                         <span class="font-medium">고객 관리</span>
                     </a>
+                    <a href="#" data-page="products" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
+                        <i class="fas fa-box w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
+                        <span class="font-medium">상품 관리</span>
+                    </a>
+                    <a href="#" data-page="stock" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
+                        <i class="fas fa-cubes w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
+                        <span class="font-medium">재고 관리</span>
+                    </a>
+                    <div class="pt-4 mt-4 border-t border-slate-800">
+                        <a href="#" data-page="settings" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
+                            <i class="fas fa-cog w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
+                            <span class="font-medium">설정</span>
+                        </a>
+                    </div>
+                </nav>
+
                 <div class="p-4 border-t border-slate-800 bg-slate-900">
                     <div class="flex items-center gap-3 px-2">
                         <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-md" id="user-avatar">
