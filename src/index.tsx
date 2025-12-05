@@ -346,8 +346,7 @@ app.get('/login', (c: Context) => {
             </div>
         </div>
     </div>
-    `);
-})
+
     <script>
 const API_BASE = '/api';
 
@@ -492,14 +491,14 @@ async function handleLogin(e) {
             }
         }
     </script>
-</body >
-</html >
+</body>
+</html>
     `)
-    })
+})
 
-    // 메인 페이지
-    app.get('/', (c: Context) => {
-        return c.html(`
+// 메인 페이지
+app.get('/', (c: Context) => {
+    return c.html(`
     < !DOCTYPE html >
         <html lang="ko">
             <head>
@@ -710,7 +709,7 @@ async function handleLogin(e) {
                             </body>
                         </html>
                         `)
-    })
+})
 
-    export default app
+export default app
 
