@@ -233,6 +233,32 @@ async function loadPage(page) {
       content.innerHTML = '<div class="p-4">준비 중인 페이지입니다.</div>';
   }
 }
+}
+
+// 고객 관리 페이지 로드
+async function loadCustomers(content) {
+  content.innerHTML = `
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold text-gray-800">고객 관리</h1>
+    </div>
+    <div class="bg-white rounded-xl shadow-lg p-6">
+      <p class="text-slate-500 text-center py-10">고객 관리 기능 준비 중입니다.</p>
+    </div>
+  `;
+}
+
+// 출고 관리 페이지 로드
+async function renderOutboundPage() {
+  const content = document.getElementById('content');
+  content.innerHTML = `
+        <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">출고 관리</h1>
+        </div>
+        <div class="bg-white rounded-xl shadow-lg p-6">
+        <p class="text-slate-500 text-center py-10">출고 관리 기능 준비 중입니다.</p>
+        </div>
+    `;
+}
 
 // 대시보드 로드
 async function loadDashboard(content) {
@@ -5791,62 +5817,11 @@ async function deleteTeamMember(id, name) {
 }
 
 // ========================================
-// 페이지 라우팅
+// 페이지 라우팅 Logic (Consolidated to loadPage above)
 // ========================================
 
-// 페이지 전환 처리
-document.addEventListener('DOMContentLoaded', function () {
-  // 네비게이션 링크에 이벤트 리스너 추가
-  const navLinks = document.querySelectorAll('[data-page]');
-  navLinks.forEach(link => {
-    link.addEventListener('click', function (e) {
-      e.preventDefault();
-      const page = this.getAttribute('data-page');
+// Legacy renderPage removed to Fix ReferenceErrors
 
-      // 모든 링크에서 active 클래스 제거
-      navLinks.forEach(l => l.classList.remove('active'));
-      // 현재 링크에 active 클래스 추가
-      this.classList.add('active');
-
-      // 페이지 렌더링
-      renderPage(page);
-    });
-  });
-
-  // 초기 페이지 로드 (대시보드)
-  renderPage('dashboard');
-});
-
-function renderPage(page) {
-  switch (page) {
-    case 'dashboard':
-      renderDashboard();
-      break;
-    case 'sales':
-      renderSalesPage();
-      break;
-    case 'outbound':
-      renderOutboundPage();
-      break;
-    case 'customers':
-      renderCustomersPage();
-      break;
-    case 'products':
-      renderProductsPage();
-      break;
-    case 'stock':
-      renderStockPage();
-      break;
-    case 'claims':
-      renderClaimsPage();
-      break;
-    case 'settings':
-      renderSettingsPage();
-      break;
-    default:
-      renderDashboard();
-  }
-}
 
 // ========================================
 // 재고 관리 페이지
