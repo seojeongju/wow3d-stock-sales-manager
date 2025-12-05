@@ -233,7 +233,7 @@ async function loadPage(page) {
       content.innerHTML = '<div class="p-4">준비 중인 페이지입니다.</div>';
   }
 }
-}
+
 
 // 고객 관리 페이지 로드
 async function loadCustomers(content) {
