@@ -1,4 +1,4 @@
-﻿import { Hono, Context } from 'hono'
+import { Hono, Context } from 'hono'
 import { cors } from 'hono/cors'
 import type { Bindings, Variables } from './types'
 import { tenantMiddleware } from './middleware/tenant'
@@ -180,7 +180,6 @@ app.get('/login', (c: Context) => {
         .vertical-text {
             writing-mode: vertical-rl;
             text-orientation: mixed;
-            transform: rotate(180deg);
         }
     </style>
 </head>
@@ -210,7 +209,6 @@ app.get('/login', (c: Context) => {
             <div class="relative z-10 text-center text-white">
                 <img src="/static/login_logo.png" alt="Logo" class="h-32 mx-auto mb-8 object-contain drop-shadow-lg brightness-0 invert opacity-90">
                 <h2 class="text-3xl font-bold mb-2 tracking-wide">WOW Sales ERP</h2>
-                <p class="text-teal-100 text-sm font-light tracking-wider opacity-80">브로커 운영 시스템 소개</p>
             </div>
 
             <!-- Vertical Text -->
