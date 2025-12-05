@@ -187,10 +187,10 @@ app.get('/login', (c: Context) => {
 <body class="h-screen w-full flex items-center justify-center p-4">
 
     <!-- Main Card -->
-    <div class="bg-white w-full max-w-5xl h-[600px] rounded-[40px] shadow-2xl overflow-hidden flex relative">
+    <div class="bg-white w-full max-w-5xl min-h-[600px] h-auto rounded-[40px] shadow-2xl overflow-hidden flex relative flex-col md:flex-row">
         
         <!-- Left Panel (Colored) -->
-        <div class="w-5/12 curved-panel relative flex flex-col items-center justify-center p-8">
+        <div class="w-full md:w-5/12 curved-panel relative flex flex-col items-center justify-center p-8 min-h-[300px] md:min-h-full">
             <!-- Decorative Orbit -->
             <div class="orbit-container">
                 <div class="orbit orbit-1">
@@ -214,21 +214,21 @@ app.get('/login', (c: Context) => {
             </div>
 
             <!-- Vertical Text -->
-            <div class="absolute left-8 top-1/2 transform -translate-y-1/2 z-10">
+            <div class="absolute left-8 top-1/2 transform -translate-y-1/2 z-10 hidden md:block">
                 <h1 class="vertical-text text-6xl font-bold text-white opacity-20 tracking-widest select-none">환영합니다</h1>
             </div>
         </div>
 
         <!-- Right Panel (Form) -->
-        <div class="w-7/12 bg-white p-12 flex flex-col justify-center relative">
+        <div class="w-full md:w-7/12 bg-white p-8 md:p-12 flex flex-col justify-center relative">
             <!-- Tabs -->
-            <div class="absolute top-8 right-12 flex gap-4">
+            <div class="absolute top-8 right-12 flex gap-4 z-20">
                 <button onclick="switchTab('login')" id="loginTabBtn" class="text-sm font-bold text-teal-600 border-b-2 border-teal-600 pb-1 transition-all">로그인</button>
                 <button onclick="switchTab('register')" id="registerTabBtn" class="text-sm font-medium text-slate-400 hover:text-teal-500 pb-1 transition-all">회원가입</button>
             </div>
 
             <!-- Login Form -->
-            <div id="loginForm" class="w-full max-w-sm mx-auto animate-fade-in">
+            <div id="loginForm" class="w-full max-w-sm mx-auto animate-fade-in mt-12 md:mt-0">
                 <h2 class="text-4xl font-bold text-teal-600 mb-12 text-center">로그인</h2>
                 
                 <form onsubmit="handleLogin(event)" class="space-y-8">
@@ -255,7 +255,7 @@ app.get('/login', (c: Context) => {
             </div>
 
             <!-- Register Form -->
-            <div id="registerForm" class="w-full max-w-sm mx-auto hidden animate-fade-in">
+            <div id="registerForm" class="w-full max-w-sm mx-auto hidden animate-fade-in mt-12 md:mt-0">
                 <h2 class="text-4xl font-bold text-teal-600 mb-8 text-center">회원가입</h2>
                 
                 <form onsubmit="handleRegister(event)" class="space-y-6">
