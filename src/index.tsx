@@ -134,23 +134,25 @@ app.get('/login', (c: Context) => {
             to { transform: rotate(-360deg); }
         }
 
-        /* Glass Panel */
+        /* Glass Panel - Blue Gradient */
         .glass-panel {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.3);
+            color: white;
         }
 
-        .input-light {
-            background: #ffffff;
-            border: 1px solid #e2e8f0; /* Slate 200 */
-            color: #1e293b; /* Slate 800 */
+        .input-glass {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #1e293b;
         }
-        .input-light:focus {
-            border-color: #4f46e5; /* Indigo 600 */
-            ring: 2px solid #e0e7ff;
+        .input-glass:focus {
+            background: #ffffff;
+            border-color: #ffffff;
+            ring: 2px solid rgba(255, 255, 255, 0.5);
             outline: none;
         }
     </style>
@@ -184,76 +186,76 @@ app.get('/login', (c: Context) => {
         <div class="glass-panel rounded-3xl overflow-hidden p-8 animate-fade-in-up">
             <!-- Logo Section -->
             <div class="text-center mb-10">
-                <img src="/static/login_logo.png" alt="WOW Sales ERP" class="h-16 mx-auto mb-6 object-contain drop-shadow-sm">
-                <p class="text-slate-500 text-sm font-medium tracking-wide">Enterprise Resource Planning</p>
+                <img src="/static/login_logo.png" alt="WOW Sales ERP" class="h-16 mx-auto mb-6 object-contain drop-shadow-md brightness-0 invert">
+                <p class="text-indigo-100 text-sm font-medium tracking-wide">Enterprise Resource Planning</p>
             </div>
 
             <!-- Tabs -->
-            <div class="flex p-1 bg-slate-100 rounded-xl mb-8">
-                <button onclick="switchTab('login')" id="loginTabBtn" class="flex-1 py-2.5 text-sm font-bold rounded-lg bg-white text-indigo-600 shadow-sm transition-all border border-slate-200">로그인</button>
-                <button onclick="switchTab('register')" id="registerTabBtn" class="flex-1 py-2.5 text-sm font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">회원가입</button>
+            <div class="flex p-1 bg-black/20 rounded-xl mb-8">
+                <button onclick="switchTab('login')" id="loginTabBtn" class="flex-1 py-2.5 text-sm font-bold rounded-lg bg-white text-indigo-600 shadow-sm transition-all">로그인</button>
+                <button onclick="switchTab('register')" id="registerTabBtn" class="flex-1 py-2.5 text-sm font-medium rounded-lg text-indigo-200 hover:text-white transition-all">회원가입</button>
             </div>
 
             <!-- Login Form -->
             <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-slate-500 ml-1">EMAIL</label>
+                    <label class="text-xs font-bold text-indigo-100 ml-1">EMAIL</label>
                     <div class="relative">
                         <i class="fas fa-envelope absolute left-4 top-3.5 text-slate-400"></i>
-                        <input type="email" id="loginEmail" required class="w-full pl-11 pr-4 py-3 rounded-xl input-light transition-all" placeholder="name@company.com">
+                        <input type="email" id="loginEmail" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="name@company.com">
                     </div>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-slate-500 ml-1">PASSWORD</label>
+                    <label class="text-xs font-bold text-indigo-100 ml-1">PASSWORD</label>
                     <div class="relative">
                         <i class="fas fa-lock absolute left-4 top-3.5 text-slate-400"></i>
-                        <input type="password" id="loginPassword" required class="w-full pl-11 pr-4 py-3 rounded-xl input-light transition-all" placeholder="••••••••">
+                        <input type="password" id="loginPassword" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="••••••••">
                     </div>
                 </div>
                 
-                <button type="submit" class="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 mt-4">
+                <button type="submit" class="w-full bg-white text-indigo-600 py-3.5 rounded-xl font-bold text-lg hover:bg-indigo-50 transition-all shadow-lg mt-4">
                     Sign In
                 </button>
 
                 <div class="flex justify-between text-sm mt-6 px-1">
-                    <button type="button" onclick="showFindEmailModal()" class="text-slate-500 hover:text-indigo-600 transition-colors">아이디 찾기</button>
-                    <button type="button" onclick="showResetPasswordModal()" class="text-slate-500 hover:text-indigo-600 transition-colors">비밀번호 찾기</button>
+                    <button type="button" onclick="showFindEmailModal()" class="text-indigo-200 hover:text-white transition-colors">아이디 찾기</button>
+                    <button type="button" onclick="showResetPasswordModal()" class="text-indigo-200 hover:text-white transition-colors">비밀번호 찾기</button>
                 </div>
             </form>
 
             <!-- Register Form -->
             <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-slate-500 ml-1">EMAIL</label>
+                    <label class="text-xs font-bold text-indigo-100 ml-1">EMAIL</label>
                     <div class="relative">
                         <i class="fas fa-envelope absolute left-4 top-3.5 text-slate-400"></i>
-                        <input type="email" id="regEmail" required class="w-full pl-11 pr-4 py-3 rounded-xl input-light transition-all" placeholder="name@company.com">
+                        <input type="email" id="regEmail" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="name@company.com">
                     </div>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-slate-500 ml-1">PASSWORD</label>
+                    <label class="text-xs font-bold text-indigo-100 ml-1">PASSWORD</label>
                     <div class="relative">
                         <i class="fas fa-lock absolute left-4 top-3.5 text-slate-400"></i>
-                        <input type="password" id="regPassword" required class="w-full pl-11 pr-4 py-3 rounded-xl input-light transition-all" placeholder="••••••••">
+                        <input type="password" id="regPassword" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="••••••••">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-500 ml-1">NAME</label>
+                        <label class="text-xs font-bold text-indigo-100 ml-1">NAME</label>
                         <div class="relative">
                             <i class="fas fa-user absolute left-4 top-3.5 text-slate-400"></i>
-                            <input type="text" id="regName" required class="w-full pl-11 pr-4 py-3 rounded-xl input-light transition-all" placeholder="이름">
+                            <input type="text" id="regName" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="이름">
                         </div>
                     </div>
                     <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-500 ml-1">COMPANY</label>
+                        <label class="text-xs font-bold text-indigo-100 ml-1">COMPANY</label>
                         <div class="relative">
                             <i class="fas fa-building absolute left-4 top-3.5 text-slate-400"></i>
-                            <input type="text" id="regCompany" required class="w-full pl-11 pr-4 py-3 rounded-xl input-light transition-all" placeholder="회사명">
+                            <input type="text" id="regCompany" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="회사명">
                         </div>
                     </div>
                 </div>
-                <button type="submit" class="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-bold text-lg hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 mt-4">
+                <button type="submit" class="w-full bg-emerald-400 text-emerald-900 py-3.5 rounded-xl font-bold text-lg hover:bg-emerald-300 transition-all shadow-lg mt-4">
                     Create Account
                 </button>
             </form>
@@ -317,39 +319,38 @@ app.get('/login', (c: Context) => {
         </div>
     </div>
 
-
     <script>
-        const API_BASE = '/api';
+const API_BASE = '/api';
 
-        function switchTab(tab) {
-            const loginForm = document.getElementById('loginForm');
-        const registerForm = document.getElementById('registerForm');
-        const loginBtn = document.getElementById('loginTabBtn');
-        const registerBtn = document.getElementById('registerTabBtn');
+function switchTab(tab) {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const loginBtn = document.getElementById('loginTabBtn');
+    const registerBtn = document.getElementById('registerTabBtn');
 
-        if (tab === 'login') {
-            loginForm.classList.remove('hidden');
+    if (tab === 'login') {
+        loginForm.classList.remove('hidden');
         registerForm.classList.add('hidden');
         loginBtn.classList.add('text-indigo-600', 'border-indigo-600');
         loginBtn.classList.remove('text-slate-500');
         registerBtn.classList.remove('text-indigo-600', 'border-indigo-600');
         registerBtn.classList.add('text-slate-500');
-            } else {
-            registerForm.classList.remove('hidden');
+    } else {
+        registerForm.classList.remove('hidden');
         registerBtn.classList.add('text-indigo-600', 'border-indigo-600');
         registerBtn.classList.remove('text-slate-500');
         loginBtn.classList.remove('text-indigo-600', 'border-indigo-600');
         loginBtn.classList.add('text-slate-500');
-            }
-        }
+    }
+}
 
-        async function handleLogin(e) {
-            e.preventDefault();
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
 
-        try {
-                const res = await axios.post(\`\${API_BASE}/auth/login\`, {email, password});
+    try {
+        const res = await axios.post(\`\${API_BASE}/auth/login\`, {email, password});
         if (res.data.success) {
                     try {
             localStorage.setItem('token', res.data.data.token);
