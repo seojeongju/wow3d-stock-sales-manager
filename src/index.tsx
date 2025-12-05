@@ -54,271 +54,300 @@ app.get('/login', (c: Context) => {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        teal: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            200: '#99f6e4',
+                            300: '#5eead4',
+                            400: '#2dd4bf',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         body {
-            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
-            background-color: #ffffff;
+            background-color: #e6fffa; /* Very light teal */
             overflow: hidden;
         }
 
-        /* Orbit Animation Container */
+        /* Custom Shapes */
+        .curved-panel {
+            position: relative;
+            background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 100%);
+            overflow: hidden;
+        }
+        
+        .curved-panel::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -50px;
+            bottom: 0;
+            width: 100px;
+            background: #ffffff;
+            border-radius: 50% 0 0 50%;
+            transform: scaleX(0.5);
+            z-index: 10;
+        }
+
+        /* Input Styles */
+        .input-underline {
+            border: none;
+            border-bottom: 2px solid #e2e8f0;
+            border-radius: 0;
+            background: transparent;
+            padding-left: 0;
+            padding-right: 2rem;
+            transition: all 0.3s ease;
+        }
+        .input-underline:focus {
+            border-bottom-color: #14b8a6; /* Teal 500 */
+            box-shadow: none;
+            outline: none;
+        }
+
+        /* Orbit Animation (Scaled Down) */
         .orbit-container {
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
-            width: 800px;
-            height: 800px;
+            transform: translate(-50%, -50%) scale(0.6);
+            width: 600px;
+            height: 600px;
             pointer-events: none;
-            z-index: 0;
+            z-index: 1;
+            opacity: 0.6;
         }
 
         .orbit {
             position: absolute;
             top: 50%;
             left: 50%;
-            border: 1px solid rgba(99, 102, 241, 0.15); /* Indigo with low opacity */
+            border: 1px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
             transform: translate(-50%, -50%);
         }
 
-        .orbit-1 { width: 400px; height: 400px; animation: rotate 20s linear infinite; }
-        .orbit-2 { width: 600px; height: 600px; animation: rotate 30s linear infinite reverse; }
-        .orbit-3 { width: 800px; height: 800px; animation: rotate 40s linear infinite; }
+        .orbit-1 { width: 300px; height: 300px; animation: rotate 20s linear infinite; }
+        .orbit-2 { width: 450px; height: 450px; animation: rotate 30s linear infinite reverse; }
 
         .planet {
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 40px;
-            height: 40px;
-            background: #ffffff;
-            border: 1px solid rgba(99, 102, 241, 0.3);
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.9);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #4f46e5; /* Indigo 600 */
-            box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.1), 0 2px 4px -1px rgba(99, 102, 241, 0.06);
-            transform-origin: center;
+            color: #0d9488;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
         }
 
-        /* Positioning planets on orbits */
         /* Orbit 1 */
-        .orbit-1 .planet:nth-child(1) { transform: translate(-50%, -50%) rotate(0deg) translateX(200px) rotate(0deg); }
-        .orbit-1 .planet:nth-child(2) { transform: translate(-50%, -50%) rotate(120deg) translateX(200px) rotate(-120deg); }
-        .orbit-1 .planet:nth-child(3) { transform: translate(-50%, -50%) rotate(240deg) translateX(200px) rotate(-240deg); }
+        .orbit-1 .planet:nth-child(1) { transform: translate(-50%, -50%) rotate(0deg) translateX(150px) rotate(0deg); }
+        .orbit-1 .planet:nth-child(2) { transform: translate(-50%, -50%) rotate(120deg) translateX(150px) rotate(-120deg); }
+        .orbit-1 .planet:nth-child(3) { transform: translate(-50%, -50%) rotate(240deg) translateX(150px) rotate(-240deg); }
 
         /* Orbit 2 */
-        .orbit-2 .planet:nth-child(1) { transform: translate(-50%, -50%) rotate(45deg) translateX(300px) rotate(-45deg); }
-        .orbit-2 .planet:nth-child(2) { transform: translate(-50%, -50%) rotate(135deg) translateX(300px) rotate(-135deg); }
-        .orbit-2 .planet:nth-child(3) { transform: translate(-50%, -50%) rotate(225deg) translateX(300px) rotate(-225deg); }
-        .orbit-2 .planet:nth-child(4) { transform: translate(-50%, -50%) rotate(315deg) translateX(300px) rotate(-315deg); }
-
-        /* Orbit 3 */
-        .orbit-3 .planet:nth-child(1) { transform: translate(-50%, -50%) rotate(90deg) translateX(400px) rotate(-90deg); }
-        .orbit-3 .planet:nth-child(2) { transform: translate(-50%, -50%) rotate(270deg) translateX(400px) rotate(-270deg); }
+        .orbit-2 .planet:nth-child(1) { transform: translate(-50%, -50%) rotate(45deg) translateX(225px) rotate(-45deg); }
+        .orbit-2 .planet:nth-child(2) { transform: translate(-50%, -50%) rotate(135deg) translateX(225px) rotate(-135deg); }
+        .orbit-2 .planet:nth-child(3) { transform: translate(-50%, -50%) rotate(225deg) translateX(225px) rotate(-225deg); }
+        .orbit-2 .planet:nth-child(4) { transform: translate(-50%, -50%) rotate(315deg) translateX(225px) rotate(-315deg); }
 
         @keyframes rotate {
             from { transform: translate(-50%, -50%) rotate(0deg); }
             to { transform: translate(-50%, -50%) rotate(360deg); }
         }
-
-        /* Counter-rotate icons to keep them upright */
-        .orbit-1 .planet i { animation: counter-rotate 20s linear infinite; }
-        .orbit-2 .planet i { animation: counter-rotate 30s linear infinite reverse; }
-        .orbit-3 .planet i { animation: counter-rotate 40s linear infinite; }
-
-        @keyframes counter-rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(-360deg); }
-        }
-
-        /* Glass Panel - Blue Gradient */
-        .glass-panel {
-            background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.3);
-            color: white;
-        }
-
-        .input-glass {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            color: #1e293b;
-        }
-        .input-glass:focus {
-            background: #ffffff;
-            border-color: #ffffff;
-            ring: 2px solid rgba(255, 255, 255, 0.5);
-            outline: none;
+        
+        .vertical-text {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
         }
     </style>
 </head>
-<body class="h-screen w-full flex items-center justify-center relative">
+<body class="h-screen w-full flex items-center justify-center p-4">
 
-    <!-- Orbit Animation Background -->
-    <div class="orbit-container">
-        <!-- Inner Orbit -->
-        <div class="orbit orbit-1">
-            <div class="planet"><i class="fas fa-chart-line"></i></div>
-            <div class="planet"><i class="fas fa-users"></i></div>
-            <div class="planet"><i class="fas fa-box"></i></div>
-        </div>
-        <!-- Middle Orbit -->
-        <div class="orbit orbit-2">
-            <div class="planet"><i class="fas fa-truck"></i></div>
-            <div class="planet"><i class="fas fa-file-invoice-dollar"></i></div>
-            <div class="planet"><i class="fas fa-cog"></i></div>
-            <div class="planet"><i class="fas fa-headset"></i></div>
-        </div>
-        <!-- Outer Orbit -->
-        <div class="orbit orbit-3">
-            <div class="planet"><i class="fas fa-globe"></i></div>
-            <div class="planet"><i class="fas fa-cloud"></i></div>
-        </div>
-    </div>
-
-    <!-- Main Content -->
-    <div class="relative z-10 w-full max-w-md px-4">
-        <div class="glass-panel rounded-3xl overflow-hidden p-8 animate-fade-in-up">
-            <!-- Logo Section -->
-            <div class="text-center mb-10">
-                <img src="/static/login_logo.png" alt="WOW Sales ERP" class="h-48 mx-auto mb-6 object-contain drop-shadow-md max-w-full">
-                <p class="text-indigo-100 text-sm font-medium tracking-wide">Enterprise Resource Planning</p>
+    <!-- Main Card -->
+    <div class="bg-white w-full max-w-5xl h-[600px] rounded-[40px] shadow-2xl overflow-hidden flex relative">
+        
+        <!-- Left Panel (Colored) -->
+        <div class="w-5/12 curved-panel relative flex flex-col items-center justify-center p-8">
+            <!-- Decorative Orbit -->
+            <div class="orbit-container">
+                <div class="orbit orbit-1">
+                    <div class="planet"><i class="fas fa-chart-line"></i></div>
+                    <div class="planet"><i class="fas fa-users"></i></div>
+                    <div class="planet"><i class="fas fa-box"></i></div>
+                </div>
+                <div class="orbit orbit-2">
+                    <div class="planet"><i class="fas fa-truck"></i></div>
+                    <div class="planet"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <div class="planet"><i class="fas fa-cog"></i></div>
+                    <div class="planet"><i class="fas fa-headset"></i></div>
+                </div>
             </div>
 
+            <!-- Content -->
+            <div class="relative z-10 text-center text-white">
+                <img src="/static/login_logo.png" alt="Logo" class="h-32 mx-auto mb-8 object-contain drop-shadow-lg brightness-0 invert opacity-90">
+                <h2 class="text-3xl font-bold mb-2 tracking-wide">WOW Sales ERP</h2>
+                <p class="text-teal-100 text-sm font-light tracking-wider opacity-80">INTRODUCING BROKER OPERATING SYSTEM</p>
+            </div>
+
+            <!-- Vertical Text -->
+            <div class="absolute left-8 top-1/2 transform -translate-y-1/2 z-10">
+                <h1 class="vertical-text text-6xl font-bold text-white opacity-20 tracking-widest select-none">Welcome</h1>
+            </div>
+        </div>
+
+        <!-- Right Panel (Form) -->
+        <div class="w-7/12 bg-white p-12 flex flex-col justify-center relative">
             <!-- Tabs -->
-            <div class="flex p-1 bg-black/20 rounded-xl mb-8">
-                <button onclick="switchTab('login')" id="loginTabBtn" class="flex-1 py-2.5 text-sm font-bold rounded-lg bg-white text-indigo-600 shadow-sm transition-all">로그인</button>
-                <button onclick="switchTab('register')" id="registerTabBtn" class="flex-1 py-2.5 text-sm font-medium rounded-lg text-indigo-200 hover:text-white transition-all">회원가입</button>
+            <div class="absolute top-8 right-12 flex gap-4">
+                <button onclick="switchTab('login')" id="loginTabBtn" class="text-sm font-bold text-teal-600 border-b-2 border-teal-600 pb-1 transition-all">Login</button>
+                <button onclick="switchTab('register')" id="registerTabBtn" class="text-sm font-medium text-slate-400 hover:text-teal-500 pb-1 transition-all">Register</button>
             </div>
 
             <!-- Login Form -->
-            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
-                <div class="space-y-1">
-                    <label class="text-xs font-bold text-indigo-100 ml-1">EMAIL</label>
-                    <div class="relative">
-                        <i class="fas fa-envelope absolute left-4 top-3.5 text-slate-400"></i>
-                        <input type="email" id="loginEmail" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="name@company.com">
-                    </div>
-                </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-bold text-indigo-100 ml-1">PASSWORD</label>
-                    <div class="relative">
-                        <i class="fas fa-lock absolute left-4 top-3.5 text-slate-400"></i>
-                        <input type="password" id="loginPassword" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="••••••••">
-                    </div>
-                </div>
+            <div id="loginForm" class="w-full max-w-sm mx-auto animate-fade-in">
+                <h2 class="text-4xl font-bold text-teal-600 mb-12 text-center">LOGIN</h2>
                 
-                <button type="submit" class="w-full bg-white text-indigo-600 py-3.5 rounded-xl font-bold text-lg hover:bg-indigo-50 transition-all shadow-lg mt-4">
-                    Sign In
-                </button>
+                <form onsubmit="handleLogin(event)" class="space-y-8">
+                    <div class="relative group">
+                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Email</label>
+                        <input type="email" id="loginEmail" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="name@company.com">
+                        <i class="fas fa-user absolute right-0 bottom-3 text-teal-300 group-hover:text-teal-500 transition-colors"></i>
+                    </div>
+                    
+                    <div class="relative group">
+                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Password</label>
+                        <input type="password" id="loginPassword" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="••••••••">
+                        <i class="fas fa-key absolute right-0 bottom-3 text-teal-300 group-hover:text-teal-500 transition-colors"></i>
+                    </div>
 
-                <div class="flex justify-between text-sm mt-6 px-1">
-                    <button type="button" onclick="showFindEmailModal()" class="text-indigo-200 hover:text-white transition-colors">아이디 찾기</button>
-                    <button type="button" onclick="showResetPasswordModal()" class="text-indigo-200 hover:text-white transition-colors">비밀번호 찾기</button>
-                </div>
-            </form>
+                    <div class="flex justify-end">
+                        <button type="button" onclick="showFindEmailModal()" class="text-xs text-slate-400 hover:text-teal-600 transition-colors">Forgot Password?</button>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-gradient-to-r from-teal-400 to-teal-600 text-white py-4 rounded-full font-bold text-lg shadow-lg shadow-teal-200 hover:shadow-xl hover:from-teal-500 hover:to-teal-700 transition-all transform hover:-translate-y-0.5">
+                        Login
+                    </button>
+                </form>
+            </div>
 
             <!-- Register Form -->
-            <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
-                <div class="space-y-1">
-                    <label class="text-xs font-bold text-indigo-100 ml-1">EMAIL</label>
-                    <div class="relative">
-                        <i class="fas fa-envelope absolute left-4 top-3.5 text-slate-400"></i>
-                        <input type="email" id="regEmail" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="name@company.com">
+            <div id="registerForm" class="w-full max-w-sm mx-auto hidden animate-fade-in">
+                <h2 class="text-4xl font-bold text-teal-600 mb-8 text-center">REGISTER</h2>
+                
+                <form onsubmit="handleRegister(event)" class="space-y-6">
+                    <div class="relative group">
+                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Email</label>
+                        <input type="email" id="regEmail" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="name@company.com">
+                        <i class="fas fa-envelope absolute right-0 bottom-3 text-teal-300"></i>
                     </div>
-                </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-bold text-indigo-100 ml-1">PASSWORD</label>
-                    <div class="relative">
-                        <i class="fas fa-lock absolute left-4 top-3.5 text-slate-400"></i>
-                        <input type="password" id="regPassword" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="••••••••">
+                    
+                    <div class="relative group">
+                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Password</label>
+                        <input type="password" id="regPassword" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="••••••••">
+                        <i class="fas fa-lock absolute right-0 bottom-3 text-teal-300"></i>
                     </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-indigo-100 ml-1">NAME</label>
-                        <div class="relative">
-                            <i class="fas fa-user absolute left-4 top-3.5 text-slate-400"></i>
-                            <input type="text" id="regName" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="이름">
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="relative group">
+                            <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Name</label>
+                            <input type="text" id="regName" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="Name">
+                        </div>
+                        <div class="relative group">
+                            <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Company</label>
+                            <input type="text" id="regCompany" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="Company">
                         </div>
                     </div>
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-indigo-100 ml-1">COMPANY</label>
-                        <div class="relative">
-                            <i class="fas fa-building absolute left-4 top-3.5 text-slate-400"></i>
-                            <input type="text" id="regCompany" required class="w-full pl-11 pr-4 py-3 rounded-xl input-glass transition-all" placeholder="회사명">
-                        </div>
-                    </div>
-                </div>
-                <button type="submit" class="w-full bg-emerald-400 text-emerald-900 py-3.5 rounded-xl font-bold text-lg hover:bg-emerald-300 transition-all shadow-lg mt-4">
-                    Create Account
-                </button>
-            </form>
-        </div>
-        
-        <div class="text-center mt-8 text-slate-400 text-xs">
-            &copy; 2025 WOW Sales ERP. All rights reserved.
+                    
+                    <button type="submit" class="w-full bg-gradient-to-r from-teal-400 to-teal-600 text-white py-4 rounded-full font-bold text-lg shadow-lg shadow-teal-200 hover:shadow-xl hover:from-teal-500 hover:to-teal-700 transition-all transform hover:-translate-y-0.5 mt-4">
+                        Create Account
+                    </button>
+                </form>
+            </div>
+
+            <div class="absolute bottom-8 right-12 text-right">
+                <a href="#" class="text-xs text-slate-300 hover:text-teal-500 transition-colors">Help</a>
+            </div>
         </div>
     </div>
 
-    <!-- Modals (Light Theme) -->
-    <div id="findEmailModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <!-- Modals (Teal Theme) -->
+    <div id="findEmailModal" class="hidden fixed inset-0 bg-teal-900/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 border border-teal-100">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-slate-800">아이디 찾기</h3>
-                <button onclick="closeFindEmailModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <h3 class="text-xl font-bold text-teal-800">아이디 찾기</h3>
+                <button onclick="closeFindEmailModal()" class="text-slate-400 hover:text-teal-600 transition-colors">
                     <i class="fas fa-times text-lg"></i>
                 </button>
             </div>
-            <form onsubmit="handleFindEmail(event)" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1">이름</label>
-                    <input type="text" id="findEmailName" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all" placeholder="가입 시 등록한 이름">
+            <form onsubmit="handleFindEmail(event)" class="space-y-6">
+                <div class="relative">
+                    <label class="block text-xs font-bold text-teal-600 mb-1 uppercase">이름</label>
+                    <input type="text" id="findEmailName" required class="w-full py-2 input-underline text-slate-700 focus:border-teal-500" placeholder="가입 시 등록한 이름">
                 </div>
-                <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors">
+                <button type="submit" class="w-full bg-teal-500 text-white py-3 rounded-full font-bold hover:bg-teal-600 transition-colors shadow-md shadow-teal-200">
                     찾기
                 </button>
             </form>
-            <div id="findEmailResult" class="hidden mt-4 p-4 bg-green-50 border border-green-100 rounded-xl">
-                <p class="text-sm text-green-700 font-bold mb-1"><i class="fas fa-check-circle mr-2"></i>아이디를 찾았습니다!</p>
+            <div id="findEmailResult" class="hidden mt-6 p-4 bg-teal-50 border border-teal-100 rounded-xl">
+                <p class="text-sm text-teal-700 font-bold mb-1"><i class="fas fa-check-circle mr-2"></i>아이디를 찾았습니다!</p>
                 <p class="text-sm text-slate-600 pl-6" id="foundEmailMessage"></p>
             </div>
         </div>
     </div>
 
-    <div id="resetPasswordModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div id="resetPasswordModal" class="hidden fixed inset-0 bg-teal-900/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 border border-teal-100">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-slate-800">비밀번호 재설정</h3>
-                <button onclick="closeResetPasswordModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <h3 class="text-xl font-bold text-teal-800">비밀번호 재설정</h3>
+                <button onclick="closeResetPasswordModal()" class="text-slate-400 hover:text-teal-600 transition-colors">
                     <i class="fas fa-times text-lg"></i>
                 </button>
             </div>
-            <form onsubmit="handleResetPassword(event)" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1">이메일</label>
-                    <input type="email" id="resetEmail" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all" placeholder="example@company.com">
+            <form onsubmit="handleResetPassword(event)" class="space-y-6">
+                <div class="relative">
+                    <label class="block text-xs font-bold text-teal-600 mb-1 uppercase">이메일</label>
+                    <input type="email" id="resetEmail" required class="w-full py-2 input-underline text-slate-700 focus:border-teal-500" placeholder="example@company.com">
                 </div>
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1">이름</label>
-                    <input type="text" id="resetName" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all" placeholder="홍길동">
+                <div class="relative">
+                    <label class="block text-xs font-bold text-teal-600 mb-1 uppercase">이름</label>
+                    <input type="text" id="resetName" required class="w-full py-2 input-underline text-slate-700 focus:border-teal-500" placeholder="홍길동">
                 </div>
-                <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors">
+                <button type="submit" class="w-full bg-teal-500 text-white py-3 rounded-full font-bold hover:bg-teal-600 transition-colors shadow-md shadow-teal-200">
                     임시 비밀번호 발급
                 </button>
             </form>
-            <div id="resetPasswordResult" class="hidden mt-4 p-4 bg-green-50 border border-green-100 rounded-xl">
-                <p class="text-sm text-green-700 font-bold mb-2" id="resetSuccessMessage"></p>
-                <p class="text-sm text-slate-600 mb-2" id="tempPasswordDisplay" style="display: none;">임시 비밀번호: <span class="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded" id="tempPassword"></span></p>
+            <div id="resetPasswordResult" class="hidden mt-6 p-4 bg-teal-50 border border-teal-100 rounded-xl">
+                <p class="text-sm text-teal-700 font-bold mb-2" id="resetSuccessMessage"></p>
+                <p class="text-sm text-slate-600 mb-2" id="tempPasswordDisplay" style="display: none;">임시 비밀번호: <span class="font-mono font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded" id="tempPassword"></span></p>
             </div>
         </div>
     </div>
-
+    `);
+})
     <script>
 const API_BASE = '/api';
 
@@ -466,11 +495,11 @@ async function handleLogin(e) {
 </body >
 </html >
     `)
-})
+    })
 
-// 메인 페이지
-app.get('/', (c: Context) => {
-    return c.html(`
+    // 메인 페이지
+    app.get('/', (c: Context) => {
+        return c.html(`
     < !DOCTYPE html >
         <html lang="ko">
             <head>
@@ -681,7 +710,7 @@ app.get('/', (c: Context) => {
                             </body>
                         </html>
                         `)
-})
+    })
 
-export default app
+    export default app
 
