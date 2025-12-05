@@ -247,300 +247,618 @@ async function loadCustomers(content) {
   `;
 }
 
-// 출고 관리 페이지 로드
+// 출고 관리 페이지 로드 (탭 구조 복구)
 async function renderOutboundPage() {
   const content = document.getElementById('content');
-
   content.innerHTML = `
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">
-        <i class="fas fa-truck-loading mr-2"></i>출고 관리
-      </h1>
-    </div>
+    <div class="flex flex-col h-full">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">
+          <i class="fas fa-truck-loading mr-2 text-indigo-600"></i>출고 관리
+        </h1>
+      </div>
 
-    <!-- 필터 및 검색 -->
-    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6">
-      <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div class="flex flex-1 gap-4 w-full md:w-auto">
-          <div class="relative flex-1 md:max-w-xs">
+      <!-- 탭 네비게이션 -->
+      <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
+        <button id="tab-out-reg" class="px-6 py-4 font-bold text-indigo-600 border-b-2 border-indigo-600 transition-colors flex items-center" onclick="switchOutboundTab('reg')">
+          <i class="fas fa-edit mr-2"></i>간편 출고 등록
+        </button>
+        <button id="tab-out-hist" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchOutboundTab('hist')">
+          <i class="fas fa-history mr-2"></i>출고 이력 조회
+        </button>
+      </div>
+
+      <!-- 탭 컨텐츠 영역 -->
+      <div id="outboundTabContent" class="flex-1 overflow-hidden flex flex-col relative">
+        <!-- 동적 로드 -->
+      </div>
+    </div>
+  `;
+
+  // 기본 탭 로드
+  switchOutboundTab('reg');
+}
+
+async function switchOutboundTab(tabName) {
+  // 탭 스타일 업데이트
+  const tabs = ['reg', 'hist'];
+  tabs.forEach(t => {
+    const btn = document.getElementById(`tab-out-${t}`);
+    if (t === tabName) {
+      btn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
+      btn.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+    } else {
+      btn.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+      btn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
+    }
+  });
+
+  const container = document.getElementById('outboundTabContent');
+
+  if (tabName === 'reg') {
+    await renderOutboundRegistrationTab(container);
+  } else {
+    await renderOutboundHistoryTab(container);
+  }
+}
+
+async function renderOutboundRegistrationTab(container) {
+  // 상품 목록 로드
+  if (!window.products) {
+    try {
+      const res = await axios.get(`${API_BASE}/products`);
+      window.products = res.data.data;
+    } catch (e) {
+      console.error('상품 로드 실패', e);
+    }
+  }
+
+  // 출고 장바구니 초기화 (이미 있으면 유지)
+  if (!window.outboundCart) window.outboundCart = [];
+
+  container.innerHTML = `
+    <div class="flex flex-1 gap-6 overflow-hidden h-full pb-4">
+      <!-- 좌측: 상품 선택 -->
+      <div class="w-1/2 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 bg-slate-50">
+          <h3 class="font-bold text-slate-800 mb-3">1. 출고 상품 선택</h3>
+          <div class="relative">
             <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
-            <input type="text" id="outboundSearch" placeholder="주문번호, 고객명" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeyup="if(event.key === 'Enter') loadOutboundOrders()">
+            <input type="text" id="outboundSearch" placeholder="상품명 또는 SKU 검색..." 
+                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                   onkeyup="filterOutboundProducts()">
           </div>
-          <select id="outboundStatusFilter" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="loadOutboundOrders()">
-            <option value="">전체 상태</option>
-            <option value="PENDING">출고 대기</option>
-            <option value="PICKING">피킹 중</option>
-            <option value="PACKING">패킹 중</option>
-            <option value="SHIPPED">출고 완료</option>
-          </select>
-          <button onclick="loadOutboundOrders()" class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors">
-            조회
-          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-2" id="outboundProductList">
+          <!-- 상품 목록 렌더링 -->
         </div>
       </div>
-    </div>
 
-    <!-- 출고 목록 -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200">
-          <thead class="bg-slate-50">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">주문번호/일자</th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">고객 정보</th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">상품 정보</th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">수량</th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">상태</th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">관리</th>
-            </tr>
-          </thead>
-          <tbody id="outboundList" class="bg-white divide-y divide-slate-200">
-            <!-- 자바스크립트로 로드 -->
-          </tbody>
-        </table>
-      </div>
-      <!-- 페이지네이션 -->
-      <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-center gap-4">
-        <button onclick="changeOutboundPage(-1)" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
-          <i class="fas fa-chevron-left"></i>
-        </button>
-        <span id="outboundPageDisplay" class="text-sm font-medium text-slate-600">1 페이지</span>
-        <button onclick="changeOutboundPage(1)" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
-          <i class="fas fa-chevron-right"></i>
-        </button>
-      </div>
-    </div>
-
-    <!-- 패킹 모달 -->
-    <div id="packingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-xl font-bold text-slate-800">패킹 및 송장 입력</h3>
-          <button onclick="closePackingModal()" class="text-slate-400 hover:text-slate-600">
-            <i class="fas fa-times"></i>
-          </button>
+      <!-- 우측: 출고 정보 입력 -->
+      <div class="w-1/2 flex flex-col gap-6 overflow-y-auto pr-2">
+        <!-- 선택된 상품 목록 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <h3 class="font-bold text-slate-800 mb-4">2. 선택된 상품</h3>
+          <div id="outboundCartItems" class="space-y-3 mb-4 min-h-[100px]">
+            <p class="text-center text-slate-400 py-8">상품을 선택해주세요.</p>
+          </div>
+          <div class="flex justify-between items-center pt-4 border-t border-slate-100">
+            <span class="font-bold text-slate-600">총 수량</span>
+            <span class="font-bold text-indigo-600 text-lg" id="outboundTotalQty">0개</span>
+          </div>
         </div>
-        <form onsubmit="handlePackingSubmit(event)" class="space-y-4">
-          <input type="hidden" id="packingOrderId">
+
+        <!-- 배송 정보 입력 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <h3 class="font-bold text-slate-800 mb-4">3. 배송 정보</h3>
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">수령인</label>
+                <input type="text" id="outDestName" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">연락처</label>
+                <input type="text" id="outDestPhone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 mb-1">주소</label>
+              <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 mb-2" placeholder="기본 주소">
+            </div>
+          </div>
+        </div>
+
+        <!-- 운송장 정보 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <h3 class="font-bold text-slate-800 mb-4">4. 운송장 정보</h3>
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">택배사</label>
+                <select id="outCourier" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white">
+                  <option value="CJ대한통운">CJ대한통운</option>
+                  <option value="우체국택배">우체국택배</option>
+                  <option value="로젠택배">로젠택배</option>
+                  <option value="롯데택배">롯데택배</option>
+                  <option value="한진택배">한진택배</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">박스 타입</label>
+                <select id="outBoxType" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white">
+                  <option value="A형">A형 (소)</option>
+                  <option value="B형">B형 (중)</option>
+                  <option value="C형">C형 (대)</option>
+                  <option value="D형">D형 (특대)</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 mb-1">운송장 번호</label>
+              <input type="text" id="outTracking" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="운송장 번호 입력">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 mb-1">비고</label>
+              <input type="text" id="outNotes" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="배송 메모 등">
+            </div>
+          </div>
+        </div>
+
+        <button onclick="submitDirectOutbound()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.99] mb-6">
+          출고 등록 완료
+        </button>
+      </div>
+    </div>
+  `;
+
+  renderOutboundProducts();
+  renderOutboundCart();
+}
+
+function renderOutboundProducts(filterText = '') {
+  const container = document.getElementById('outboundProductList');
+  if (!container) return;
+
+  const filtered = window.products.filter(p =>
+    p.name.toLowerCase().includes(filterText.toLowerCase()) ||
+    p.sku.toLowerCase().includes(filterText.toLowerCase())
+  );
+
+  container.innerHTML = filtered.map(p => `
+    <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" onclick="addToOutboundCart(${p.id})">
+      <div>
+        <div class="font-medium text-slate-800">${p.name}</div>
+        <div class="text-xs text-indigo-600 mb-0.5 font-medium">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</div>
+        <div class="text-xs text-slate-500 flex items-center gap-2">
+          <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded">${p.sku}</span>
+          <span>재고: <span class="${p.current_stock <= 0 ? 'text-rose-600 font-bold' : 'text-slate-600'}">${p.current_stock}</span></span>
+        </div>
+      </div>
+      <button class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100">
+        <i class="fas fa-plus"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+function filterOutboundProducts() {
+  const text = document.getElementById('outboundSearch').value;
+  renderOutboundProducts(text);
+}
+
+function addToOutboundCart(productId) {
+  const product = window.products.find(p => p.id === productId);
+  if (!product) return;
+
+  if (product.current_stock <= 0) {
+    showToast('재고가 없는 상품입니다.', 'error');
+    return;
+  }
+
+  const existing = window.outboundCart.find(item => item.product.id === productId);
+  if (existing) {
+    if (existing.quantity >= product.current_stock) {
+      showToast('재고 수량을 초과할 수 없습니다.', 'error');
+      return;
+    }
+    existing.quantity++;
+  } else {
+    window.outboundCart.push({ product, quantity: 1 });
+  }
+  renderOutboundCart();
+}
+
+function renderOutboundCart() {
+  const container = document.getElementById('outboundCartItems');
+  const totalEl = document.getElementById('outboundTotalQty');
+
+  if (window.outboundCart.length === 0) {
+    container.innerHTML = '<p class="text-center text-slate-400 py-8">상품을 선택해주세요.</p>';
+    totalEl.textContent = '0개';
+    return;
+  }
+
+  let totalQty = 0;
+  container.innerHTML = window.outboundCart.map(item => {
+    totalQty += item.quantity;
+    return `
+      <div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
+        <div class="flex-1 min-w-0">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">택배사</label>
-            <select id="packingCourier" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <div class="font-medium text-slate-800 text-sm">${item.product.name}</div>
+            <div class="text-xs text-indigo-600 mb-0.5">${[item.product.category, item.product.category_medium, item.product.category_small].filter(Boolean).join(' > ')}</div>
+            <div class="text-xs text-slate-500 font-mono">${item.product.sku}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center bg-white rounded border border-slate-200">
+            <button onclick="updateOutboundQty(${item.product.id}, -1)" class="w-6 h-6 flex items-center justify-center hover:bg-slate-100 text-slate-500"><i class="fas fa-minus text-xs"></i></button>
+            <span class="w-8 text-center text-sm font-bold">${item.quantity}</span>
+            <button onclick="updateOutboundQty(${item.product.id}, 1)" class="w-6 h-6 flex items-center justify-center hover:bg-slate-100 text-slate-500"><i class="fas fa-plus text-xs"></i></button>
+          </div>
+          <button onclick="removeOutboundItem(${item.product.id})" class="text-slate-400 hover:text-rose-500"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  totalEl.textContent = totalQty + '개';
+}
+
+function updateOutboundQty(productId, delta) {
+  const item = window.outboundCart.find(i => i.product.id === productId);
+  if (!item) return;
+
+  const newQty = item.quantity + delta;
+  if (newQty <= 0) {
+    removeOutboundItem(productId);
+    return;
+  }
+  if (newQty > item.product.current_stock) {
+    showToast('재고 부족', 'error');
+    return;
+  }
+  item.quantity = newQty;
+  renderOutboundCart();
+}
+
+function removeOutboundItem(productId) {
+  window.outboundCart = window.outboundCart.filter(i => i.product.id !== productId);
+  renderOutboundCart();
+}
+
+async function submitDirectOutbound() {
+  if (window.outboundCart.length === 0) {
+    showToast('출고할 상품을 선택해주세요.', 'error');
+    return;
+  }
+
+  const destName = document.getElementById('outDestName').value;
+  const destPhone = document.getElementById('outDestPhone').value;
+  const destAddress = document.getElementById('outDestAddress').value;
+  const courier = document.getElementById('outCourier').value;
+  const tracking = document.getElementById('outTracking').value;
+  const boxType = document.getElementById('outBoxType').value;
+  const notes = document.getElementById('outNotes').value;
+
+  if (!destName || !destAddress) {
+    showToast('수령인과 주소를 입력해주세요.', 'error');
+    return;
+  }
+
+  if (!tracking) {
+    if (!confirm('운송장 번호 없이 출고하시겠습니까?')) return;
+  }
+
+  const payload = {
+    items: window.outboundCart.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
+    destination: {
+      name: destName,
+      phone: destPhone,
+      address: destAddress
+    },
+    package: {
+      courier: courier,
+      tracking_number: tracking,
+      box_type: boxType
+    },
+    notes: notes
+  };
+
+  try {
+    await axios.post(`${API_BASE}/outbound/direct`, payload);
+    showToast('출고가 완료되었습니다.');
+    // 초기화
+    window.outboundCart = [];
+    document.getElementById('outDestName').value = '';
+    document.getElementById('outDestPhone').value = '';
+    document.getElementById('outDestAddress').value = '';
+    document.getElementById('outTracking').value = '';
+    document.getElementById('outNotes').value = '';
+    renderOutboundCart();
+    // 상품 재고 갱신을 위해 다시 로드
+    const res = await axios.get(`${API_BASE}/products`);
+    window.products = res.data.data;
+    renderOutboundProducts();
+  } catch (e) {
+    console.error(e);
+    showToast('출고 등록 실패: ' + (e.response?.data?.error || e.message), 'error');
+  }
+}
+
+async function renderOutboundHistoryTab(container) {
+  // 초기 UI 렌더링 (필터 포함)
+  container.innerHTML = `
+    <div class="flex flex-col h-full">
+      <!-- 필터 -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6">
+        <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div class="flex flex-1 gap-4 w-full md:w-auto">
+            <div class="relative flex-1 md:max-w-xs">
+              <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+              <input type="text" id="outHistorySearch" placeholder="주문번호 또는 받는분 검색" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeyup="if(event.key === 'Enter') filterOutboundHistory()">
+            </div>
+            <select id="outHistoryStatus" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterOutboundHistory()">
+              <option value="">전체 상태</option>
+              <option value="PENDING">출고 대기</option>
+              <option value="PICKING">피킹 중</option>
+              <option value="PACKING">패킹 중</option>
+              <option value="SHIPPED">출고 완료</option>
+              <option value="CANCELLED">취소됨</option>
+            </select>
+            <button onclick="toggleOutboundFilters()" class="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 flex items-center gap-2">
+              <i class="fas fa-filter"></i>상세 필터
+            </button>
+          </div>
+          <button onclick="filterOutboundHistory()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
+            <i class="fas fa-search mr-2"></i>조회
+          </button>
+        </div>
+
+        <!-- 상세 필터 영역 -->
+        <div id="outboundDetailFilters" class="hidden mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">기간 조회</label>
+            <div class="flex gap-2 items-center">
+              <input type="date" id="outStartDate" class="w-full border border-slate-200 rounded px-3 py-2 text-sm">
+              <span class="text-slate-400">~</span>
+              <input type="date" id="outEndDate" class="w-full border border-slate-200 rounded px-3 py-2 text-sm">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">택배사</label>
+            <select id="outCourier" class="w-full border border-slate-200 rounded px-3 py-2 text-sm">
+              <option value="">전체</option>
               <option value="CJ대한통운">CJ대한통운</option>
               <option value="우체국택배">우체국택배</option>
               <option value="한진택배">한진택배</option>
-              <option value="롯데택배">롯데택배</option>
               <option value="로젠택배">로젠택배</option>
+              <option value="롯데택배">롯데택배</option>
             </select>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">운송장 번호</label>
-            <input type="text" id="packingTrackingNumber" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="1234567890">
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">박스 타입</label>
-                <input type="text" id="packingBoxType" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" value="A형">
-             </div>
-             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">박스 수량</label>
-                <input type="number" id="packingBoxCount" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" value="1" min="1">
-             </div>
-          </div>
-          <div class="flex gap-2 pt-2">
-            <button type="button" onclick="closePackingModal()" class="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
-              취소
-            </button>
-            <button type="submit" class="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-              저장
+          <div class="flex items-end">
+            <button onclick="filterOutboundHistory()" class="w-full bg-slate-800 text-white px-4 py-2 rounded hover:bg-slate-700 text-sm">
+              적용하기
             </button>
           </div>
-        </form>
+        </div>
+      </div>
+
+      <!-- 리스트 -->
+      <div id="outboundHistoryList" class="flex-1 overflow-auto bg-white rounded-xl shadow-sm border border-slate-100">
+        <!-- 동적 로드 -->
+        <div class="flex items-center justify-center h-full text-slate-400">
+          <i class="fas fa-spinner fa-spin mr-2"></i>데이터 로딩 중...
+        </div>
       </div>
     </div>
   `;
 
   // 초기 데이터 로드
-  window.outboundPage = 0;
-  loadOutboundOrders();
+  await filterOutboundHistory();
 }
 
-// 출고 목록 로드
-async function loadOutboundOrders() {
-  const container = document.getElementById('outboundList');
-  const search = document.getElementById('outboundSearch').value;
-  const status = document.getElementById('outboundStatusFilter').value;
-  const page = window.outboundPage || 0;
+function toggleOutboundFilters() {
+  const filters = document.getElementById('outboundDetailFilters');
+  filters.classList.toggle('hidden');
+}
+
+async function filterOutboundHistory() {
+  const search = document.getElementById('outHistorySearch').value;
+  const status = document.getElementById('outHistoryStatus').value;
+  const startDate = document.getElementById('outStartDate')?.value || '';
+  const endDate = document.getElementById('outEndDate')?.value || '';
+  const courier = document.getElementById('outCourier')?.value || '';
+
+  const container = document.getElementById('outboundHistoryList');
 
   try {
-    // 쿼리 파라미터 구성
-    const params = new URLSearchParams({
-      limit: 10,
-      offset: page * 10
-    });
-    if (search) params.append('search', search);
-    if (status) params.append('status', status);
+    const params = {};
+    if (search) params.search = search;
+    if (status) params.status = status;
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    if (courier) params.courier = courier;
 
-    const res = await axios.get(`${API_BASE}/outbound?${params.toString()}`);
-    const orders = res.data.data;
+    const res = await axios.get(`${API_BASE}/outbound`, { params });
+    const list = res.data.data;
 
-    // 페이지 표시 업데이트
-    const pageDisplay = document.getElementById('outboundPageDisplay');
-    if (pageDisplay) pageDisplay.textContent = `${page + 1} 페이지`;
+    container.innerHTML = `
+      <table class="min-w-full text-sm text-left">
+        <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0">
+          <tr>
+            <th class="px-6 py-3">출고번호</th>
+            <th class="px-6 py-3">일시</th>
+            <th class="px-6 py-3">수령인</th>
+            <th class="px-6 py-3">품목수</th>
+            <th class="px-6 py-3">상태</th>
+            <th class="px-6 py-3 text-center">관리</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          ${list.map(o => `
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-4 font-mono">${o.order_number}</td>
+              <td class="px-6 py-4 text-slate-500">${new Date(o.created_at).toLocaleString()}</td>
+              <td class="px-6 py-4 font-medium text-slate-800">${o.destination_name}</td>
+              <td class="px-6 py-4">${o.item_count}</td>
+              <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">${o.status}</span></td>
+              <td class="px-6 py-4 text-center">
+                <button onclick="showOutboundDetail(${o.id})" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded text-xs font-bold transition-colors">
+                  <i class="fas fa-search mr-1"></i>상세보기
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+          ${list.length === 0 ? '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">출고 이력이 없습니다.</td></tr>' : ''}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    console.error(e);
+    showToast('조회 실패', 'error');
+  }
+}
 
-    if (orders.length === 0) {
-      container.innerHTML = `
-        <tr>
-          <td colspan="6" class="px-6 py-10 text-center text-slate-500">
-            <i class="fas fa-box-open text-4xl mb-3 text-slate-300 block"></i>
-            출고 내역이 없습니다.
-          </td>
-        </tr>
-      `;
-      return;
-    }
+async function showOutboundDetail(id) {
+  try {
+    const res = await axios.get(`${API_BASE}/outbound/${id}`);
+    const data = res.data.data;
+    const { items, packages } = data;
 
-    container.innerHTML = orders.map(order => `
-      <tr class="hover:bg-slate-50 transition-colors">
-        <td class="px-6 py-4 whitespace-nowrap">
-          <div class="text-sm font-bold text-indigo-600">${order.order_number}</div>
-          <div class="text-xs text-slate-500">${new Date(order.created_at).toLocaleDateString()}</div>
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap">
-          <div class="text-sm font-medium text-slate-900">${order.destination_name || '비회원'}</div>
-          <div class="text-xs text-slate-500">${order.destination_phone || '-'}</div>
-        </td>
-        <td class="px-6 py-4">
-          <div class="text-sm text-slate-900 truncate max-w-xs" title="${order.first_product_name}">
-            ${order.first_product_name} ${order.item_count > 1 ? `외 ${order.item_count - 1}건` : ''}
+    const modalHtml = `
+      <div id="outDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[60] transition-opacity duration-300 opacity-0">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300">
+          <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+            <div>
+              <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-file-invoice-dollar text-indigo-600"></i> 출고 상세 정보
+              </h3>
+              <p class="text-sm text-slate-500 mt-1 font-mono">${data.order_number}</p>
+            </div>
+            <button onclick="closeOutboundDetail()" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
+              <i class="fas fa-times text-lg"></i>
+            </button>
           </div>
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-center">
-          <span class="text-sm font-bold text-slate-700">${order.total_quantity}개</span>
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-center">
-          <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-            ${order.status === 'PENDING' ? 'bg-slate-100 text-slate-600' :
-        order.status === 'PICKING' ? 'bg-amber-100 text-amber-700' :
-          order.status === 'PACKING' ? 'bg-blue-100 text-blue-700' :
-            order.status === 'SHIPPED' ? 'bg-emerald-100 text-emerald-700' :
-              'bg-gray-100 text-gray-600'}">
-            ${order.status === 'PENDING' ? '출고 대기' :
-        order.status === 'PICKING' ? '피킹 중' :
-          order.status === 'PACKING' ? '패킹 중' :
-            order.status === 'SHIPPED' ? '출고 완료' : order.status}
-          </span>
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-center">
-          ${order.status === 'PENDING' ? `
-            <button onclick="handlePicking(${order.id})" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-2">
-              <i class="fas fa-hand-holding-box mr-1"></i>피킹 시작
+          
+          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <!-- 상태 및 기본 정보 -->
+            <div class="grid grid-cols-2 gap-6">
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <h4 class="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">받는 분 정보</h4>
+                <div class="space-y-2 text-sm">
+                  <div class="flex"><span class="w-20 text-slate-500">이름</span> <span class="font-medium text-slate-900">${data.destination_name}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">연락처</span> <span class="font-medium text-slate-900">${data.destination_phone || '-'}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">주소</span> <span class="font-medium text-slate-900 break-all">${data.destination_address}</span></div>
+                </div>
+              </div>
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <h4 class="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">출고 상태</h4>
+                <div class="space-y-2 text-sm">
+                  <div class="flex items-center"><span class="w-20 text-slate-500">상태</span> 
+                    <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-bold text-indigo-600 shadow-sm">${data.status}</span>
+                  </div>
+                  <div class="flex"><span class="w-20 text-slate-500">등록일</span> <span class="text-slate-700">${new Date(data.created_at).toLocaleString()}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">비고</span> <span class="text-slate-700">${data.notes || '-'}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 상품 목록 -->
+            <div>
+              <h4 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <i class="fas fa-box-open text-slate-400"></i> 출고 상품 목록
+              </h4>
+              <div class="border border-slate-200 rounded-lg overflow-hidden">
+                <table class="min-w-full text-sm text-left divide-y divide-slate-200">
+                  <thead class="bg-slate-50 font-semibold text-slate-500">
+                    <tr>
+                      <th class="px-4 py-3">상품명 / SKU</th>
+                      <th class="px-4 py-3 text-center">수량</th>
+                      <th class="px-4 py-3 text-center">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 bg-white">
+                    ${items.map(i => `
+                      <tr>
+                        <td class="px-4 py-3">
+                          <div class="font-medium text-slate-900">${i.product_name}</div>
+                          <div class="text-xs text-slate-500 font-mono">${i.sku}</div>
+                        </td>
+                        <td class="px-4 py-3 text-center font-bold text-slate-700">${i.quantity_ordered}</td>
+                        <td class="px-4 py-3 text-center">
+                          <span class="text-xs px-2 py-1 rounded bg-slate-100 text-slate-600">${i.status}</span>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 배송 정보 (패키지) -->
+            ${packages.length > 0 ? `
+              <div>
+                <h4 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                  <i class="fas fa-truck text-slate-400"></i> 배송 및 운송장 정보
+                </h4>
+                <div class="grid grid-cols-1 gap-3">
+                  ${packages.map(p => `
+                    <div class="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                      <div class="flex items-center gap-4">
+                        <div class="bg-white p-2 rounded-full shadow-sm text-indigo-600">
+                          <i class="fas fa-shipping-fast"></i>
+                        </div>
+                        <div>
+                          <div class="font-bold text-indigo-900">${p.courier}</div>
+                          <div class="text-sm text-indigo-700 font-mono tracking-wide">${p.tracking_number}</div>
+                        </div>
+                      </div>
+                      <div class="text-right text-sm">
+                        <div class="font-medium text-slate-600">${p.box_type || '박스정보 없음'}</div>
+                        <div class="text-slate-500">수량: ${p.box_count}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+          
+          <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end">
+            <button onclick="closeOutboundDetail()" class="px-6 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium transition-colors shadow-lg shadow-slate-200">
+              닫기
             </button>
-          ` : order.status === 'PICKING' ? `
-            <button onclick="openPackingModal(${order.id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-2">
-              <i class="fas fa-box mr-1"></i>패킹/송장
-            </button>
-          ` : order.status === 'PACKING' ? `
-            <button onclick="handleConfirm(${order.id})" class="text-emerald-600 hover:text-emerald-800 text-sm font-medium mr-2">
-              <i class="fas fa-check-circle mr-1"></i>출고 확정
-            </button>
-          ` : '-'}
-        </td>
-      </tr>
-    `).join('');
+          </div>
+        </div>
+      </div>
+    `;
 
-  } catch (e) {
-    console.error('출고 목록 로드 실패:', e);
-    showToast('출고 목록을 불러오지 못했습니다.', 'error');
-  }
-}
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-// 페이지 변경
-function changeOutboundPage(delta) {
-  const newPage = (window.outboundPage || 0) + delta;
-  if (newPage < 0) return;
-  window.outboundPage = newPage;
-  loadOutboundOrders();
-}
-
-// 1. 피킹 처리 (일괄 피킹 처리)
-async function handlePicking(id) {
-  if (!confirm('해당 주문의 피킹을 시작하시겠습니까?\n(모든 상품이 피킹된 것으로 처리됩니다)')) return;
-
-  try {
-    // 상세 정보 조회하여 아이템 목록 확보
-    const detailRes = await axios.get(`${API_BASE}/outbound/${id}`);
-    const items = detailRes.data.data.items;
-
-    // 피킹 요청 (모든 수량 피킹 처리)
-    const pickingItems = items.map(item => ({
-      product_id: item.product_id,
-      quantity: item.quantity_ordered // 전체 수량 피킹
-    }));
-
-    const res = await axios.post(`${API_BASE}/outbound/${id}/picking`, { items: pickingItems });
-    if (res.data.success) {
-      showToast('피킹이 완료되었습니다.');
-      loadOutboundOrders();
-    }
-  } catch (e) {
-    console.error('피킹 처리 실패:', e);
-    showToast(e.response?.data?.error || '피킹 처리에 실패했습니다.', 'error');
-  }
-}
-
-// 2. 패킹 모달 열기
-function openPackingModal(id) {
-  document.getElementById('packingOrderId').value = id;
-  document.getElementById('packingTrackingNumber').value = '';
-  document.getElementById('packingModal').classList.remove('hidden');
-}
-
-function closePackingModal() {
-  document.getElementById('packingModal').classList.add('hidden');
-}
-
-// 3. 패킹 및 송장 저장
-async function handlePackingSubmit(e) {
-  e.preventDefault();
-  const id = document.getElementById('packingOrderId').value;
-  const courier = document.getElementById('packingCourier').value;
-  const tracking_number = document.getElementById('packingTrackingNumber').value;
-  const box_type = document.getElementById('packingBoxType').value;
-  const box_count = document.getElementById('packingBoxCount').value;
-
-  try {
-    const res = await axios.post(`${API_BASE}/outbound/${id}/packing`, {
-      courier,
-      tracking_number,
-      box_type,
-      box_count: parseInt(box_count),
-      weight: 0 // 무게는 선택사항
+    // 애니메이션
+    requestAnimationFrame(() => {
+      const modal = document.getElementById('outDetailModal');
+      const content = modal.querySelector('div');
+      modal.classList.remove('opacity-0');
+      content.classList.remove('scale-95');
+      content.classList.add('scale-100');
     });
 
-    if (res.data.success) {
-      showToast('패킹 정보가 저장되었습니다.');
-      closePackingModal();
-      loadOutboundOrders();
-    }
   } catch (e) {
-    console.error('패킹 처리 실패:', e);
-    showToast(e.response?.data?.error || '패킹 처리에 실패했습니다.', 'error');
+    console.error(e);
+    showToast('상세 정보를 불러오는데 실패했습니다.', 'error');
   }
 }
 
-// 4. 출고 확정
-async function handleConfirm(id) {
-  if (!confirm('출고를 확정하시겠습니까?\n(재고가 차감되고 주문 상태가 배송중으로 변경됩니다)')) return;
-
-  try {
-    const res = await axios.post(`${API_BASE}/outbound/${id}/confirm`);
-    if (res.data.success) {
-      showToast('출고가 확정되었습니다.');
-      loadOutboundOrders();
-    }
-  } catch (e) {
-    console.error('출고 확정 실패:', e);
-    showToast(e.response?.data?.error || '출고 확정에 실패했습니다.', 'error');
+function closeOutboundDetail() {
+  const modal = document.getElementById('outDetailModal');
+  if (modal) {
+    modal.classList.add('opacity-0');
+    modal.querySelector('div').classList.remove('scale-100');
+    modal.querySelector('div').classList.add('scale-95');
+    setTimeout(() => modal.remove(), 300);
   }
 }
 
