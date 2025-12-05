@@ -210,12 +210,12 @@ app.get('/login', (c: Context) => {
             <div class="relative z-10 text-center text-white">
                 <img src="/static/login_logo.png" alt="Logo" class="h-32 mx-auto mb-8 object-contain drop-shadow-lg brightness-0 invert opacity-90">
                 <h2 class="text-3xl font-bold mb-2 tracking-wide">WOW Sales ERP</h2>
-                <p class="text-teal-100 text-sm font-light tracking-wider opacity-80">INTRODUCING BROKER OPERATING SYSTEM</p>
+                <p class="text-teal-100 text-sm font-light tracking-wider opacity-80">브로커 운영 시스템 소개</p>
             </div>
 
             <!-- Vertical Text -->
             <div class="absolute left-8 top-1/2 transform -translate-y-1/2 z-10">
-                <h1 class="vertical-text text-6xl font-bold text-white opacity-20 tracking-widest select-none">Welcome</h1>
+                <h1 class="vertical-text text-6xl font-bold text-white opacity-20 tracking-widest select-none">환영합니다</h1>
             </div>
         </div>
 
@@ -223,73 +223,73 @@ app.get('/login', (c: Context) => {
         <div class="w-7/12 bg-white p-12 flex flex-col justify-center relative">
             <!-- Tabs -->
             <div class="absolute top-8 right-12 flex gap-4">
-                <button onclick="switchTab('login')" id="loginTabBtn" class="text-sm font-bold text-teal-600 border-b-2 border-teal-600 pb-1 transition-all">Login</button>
-                <button onclick="switchTab('register')" id="registerTabBtn" class="text-sm font-medium text-slate-400 hover:text-teal-500 pb-1 transition-all">Register</button>
+                <button onclick="switchTab('login')" id="loginTabBtn" class="text-sm font-bold text-teal-600 border-b-2 border-teal-600 pb-1 transition-all">로그인</button>
+                <button onclick="switchTab('register')" id="registerTabBtn" class="text-sm font-medium text-slate-400 hover:text-teal-500 pb-1 transition-all">회원가입</button>
             </div>
 
             <!-- Login Form -->
             <div id="loginForm" class="w-full max-w-sm mx-auto animate-fade-in">
-                <h2 class="text-4xl font-bold text-teal-600 mb-12 text-center">LOGIN</h2>
+                <h2 class="text-4xl font-bold text-teal-600 mb-12 text-center">로그인</h2>
                 
                 <form onsubmit="handleLogin(event)" class="space-y-8">
                     <div class="relative group">
-                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Email</label>
+                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">이메일</label>
                         <input type="email" id="loginEmail" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="name@company.com">
                         <i class="fas fa-user absolute right-0 bottom-3 text-teal-300 group-hover:text-teal-500 transition-colors"></i>
                     </div>
                     
                     <div class="relative group">
-                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Password</label>
+                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">비밀번호</label>
                         <input type="password" id="loginPassword" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="••••••••">
                         <i class="fas fa-key absolute right-0 bottom-3 text-teal-300 group-hover:text-teal-500 transition-colors"></i>
                     </div>
 
                     <div class="flex justify-end">
-                        <button type="button" onclick="showFindEmailModal()" class="text-xs text-slate-400 hover:text-teal-600 transition-colors">Forgot Password?</button>
+                        <button type="button" onclick="showFindEmailModal()" class="text-xs text-slate-400 hover:text-teal-600 transition-colors">비밀번호를 잊으셨나요?</button>
                     </div>
                     
                     <button type="submit" class="w-full bg-gradient-to-r from-teal-400 to-teal-600 text-white py-4 rounded-full font-bold text-lg shadow-lg shadow-teal-200 hover:shadow-xl hover:from-teal-500 hover:to-teal-700 transition-all transform hover:-translate-y-0.5">
-                        Login
+                        로그인
                     </button>
                 </form>
             </div>
 
             <!-- Register Form -->
             <div id="registerForm" class="w-full max-w-sm mx-auto hidden animate-fade-in">
-                <h2 class="text-4xl font-bold text-teal-600 mb-8 text-center">REGISTER</h2>
+                <h2 class="text-4xl font-bold text-teal-600 mb-8 text-center">회원가입</h2>
                 
                 <form onsubmit="handleRegister(event)" class="space-y-6">
                     <div class="relative group">
-                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Email</label>
+                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">이메일</label>
                         <input type="email" id="regEmail" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="name@company.com">
                         <i class="fas fa-envelope absolute right-0 bottom-3 text-teal-300"></i>
                     </div>
                     
                     <div class="relative group">
-                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Password</label>
+                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">비밀번호</label>
                         <input type="password" id="regPassword" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="••••••••">
                         <i class="fas fa-lock absolute right-0 bottom-3 text-teal-300"></i>
                     </div>
 
                     <div class="grid grid-cols-2 gap-6">
                         <div class="relative group">
-                            <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Name</label>
-                            <input type="text" id="regName" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="Name">
+                            <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">이름</label>
+                            <input type="text" id="regName" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="이름">
                         </div>
                         <div class="relative group">
-                            <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">Company</label>
-                            <input type="text" id="regCompany" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="Company">
+                            <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">회사명</label>
+                            <input type="text" id="regCompany" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="회사명">
                         </div>
                     </div>
                     
                     <button type="submit" class="w-full bg-gradient-to-r from-teal-400 to-teal-600 text-white py-4 rounded-full font-bold text-lg shadow-lg shadow-teal-200 hover:shadow-xl hover:from-teal-500 hover:to-teal-700 transition-all transform hover:-translate-y-0.5 mt-4">
-                        Create Account
+                        계정 생성
                     </button>
                 </form>
             </div>
 
             <div class="absolute bottom-8 right-12 text-right">
-                <a href="#" class="text-xs text-slate-300 hover:text-teal-500 transition-colors">Help</a>
+                <a href="#" class="text-xs text-slate-300 hover:text-teal-500 transition-colors">도움말</a>
             </div>
         </div>
     </div>
