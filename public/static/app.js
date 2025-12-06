@@ -1,4 +1,4 @@
-// API Base URL
+﻿// API Base URL
 const API_BASE = '/api';
 
 // 인증 체크
@@ -12,6 +12,11 @@ axios.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // Super Admin Impersonation
+  const impersonatedTenantId = localStorage.getItem('impersonatedTenantId');
+  if (impersonatedTenantId) {
+    config.headers['X-Tenant-ID'] = impersonatedTenantId;
   }
   return config;
 });
@@ -69,6 +74,7 @@ async function fetchUserInfo() {
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('tenant', JSON.stringify(tenant));
       updateCompanyName();
+      updateUserUI(user);
     }
   } catch (e) {
     console.error('Failed to fetch user info:', e);
@@ -119,6 +125,8 @@ let currentPage = 'dashboard';
 document.addEventListener('DOMContentLoaded', () => {
   setupNavigation();
   loadUserInfo();
+  // Check Impersonation Status
+  checkImpersonationStatus();
   loadPage('dashboard');
 });
 
@@ -159,6 +167,39 @@ function updateUserUI(user) {
       avatarEl.innerHTML = `<img src="${user.avatar_url}" alt="${user.name}" class="w-full h-full rounded-full object-cover">`;
     } else {
       avatarEl.textContent = user.name.charAt(0).toUpperCase();
+    }
+  }
+
+  // Super Admin Menu
+  if (user.role === 'SUPER_ADMIN') {
+    const nav = document.querySelector('nav');
+    if (nav && !document.getElementById('nav-super-admin')) {
+      const link = document.createElement('a');
+      link.href = '#';
+      link.id = 'nav-super-admin';
+      link.dataset.page = 'super-admin';
+      link.className = 'nav-link flex items-center px-3 py-2.5 rounded-lg group';
+      link.setAttribute('onclick', 'closeSidebarOnMobile()'); // For mobile
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Remove active from others
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+        loadPage('super-admin');
+      });
+
+      link.innerHTML = `
+        <i class="fas fa-user-shield w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
+        <span class="font-medium">시스템 관리</span>
+      `;
+
+      // Settings Div before which to insert
+      const settingsDiv = nav.querySelector('div.pt-4');
+      if (settingsDiv) {
+        nav.insertBefore(link, settingsDiv);
+      } else {
+        nav.appendChild(link);
+      }
     }
   }
 }
@@ -254,13 +295,13 @@ async function renderOutboundPage() {
     <div class="flex flex-col h-full">
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-slate-800">
-          <i class="fas fa-truck-loading mr-2 text-indigo-600"></i>출고 관리
+          <i class="fas fa-truck-loading mr-2 text-teal-600"></i>출고 관리
         </h1>
       </div>
 
       <!-- 탭 네비게이션 -->
       <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
-        <button id="tab-out-reg" class="px-6 py-4 font-bold text-indigo-600 border-b-2 border-indigo-600 transition-colors flex items-center" onclick="switchOutboundTab('reg')">
+        <button id="tab-out-reg" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center" onclick="switchOutboundTab('reg')">
           <i class="fas fa-edit mr-2"></i>간편 출고 등록
         </button>
         <button id="tab-out-hist" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchOutboundTab('hist')">
@@ -286,9 +327,9 @@ async function switchOutboundTab(tabName) {
     const btn = document.getElementById(`tab-out-${t}`);
     if (t === tabName) {
       btn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-      btn.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+      btn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
     } else {
-      btn.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+      btn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
       btn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
     }
   });
@@ -325,7 +366,7 @@ async function renderOutboundRegistrationTab(container) {
           <div class="relative">
             <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
             <input type="text" id="outboundSearch" placeholder="상품명 또는 SKU 검색..." 
-                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
                    onkeyup="filterOutboundProducts()">
           </div>
         </div>
@@ -344,7 +385,7 @@ async function renderOutboundRegistrationTab(container) {
           </div>
           <div class="flex justify-between items-center pt-4 border-t border-slate-100">
             <span class="font-bold text-slate-600">총 수량</span>
-            <span class="font-bold text-indigo-600 text-lg" id="outboundTotalQty">0개</span>
+            <span class="font-bold text-teal-600 text-lg" id="outboundTotalQty">0개</span>
           </div>
         </div>
 
@@ -355,16 +396,16 @@ async function renderOutboundRegistrationTab(container) {
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1">수령인</label>
-                <input type="text" id="outDestName" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="outDestName" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500">
               </div>
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1">연락처</label>
-                <input type="text" id="outDestPhone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="outDestPhone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500">
               </div>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">주소</label>
-              <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 mb-2" placeholder="기본 주소">
+              <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 mb-2" placeholder="기본 주소">
             </div>
           </div>
         </div>
@@ -396,16 +437,16 @@ async function renderOutboundRegistrationTab(container) {
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">운송장 번호</label>
-              <input type="text" id="outTracking" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="운송장 번호 입력">
+              <input type="text" id="outTracking" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500" placeholder="운송장 번호 입력">
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">비고</label>
-              <input type="text" id="outNotes" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="배송 메모 등">
+              <input type="text" id="outNotes" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500" placeholder="배송 메모 등">
             </div>
           </div>
         </div>
 
-        <button onclick="submitDirectOutbound()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.99] mb-6">
+        <button onclick="submitDirectOutbound()" class="w-full bg-teal-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-teal-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.99] mb-6">
           출고 등록 완료
         </button>
       </div>
@@ -429,13 +470,13 @@ function renderOutboundProducts(filterText = '') {
     <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" onclick="addToOutboundCart(${p.id})">
       <div>
         <div class="font-medium text-slate-800">${p.name}</div>
-        <div class="text-xs text-indigo-600 mb-0.5 font-medium">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</div>
+        <div class="text-xs text-teal-600 mb-0.5 font-medium">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</div>
         <div class="text-xs text-slate-500 flex items-center gap-2">
           <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded">${p.sku}</span>
           <span>재고: <span class="${p.current_stock <= 0 ? 'text-rose-600 font-bold' : 'text-slate-600'}">${p.current_stock}</span></span>
         </div>
       </div>
-      <button class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100">
+      <button class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100">
         <i class="fas fa-plus"></i>
       </button>
     </div>
@@ -487,7 +528,7 @@ function renderOutboundCart() {
         <div class="flex-1 min-w-0">
           <div>
             <div class="font-medium text-slate-800 text-sm">${item.product.name}</div>
-            <div class="text-xs text-indigo-600 mb-0.5">${[item.product.category, item.product.category_medium, item.product.category_small].filter(Boolean).join(' > ')}</div>
+            <div class="text-xs text-teal-600 mb-0.5">${[item.product.category, item.product.category_medium, item.product.category_small].filter(Boolean).join(' > ')}</div>
             <div class="text-xs text-slate-500 font-mono">${item.product.sku}</div>
           </div>
         </div>
@@ -597,9 +638,9 @@ async function renderOutboundHistoryTab(container) {
           <div class="flex flex-1 gap-4 w-full md:w-auto">
             <div class="relative flex-1 md:max-w-xs">
               <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
-              <input type="text" id="outHistorySearch" placeholder="주문번호 또는 받는분 검색" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeyup="if(event.key === 'Enter') filterOutboundHistory()">
+              <input type="text" id="outHistorySearch" placeholder="주문번호 또는 받는분 검색" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" onkeyup="if(event.key === 'Enter') filterOutboundHistory()">
             </div>
-            <select id="outHistoryStatus" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterOutboundHistory()">
+            <select id="outHistoryStatus" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" onchange="filterOutboundHistory()">
               <option value="">전체 상태</option>
               <option value="PENDING">출고 대기</option>
               <option value="PICKING">피킹 중</option>
@@ -611,7 +652,7 @@ async function renderOutboundHistoryTab(container) {
               <i class="fas fa-filter"></i>상세 필터
             </button>
           </div>
-          <button onclick="filterOutboundHistory()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
+          <button onclick="filterOutboundHistory()" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 font-medium transition-colors">
             <i class="fas fa-search mr-2"></i>조회
           </button>
         </div>
@@ -705,7 +746,7 @@ async function filterOutboundHistory() {
               <td class="px-6 py-4">${o.item_count}</td>
               <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">${o.status}</span></td>
               <td class="px-6 py-4 text-center">
-                <button onclick="showOutboundDetail(${o.id})" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded text-xs font-bold transition-colors">
+                <button onclick="showOutboundDetail(${o.id})" class="text-teal-600 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded text-xs font-bold transition-colors">
                   <i class="fas fa-search mr-1"></i>상세보기
                 </button>
               </td>
@@ -733,7 +774,7 @@ async function showOutboundDetail(id) {
           <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
             <div>
               <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <i class="fas fa-file-invoice-dollar text-indigo-600"></i> 출고 상세 정보
+                <i class="fas fa-file-invoice-dollar text-teal-600"></i> 출고 상세 정보
               </h3>
               <p class="text-sm text-slate-500 mt-1 font-mono">${data.order_number}</p>
             </div>
@@ -757,7 +798,7 @@ async function showOutboundDetail(id) {
                 <h4 class="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">출고 상태</h4>
                 <div class="space-y-2 text-sm">
                   <div class="flex items-center"><span class="w-20 text-slate-500">상태</span> 
-                    <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-bold text-indigo-600 shadow-sm">${data.status}</span>
+                    <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-bold text-teal-600 shadow-sm">${data.status}</span>
                   </div>
                   <div class="flex"><span class="w-20 text-slate-500">등록일</span> <span class="text-slate-700">${new Date(data.created_at).toLocaleString()}</span></div>
                   <div class="flex"><span class="w-20 text-slate-500">비고</span> <span class="text-slate-700">${data.notes || '-'}</span></div>
@@ -805,14 +846,14 @@ async function showOutboundDetail(id) {
                 </h4>
                 <div class="grid grid-cols-1 gap-3">
                   ${packages.map(p => `
-                    <div class="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                    <div class="flex items-center justify-between p-4 bg-teal-50 border border-indigo-100 rounded-lg">
                       <div class="flex items-center gap-4">
-                        <div class="bg-white p-2 rounded-full shadow-sm text-indigo-600">
+                        <div class="bg-white p-2 rounded-full shadow-sm text-teal-600">
                           <i class="fas fa-shipping-fast"></i>
                         </div>
                         <div>
-                          <div class="font-bold text-indigo-900">${p.courier}</div>
-                          <div class="text-sm text-indigo-700 font-mono tracking-wide">${p.tracking_number}</div>
+                          <div class="font-bold text-teal-900">${p.courier}</div>
+                          <div class="text-sm text-teal-700 font-mono tracking-wide">${p.tracking_number}</div>
                         </div>
                       </div>
                       <div class="text-right text-sm">
@@ -896,18 +937,18 @@ async function loadDashboard(content) {
       <!-- Action Board (오늘의 업무) -->
       <div class="mb-4 flex items-center gap-2">
         <h2 class="text-xl font-bold text-slate-800">오늘의 업무</h2>
-        <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">Action Board</span>
+        <span class="px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-bold">Action Board</span>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- 출고 대기 -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all group" onclick="loadPage('outbound')">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-slate-500 text-sm font-medium group-hover:text-indigo-600 transition-colors">출고 대기</p>
+              <p class="text-slate-500 text-sm font-medium group-hover:text-teal-600 transition-colors">출고 대기</p>
               <p class="text-3xl font-bold text-slate-800 mt-2">${actionItems.pending_shipment}</p>
               <p class="text-xs text-slate-400 mt-1">건의 주문 처리 필요</p>
             </div>
-            <div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-xl group-hover:scale-110 transition-transform">
+            <div class="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center text-teal-600 text-xl group-hover:scale-110 transition-transform">
               <i class="fas fa-box-open"></i>
             </div>
           </div>
@@ -961,11 +1002,11 @@ async function loadDashboard(content) {
         <!-- 매출 추이 (2칸 차지) -->
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6 cursor-pointer hover:shadow-md transition-all group" onclick="openSalesAnalysisModal()">
           <div class="flex items-center mb-6 justify-between">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center group-hover:text-indigo-600 transition-colors">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center group-hover:text-teal-600 transition-colors">
               <i class="fas fa-chart-line text-indigo-500 mr-2"></i>판매 분석 (클릭하여 상세보기)
             </h2>
             <div class="flex gap-2 text-xs font-medium">
-              <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-indigo-500 mr-1"></span>매출</span>
+              <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-teal-500 mr-1"></span>매출</span>
               <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-emerald-500 mr-1"></span>순이익</span>
             </div>
           </div>
@@ -992,8 +1033,8 @@ async function loadDashboard(content) {
         <!-- 최근 상품 목록 -->
         <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full">
           <div class="flex items-center mb-4">
-            <div class="bg-indigo-100 rounded-lg p-2 mr-3">
-              <i class="fas fa-box text-indigo-600"></i>
+            <div class="bg-teal-100 rounded-lg p-2 mr-3">
+              <i class="fas fa-box text-teal-600"></i>
             </div>
             <h2 class="text-xl font-bold text-gray-800">최근 상품 목록</h2>
           </div>
@@ -1102,7 +1143,7 @@ function renderDashboardProducts(products) {
         </div>
       </div>
       <div class="text-right">
-        <p class="font-bold text-indigo-600 text-sm">${formatCurrency(p.selling_price)}</p>
+        <p class="font-bold text-teal-600 text-sm">${formatCurrency(p.selling_price)}</p>
         <p class="text-xs text-slate-500">재고: ${p.current_stock}</p>
       </div>
     </div>
@@ -1269,9 +1310,9 @@ async function loadProducts(content) {
           <div class="flex flex-1 gap-4 w-full md:w-auto">
             <div class="relative flex-1 md:max-w-xs">
               <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
-              <input type="text" id="prodSearch" placeholder="상품명 또는 SKU 검색" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeyup="if(event.key === 'Enter') filterProductsList()">
+              <input type="text" id="prodSearch" placeholder="상품명 또는 SKU 검색" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" onkeyup="if(event.key === 'Enter') filterProductsList()">
             </div>
-            <select id="prodCategoryFilter" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterProductsList()">
+            <select id="prodCategoryFilter" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" onchange="filterProductsList()">
               <option value="">전체 카테고리</option>
             </select>
             <button onclick="toggleProductFilters()" class="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 flex items-center gap-2">
@@ -1282,10 +1323,10 @@ async function loadProducts(content) {
             <button onclick="openImportModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
               <i class="fas fa-file-import mr-2"></i>엑셀 가져오기
             </button>
-            <button onclick="exportProducts()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
+            <button onclick="exportProducts()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
               <i class="fas fa-file-export mr-2"></i>내보내기
             </button>
-            <button onclick="showProductModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
+            <button onclick="showProductModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
               <i class="fas fa-plus mr-2"></i>상품 등록
             </button>
           </div>
@@ -1379,7 +1420,7 @@ async function loadProducts(content) {
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                    <button onclick="editProduct(${p.id})" class="text-indigo-600 hover:text-indigo-900 mr-3 transition-colors">
+                    <button onclick="editProduct(${p.id})" class="text-teal-600 hover:text-teal-900 mr-3 transition-colors">
                       <i class="fas fa-edit"></i>
                     </button>
                     <button onclick="deleteProductAction(${p.id})" class="text-red-500 hover:text-red-700 transition-colors">
@@ -1488,7 +1529,7 @@ async function filterProductsList() {
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                <button onclick="editProduct(${p.id})" class="text-indigo-600 hover:text-indigo-900 mr-3 transition-colors">
+                <button onclick="editProduct(${p.id})" class="text-teal-600 hover:text-teal-900 mr-3 transition-colors">
                   <i class="fas fa-edit"></i>
                 </button>
                 <button onclick="deleteProductAction(${p.id})" class="text-red-500 hover:text-red-700 transition-colors">
@@ -1516,13 +1557,13 @@ async function loadCustomers(content) {
     content.innerHTML = `
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-slate-800">
-          <i class="fas fa-users mr-2 text-indigo-600"></i>고객 관리
+          <i class="fas fa-users mr-2 text-teal-600"></i>고객 관리
         </h1>
         <div class="flex gap-2">
           <button onclick="downloadCustomers()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
             <i class="fas fa-file-excel mr-2"></i>엑셀 다운로드
           </button>
-          <button onclick="showCustomerModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
+          <button onclick="showCustomerModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
             <i class="fas fa-plus mr-2"></i>고객 등록
           </button>
         </div>
@@ -1534,10 +1575,10 @@ async function loadCustomers(content) {
           <div class="relative flex-1 min-w-[200px]">
             <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
             <input type="text" id="custSearch" placeholder="이름 또는 연락처 검색..." 
-                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
                    onkeyup="if(event.key === 'Enter') filterCustomersList()">
           </div>
-          <select id="custPathFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white min-w-[120px]"
+          <select id="custPathFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white min-w-[120px]"
                   onchange="filterCustomersList()">
             <option value="">전체 경로</option>
             <option value="자사몰">자사몰</option>
@@ -1547,7 +1588,7 @@ async function loadCustomers(content) {
             <option value="지인소개">지인소개</option>
             <option value="기타">기타</option>
           </select>
-          <button onclick="filterCustomersList()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
+          <button onclick="filterCustomersList()" class="bg-teal-600 text-white px-5 py-2.5 rounded-lg hover:bg-teal-700 font-medium transition-colors">
             <i class="fas fa-search mr-2"></i>검색
           </button>
         </div>
@@ -1587,7 +1628,7 @@ async function loadCustomers(content) {
                     <div class="text-sm text-slate-600">${c.purchase_count}회</div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                    <button onclick="editCustomer(${c.id})" class="text-indigo-600 hover:text-indigo-900 mr-3 transition-colors">
+                    <button onclick="editCustomer(${c.id})" class="text-teal-600 hover:text-teal-900 mr-3 transition-colors">
                       <i class="fas fa-edit"></i>
                     </button>
                     <button onclick="deleteCustomerAction(${c.id})" class="text-red-500 hover:text-red-700 transition-colors">
@@ -1654,7 +1695,7 @@ async function filterCustomersList() {
                 <div class="text-sm text-slate-600">${c.purchase_count}회</div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                <button onclick="editCustomer(${c.id})" class="text-indigo-600 hover:text-indigo-900 mr-3 transition-colors">
+                <button onclick="editCustomer(${c.id})" class="text-teal-600 hover:text-teal-900 mr-3 transition-colors">
                   <i class="fas fa-edit"></i>
                 </button>
                 <button onclick="deleteCustomerAction(${c.id})" class="text-red-500 hover:text-red-700 transition-colors">
@@ -1701,7 +1742,7 @@ async function loadStock(content) {
           <button onclick="openStockModal('adjust')" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors">
             <i class="fas fa-sync mr-2"></i>조정
           </button>
-          <button onclick="openTransferModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors">
+          <button onclick="openTransferModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors">
             <i class="fas fa-exchange-alt mr-2"></i>이동
           </button>
         </div>
@@ -1709,7 +1750,7 @@ async function loadStock(content) {
 
       <!-- 탭 버튼 -->
       <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-lg px-4 pt-2">
-        <button onclick="switchStockTab('movements')" id="tab-stock-movements" class="px-6 py-3 text-sm font-bold text-indigo-600 border-b-2 border-indigo-600 transition-colors">재고 이동 내역</button>
+        <button onclick="switchStockTab('movements')" id="tab-stock-movements" class="px-6 py-3 text-sm font-bold text-teal-600 border-b-2 border-teal-600 transition-colors">재고 이동 내역</button>
         <button onclick="switchStockTab('levels')" id="tab-stock-levels" class="px-6 py-3 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors border-b-2 border-transparent">창고별 재고 현황</button>
       </div>
 
@@ -1718,22 +1759,22 @@ async function loadStock(content) {
         <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-slate-100">
           <div class="flex flex-wrap gap-4 items-center">
             <div class="flex items-center gap-2">
-              <input type="date" id="stockStartDate" class="border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <input type="date" id="stockStartDate" class="border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
               <span class="text-slate-400">~</span>
-              <input type="date" id="stockEndDate" class="border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <input type="date" id="stockEndDate" class="border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
-            <select id="stockWarehouseFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white min-w-[120px]"
+            <select id="stockWarehouseFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white min-w-[120px]"
                     onchange="filterStockMovements()">
               <option value="">전체 창고</option>
             </select>
-            <select id="stockTypeFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white min-w-[120px]"
+            <select id="stockTypeFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white min-w-[120px]"
                     onchange="filterStockMovements()">
               <option value="">전체 구분</option>
               <option value="입고">입고</option>
               <option value="출고">출고</option>
               <option value="조정">조정</option>
             </select>
-            <button onclick="filterStockMovements()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
+            <button onclick="filterStockMovements()" class="bg-teal-600 text-white px-5 py-2.5 rounded-lg hover:bg-teal-700 font-medium transition-colors">
               <i class="fas fa-search mr-2"></i>조회
             </button>
           </div>
@@ -1804,7 +1845,7 @@ async function loadStock(content) {
         <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-slate-100">
           <div class="flex items-center gap-4">
             <label class="font-semibold text-slate-700">창고 선택:</label>
-            <select id="levelWarehouseFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white min-w-[200px]" onchange="loadWarehouseStockLevels()">
+            <select id="levelWarehouseFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white min-w-[200px]" onchange="loadWarehouseStockLevels()">
               <option value="">전체 창고</option>
             </select>
           </div>
@@ -1934,13 +1975,13 @@ async function loadSales(content) {
     <div class="flex flex-col h-full">
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-slate-800">
-          <i class="fas fa-shopping-cart mr-2 text-indigo-600"></i>판매 및 주문 관리
+          <i class="fas fa-shopping-cart mr-2 text-teal-600"></i>판매 및 주문 관리
         </h1>
       </div>
 
       <!-- 탭 네비게이션 -->
       <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
-        <button id="tab-pos" class="px-6 py-4 font-bold text-indigo-600 border-b-2 border-indigo-600 transition-colors flex items-center" onclick="switchSalesTab('pos')">
+        <button id="tab-pos" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center" onclick="switchSalesTab('pos')">
           <i class="fas fa-cash-register mr-2"></i>POS (판매등록)
         </button>
         <button id="tab-orders" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchSalesTab('orders')">
@@ -1966,12 +2007,12 @@ async function loadSales(content) {
 async function switchSalesTab(tabName) {
   // 탭 스타일 업데이트
   document.querySelectorAll('[id^="tab-"]').forEach(el => {
-    el.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+    el.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
     el.classList.add('text-slate-500', 'font-medium', 'border-transparent');
   });
   const activeTab = document.getElementById(`tab-${tabName}`);
   activeTab.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-  activeTab.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+  activeTab.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
 
   const container = document.getElementById('salesTabContent');
 
@@ -2012,10 +2053,10 @@ async function renderPosTab(container) {
               <div class="relative flex-1">
                 <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
                 <input type="text" id="posSearch" placeholder="상품명 또는 SKU 검색..." 
-                       class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
+                       class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow"
                        onkeyup="filterPosProducts()">
               </div>
-              <select id="posCategory" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition-shadow"
+              <select id="posCategory" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 bg-white transition-shadow"
                       onchange="filterPosProducts()">
                 <option value="">전체 카테고리</option>
               </select>
@@ -2029,9 +2070,9 @@ async function renderPosTab(container) {
 
         <!-- 오른쪽: 장바구니 -->
         <div class="w-1/3 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          <div class="p-4 border-b border-slate-200 bg-indigo-50/50">
-            <h3 class="font-bold text-lg text-indigo-900 mb-3 flex items-center"><i class="fas fa-receipt mr-2"></i>주문 내역</h3>
-            <select id="posCustomer" class="w-full border border-indigo-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+          <div class="p-4 border-b border-slate-200 bg-teal-50/50">
+            <h3 class="font-bold text-lg text-teal-900 mb-3 flex items-center"><i class="fas fa-receipt mr-2"></i>주문 내역</h3>
+            <select id="posCustomer" class="w-full border border-indigo-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
               <option value="">비회원 / 고객 선택</option>
               ${window.customers.map(c => `<option value="${c.id}">${c.name} (${c.phone})</option>`).join('')}
             </select>
@@ -2047,10 +2088,10 @@ async function renderPosTab(container) {
             <div class="flex justify-between items-center mb-4 text-sm">
               <span class="text-slate-600">할인 금액</span>
               <input type="number" id="posDiscount" value="0" min="0" 
-                     class="w-28 text-right border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                     class="w-28 text-right border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-500"
                      onchange="renderCart()">
             </div>
-            <div class="flex justify-between mb-6 text-xl font-bold text-indigo-600 border-t border-slate-200 pt-4">
+            <div class="flex justify-between mb-6 text-xl font-bold text-teal-600 border-t border-slate-200 pt-4">
               <span>최종 결제금액</span>
               <span id="posFinalAmount">0원</span>
             </div>
@@ -2059,20 +2100,20 @@ async function renderPosTab(container) {
               <div class="flex gap-2">
                 <label class="flex-1 cursor-pointer">
                   <input type="radio" name="paymentMethod" value="card" checked class="peer sr-only">
-                  <div class="text-center py-2.5 border border-slate-200 rounded-lg peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 hover:bg-slate-50 transition-all font-medium text-sm">카드</div>
+                  <div class="text-center py-2.5 border border-slate-200 rounded-lg peer-checked:bg-teal-600 peer-checked:text-white peer-checked:border-teal-600 hover:bg-slate-50 transition-all font-medium text-sm">카드</div>
                 </label>
                 <label class="flex-1 cursor-pointer">
                   <input type="radio" name="paymentMethod" value="cash" class="peer sr-only">
-                  <div class="text-center py-2.5 border border-slate-200 rounded-lg peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 hover:bg-slate-50 transition-all font-medium text-sm">현금</div>
+                  <div class="text-center py-2.5 border border-slate-200 rounded-lg peer-checked:bg-teal-600 peer-checked:text-white peer-checked:border-teal-600 hover:bg-slate-50 transition-all font-medium text-sm">현금</div>
                 </label>
                 <label class="flex-1 cursor-pointer">
                   <input type="radio" name="paymentMethod" value="transfer" class="peer sr-only">
-                  <div class="text-center py-2.5 border border-slate-200 rounded-lg peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 hover:bg-slate-50 transition-all font-medium text-sm">이체</div>
+                  <div class="text-center py-2.5 border border-slate-200 rounded-lg peer-checked:bg-teal-600 peer-checked:text-white peer-checked:border-teal-600 hover:bg-slate-50 transition-all font-medium text-sm">이체</div>
                 </label>
               </div>
             </div>
 
-            <button onclick="checkout()" class="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98]">
+            <button onclick="checkout()" class="w-full bg-teal-600 text-white py-3.5 rounded-xl font-bold text-lg hover:bg-teal-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98]">
               결제하기
             </button>
           </div>
@@ -2114,7 +2155,7 @@ async function renderOrderManagementTab(container) {
             <button onclick="downloadSales()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm flex items-center transition-colors">
               <i class="fas fa-file-excel mr-1.5"></i>엑셀 다운로드
             </button>
-            <select id="orderStatusFilter" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterOrderList()">
+            <select id="orderStatusFilter" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" onchange="filterOrderList()">
               <option value="all">전체 주문</option>
               <option value="completed">결제 완료</option>
               <option value="pending_shipment">배송 준비중</option>
@@ -2135,7 +2176,7 @@ async function renderOrderManagementTab(container) {
              <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
              <input type="text" id="orderSearch" placeholder="고객명 또는 연락처 검색" class="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded text-sm" onkeyup="if(event.key === 'Enter') filterOrderList()">
           </div>
-          <button onclick="filterOrderList()" class="bg-indigo-600 text-white px-4 py-1.5 rounded text-sm hover:bg-indigo-700 font-medium">조회</button>
+          <button onclick="filterOrderList()" class="bg-teal-600 text-white px-4 py-1.5 rounded text-sm hover:bg-teal-700 font-medium">조회</button>
         </div>
 
         <div class="overflow-auto flex-1" id="orderListContainer">
@@ -2179,7 +2220,7 @@ async function renderOrderManagementTab(container) {
                     ` : '-'}
                   </td>
                   <td class="px-6 py-4 space-x-2">
-                    <button onclick="openShippingModal(${s.id})" class="text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 transition-colors">
+                    <button onclick="openShippingModal(${s.id})" class="text-teal-600 hover:text-indigo-800 font-medium text-xs bg-teal-50 px-2 py-1 rounded hover:bg-teal-100 transition-colors">
                       <i class="fas fa-truck mr-1"></i>배송
                     </button>
                     ${s.status !== 'cancelled' ? `
@@ -2275,7 +2316,7 @@ async function filterOrderList() {
                 ` : '-'}
               </td>
               <td class="px-6 py-4 space-x-2">
-                <button onclick="openShippingModal(${s.id})" class="text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 transition-colors">
+                <button onclick="openShippingModal(${s.id})" class="text-teal-600 hover:text-indigo-800 font-medium text-xs bg-teal-50 px-2 py-1 rounded hover:bg-teal-100 transition-colors">
                   <i class="fas fa-truck mr-1"></i>배송
                 </button>
                 ${s.status !== 'cancelled' ? `
@@ -2560,7 +2601,7 @@ function injectProductModal() {
         </div>
         
         <div class="flex border-b border-slate-100 px-6">
-          <button type="button" onclick="switchProductTab('basic')" id="tab-basic" class="px-4 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 transition-colors">기본 정보</button>
+          <button type="button" onclick="switchProductTab('basic')" id="tab-basic" class="px-4 py-3 text-sm font-medium text-teal-600 border-b-2 border-teal-600 transition-colors">기본 정보</button>
           <button type="button" onclick="switchProductTab('detail')" id="tab-detail" class="px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">상세 정보</button>
           <button type="button" onclick="switchProductTab('media')" id="tab-media" class="px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">이미지/미디어</button>
         </div>
@@ -2575,16 +2616,16 @@ function injectProductModal() {
                   <div class="flex flex-col gap-2">
                     <div class="flex items-center gap-4 mb-1">
                       <label class="inline-flex items-center cursor-pointer">
-                        <input type="radio" name="skuType" value="auto" checked onchange="toggleSkuInput(this.value)" class="form-radio text-indigo-600 focus:ring-indigo-500">
+                        <input type="radio" name="skuType" value="auto" checked onchange="toggleSkuInput(this.value)" class="form-radio text-teal-600 focus:ring-teal-500">
                         <span class="ml-2 text-sm text-slate-700">자동 생성</span>
                       </label>
                       <label class="inline-flex items-center cursor-pointer">
-                        <input type="radio" name="skuType" value="manual" onchange="toggleSkuInput(this.value)" class="form-radio text-indigo-600 focus:ring-indigo-500">
+                        <input type="radio" name="skuType" value="manual" onchange="toggleSkuInput(this.value)" class="form-radio text-teal-600 focus:ring-teal-500">
                         <span class="ml-2 text-sm text-slate-700">수동 입력</span>
                       </label>
                     </div>
                     <div class="flex gap-2">
-                      <input type="text" id="prodSku" required readonly class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400 bg-slate-50 text-slate-500">
+                      <input type="text" id="prodSku" required readonly class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400 bg-slate-50 text-slate-500">
                       <button type="button" id="btnGenerateSku" onclick="generateAutoSku()" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
                         <i class="fas fa-sync-alt mr-1"></i>생성
                       </button>
@@ -2593,24 +2634,24 @@ function injectProductModal() {
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">상품명</label>
-                  <input type="text" id="prodName" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                  <input type="text" id="prodName" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
                 </div>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (대분류)</label>
-                  <input type="text" id="prodCategory" list="categoryList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 전자제품">
+                  <input type="text" id="prodCategory" list="categoryList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 전자제품">
                   <datalist id="categoryList"></datalist>
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (중분류)</label>
-                  <input type="text" id="prodCategoryMedium" list="categoryMediumList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 컴퓨터">
+                  <input type="text" id="prodCategoryMedium" list="categoryMediumList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 컴퓨터">
                   <datalist id="categoryMediumList"></datalist>
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">카테고리 (소분류)</label>
-                  <input type="text" id="prodCategorySmall" list="categorySmallList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 노트북">
+                  <input type="text" id="prodCategorySmall" list="categorySmallList" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 노트북">
                   <datalist id="categorySmallList"></datalist>
                 </div>
               </div>
@@ -2620,14 +2661,14 @@ function injectProductModal() {
                   <label class="block text-sm font-semibold text-slate-700 mb-2">매입가</label>
                   <div class="relative">
                     <span class="absolute left-4 top-2.5 text-slate-500">₩</span>
-                    <input type="number" id="prodPurchasePrice" required min="0" class="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                    <input type="number" id="prodPurchasePrice" required min="0" class="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
                   </div>
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">판매가</label>
                   <div class="relative">
                     <span class="absolute left-4 top-2.5 text-slate-500">₩</span>
-                    <input type="number" id="prodSellingPrice" required min="0" class="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                    <input type="number" id="prodSellingPrice" required min="0" class="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
                   </div>
                 </div>
               </div>
@@ -2635,12 +2676,12 @@ function injectProductModal() {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">현재 재고</label>
-                  <input type="number" id="prodStock" required min="0" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                  <input type="number" id="prodStock" required min="0" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
                   <p class="text-xs text-slate-500 mt-1.5 flex items-center"><i class="fas fa-info-circle mr-1"></i>수정 시에는 재고 조정 기능을 이용하세요.</p>
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">최소 재고 알림</label>
-                  <input type="number" id="prodMinStock" required min="0" value="10" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                  <input type="number" id="prodMinStock" required min="0" value="10" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
                 </div>
               </div>
             </div>
@@ -2650,22 +2691,22 @@ function injectProductModal() {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">브랜드</label>
-                  <input type="text" id="prodBrand" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                  <input type="text" id="prodBrand" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">공급사</label>
-                  <input type="text" id="prodSupplier" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
+                  <input type="text" id="prodSupplier" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400">
                 </div>
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-2">태그 (쉼표로 구분)</label>
-                <input type="text" id="prodTags" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 신상품, 베스트, 여름특가">
+                <input type="text" id="prodTags" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400" placeholder="예: 신상품, 베스트, 여름특가">
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-2">상태</label>
-                <select id="prodStatus" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+                <select id="prodStatus" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
                   <option value="sale">판매중</option>
                   <option value="out_of_stock">품절</option>
                   <option value="discontinued">단종</option>
@@ -2675,7 +2716,7 @@ function injectProductModal() {
 
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-2">상세 설명</label>
-                <textarea id="prodDesc" rows="5" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder-slate-400 resize-none"></textarea>
+                <textarea id="prodDesc" rows="5" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow placeholder-slate-400 resize-none"></textarea>
               </div>
             </div>
 
@@ -2687,7 +2728,7 @@ function injectProductModal() {
                 <div class="mt-2 w-full">
                   <label for="prodImageFile" class="flex flex-col items-center justify-center w-full h-64 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors relative overflow-hidden group">
                     <div id="imgPlaceholder" class="flex flex-col items-center justify-center pt-5 pb-6">
-                      <i class="fas fa-cloud-upload-alt text-4xl text-slate-400 mb-3 group-hover:text-indigo-500 transition-colors"></i>
+                      <i class="fas fa-cloud-upload-alt text-4xl text-slate-400 mb-3 group-hover:text-teal-500 transition-colors"></i>
                       <p class="mb-2 text-sm text-slate-500"><span class="font-semibold">클릭하여 이미지 업로드</span></p>
                       <p class="text-xs text-slate-500">PNG, JPG, GIF (자동 리사이징됨)</p>
                     </div>
@@ -2711,7 +2752,7 @@ function injectProductModal() {
             <button type="button" onclick="closeProductModal()" class="px-5 py-2.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200">
               취소
             </button>
-            <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            <button type="submit" class="px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">
               저장하기
             </button>
           </div>
@@ -2757,11 +2798,11 @@ function switchProductTab(tab) {
     const content = document.getElementById(`content-${t}`);
     if (t === tab) {
       btn.classList.remove('text-slate-500', 'border-transparent');
-      btn.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600');
+      btn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600');
       content.classList.remove('hidden');
     } else {
       btn.classList.add('text-slate-500');
-      btn.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600');
+      btn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600');
       content.classList.add('hidden');
     }
   });
@@ -3024,19 +3065,19 @@ function injectCustomerModal() {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">이름 <span class="text-red-500">*</span></label>
-                  <input type="text" id="custName" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                  <input type="text" id="custName" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">연락처 <span class="text-red-500">*</span></label>
-                  <input type="tel" id="custPhone" required placeholder="010-0000-0000" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                  <input type="tel" id="custPhone" required placeholder="010-0000-0000" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">이메일</label>
-                  <input type="email" id="custEmail" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                  <input type="email" id="custEmail" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">구매 경로</label>
-                  <select id="custPathSelect" onchange="togglePathInput(this.value)" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white mb-2">
+                  <select id="custPathSelect" onchange="togglePathInput(this.value)" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white mb-2">
                     <option value="자사몰">자사몰</option>
                     <option value="스마트스토어">스마트스토어</option>
                     <option value="쿠팡">쿠팡</option>
@@ -3044,7 +3085,7 @@ function injectCustomerModal() {
                     <option value="지인소개">지인소개</option>
                     <option value="custom">기타(직접입력)</option>
                   </select>
-                  <input type="text" id="custPathInput" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow hidden" placeholder="구매 경로 직접 입력">
+                  <input type="text" id="custPathInput" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow hidden" placeholder="구매 경로 직접 입력">
                 </div>
               </div>
             </div>
@@ -3055,15 +3096,15 @@ function injectCustomerModal() {
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">회사명</label>
-                  <input type="text" id="custCompany" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                  <input type="text" id="custCompany" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">부서</label>
-                  <input type="text" id="custDept" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                  <input type="text" id="custDept" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-2">직책</label>
-                  <input type="text" id="custPosition" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                  <input type="text" id="custPosition" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                 </div>
               </div>
             </div>
@@ -3074,14 +3115,14 @@ function injectCustomerModal() {
               <div class="grid grid-cols-1 gap-4">
                 <div class="flex gap-2">
                   <div class="w-1/3">
-                    <input type="text" id="custZipCode" placeholder="우편번호" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                    <input type="text" id="custZipCode" placeholder="우편번호" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                   </div>
                   <div class="flex-1">
-                    <input type="text" id="custAddress" placeholder="기본 주소" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                    <input type="text" id="custAddress" placeholder="기본 주소" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                   </div>
                 </div>
                 <div>
-                  <input type="text" id="custAddressDetail" placeholder="상세 주소" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                  <input type="text" id="custAddressDetail" placeholder="상세 주소" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                 </div>
               </div>
             </div>
@@ -3089,7 +3130,7 @@ function injectCustomerModal() {
             <!-- 기타 -->
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">메모</label>
-              <textarea id="custNotes" rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow resize-none"></textarea>
+              <textarea id="custNotes" rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow resize-none"></textarea>
             </div>
           </div>
           
@@ -3097,7 +3138,7 @@ function injectCustomerModal() {
             <button type="button" onclick="closeCustomerModal()" class="px-5 py-2.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200">
               취소
             </button>
-            <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            <button type="submit" class="px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">
               저장하기
             </button>
           </div>
@@ -3268,12 +3309,12 @@ function renderPosProducts(filterText = '', filterCat = '') {
     <div class="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-all cursor-pointer flex flex-col h-full group relative overflow-hidden"
          onclick="addToCart(${p.id})">
       <div class="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div class="bg-indigo-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
+        <div class="bg-teal-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
           <i class="fas fa-plus"></i>
         </div>
       </div>
       <div class="flex justify-between items-start mb-2">
-        <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</span>
+        <span class="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</span>
         <span class="text-xs text-slate-400 font-mono">${p.sku}</span>
       </div>
       <h4 class="font-bold text-slate-800 mb-1 line-clamp-2 flex-1">${p.name}</h4>
@@ -3281,7 +3322,7 @@ function renderPosProducts(filterText = '', filterCat = '') {
         <div>
            <p class="text-xs text-slate-500">재고: <span class="${p.current_stock <= p.min_stock_alert ? 'text-rose-600 font-bold' : 'text-slate-700'}">${p.current_stock}</span></p>
         </div>
-        <p class="text-lg font-bold text-indigo-600">${formatCurrency(p.selling_price)}</p>
+        <p class="text-lg font-bold text-teal-600">${formatCurrency(p.selling_price)}</p>
       </div>
     </div>
   `).join('');
@@ -3381,11 +3422,11 @@ function renderCart() {
         <div class="flex items-center gap-3">
           <div class="font-bold text-slate-700">${formatCurrency(itemTotal)}</div>
           <div class="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm">
-            <button onclick="updateCartQuantity(${item.product.id}, -1)" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-l-lg transition-colors">
+            <button onclick="updateCartQuantity(${item.product.id}, -1)" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-l-lg transition-colors">
               <i class="fas fa-minus text-xs"></i>
             </button>
             <span class="w-8 text-center text-sm font-medium text-slate-700">${item.quantity}</span>
-            <button onclick="updateCartQuantity(${item.product.id}, 1)" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-r-lg transition-colors">
+            <button onclick="updateCartQuantity(${item.product.id}, 1)" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-r-lg transition-colors">
               <i class="fas fa-plus text-xs"></i>
             </button>
           </div>
@@ -3453,7 +3494,7 @@ async function cancelSale(saleId) {
     await axios.put(`${API_BASE}/sales/${saleId}/cancel`);
     showSuccess('판매가 취소되었습니다.');
     // 현재 활성화된 탭에 따라 새로고침
-    const activeTab = document.querySelector('.border-indigo-600')?.id;
+    const activeTab = document.querySelector('.border-teal-600')?.id;
     if (activeTab === 'tab-orders') {
       switchSalesTab('orders');
     } else {
@@ -3510,7 +3551,7 @@ function injectShippingModal() {
           <div class="p-6 space-y-5">
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">배송 상태</label>
-              <select id="shipStatus" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+              <select id="shipStatus" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
                 <option value="completed">결제 완료 (배송 전)</option>
                 <option value="pending_shipment">배송 준비중</option>
                 <option value="shipped">배송중</option>
@@ -3519,26 +3560,26 @@ function injectShippingModal() {
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">출고 창고</label>
-              <select id="shipWarehouse" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+              <select id="shipWarehouse" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
                 <option value="">창고 선택 (미지정)</option>
               </select>
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">택배사</label>
-              <input type="text" id="shipCourier" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow" placeholder="예: CJ대한통운">
+              <input type="text" id="shipCourier" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow" placeholder="예: CJ대한통운">
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">운송장 번호</label>
-              <input type="text" id="shipTracking" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+              <input type="text" id="shipTracking" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">배송지 주소</label>
-              <input type="text" id="shipAddress" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+              <input type="text" id="shipAddress" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
             </div>
           </div>
           <div class="bg-slate-50 px-6 py-4 flex justify-end space-x-3 rounded-b-2xl border-t border-slate-100">
             <button type="button" onclick="document.getElementById('shippingModal').classList.add('hidden')" class="px-5 py-2.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200">취소</button>
-            <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">저장하기</button>
+            <button type="submit" class="px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">저장하기</button>
           </div>
         </form>
       </div>
@@ -3620,22 +3661,22 @@ function injectClaimModal() {
           <div class="p-6 space-y-5">
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">구분</label>
-              <select id="claimType" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+              <select id="claimType" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
                 <option value="return">반품</option>
                 <option value="exchange">교환</option>
               </select>
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">대상 상품</label>
-              <select id="claimProduct" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white"></select>
+              <select id="claimProduct" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white"></select>
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">수량</label>
-              <input type="number" id="claimQuantity" min="1" value="1" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+              <input type="number" id="claimQuantity" min="1" value="1" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">사유</label>
-              <textarea id="claimReason" rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow resize-none"></textarea>
+              <textarea id="claimReason" rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow resize-none"></textarea>
             </div>
           </div>
           <div class="bg-slate-50 px-6 py-4 flex justify-end space-x-3 rounded-b-2xl border-t border-slate-100">
@@ -3762,7 +3803,7 @@ function injectClaimApproveModal() {
             <p class="text-sm text-slate-600">반품/교환 물품이 입고될 창고를 선택해주세요.</p>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">입고 창고</label>
-              <select id="claimApproveWarehouse" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+              <select id="claimApproveWarehouse" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
                 <option value="">창고 선택</option>
               </select>
             </div>
@@ -3797,36 +3838,36 @@ function injectStockModal() {
             
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">창고 선택</label>
-              <select id="stockWarehouse" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+              <select id="stockWarehouse" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
                 <option value="">창고를 선택하세요</option>
               </select>
             </div>
 
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">상품 선택</label>
-              <select id="stockProduct" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+              <select id="stockProduct" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
                 <option value="">상품을 선택하세요</option>
                 <!-- 상품 목록이 여기에 동적으로 추가됨 -->
               </select>
             </div>
             
             <div id="currentStockDisplay" class="hidden text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-              현재 재고: <span id="currentStockValue" class="font-bold text-indigo-600">0</span>
+              현재 재고: <span id="currentStockValue" class="font-bold text-teal-600">0</span>
             </div>
 
             <div>
               <label id="stockQuantityLabel" class="block text-sm font-semibold text-slate-700 mb-2">수량</label>
-              <input type="number" id="stockQuantity" required min="1" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+              <input type="number" id="stockQuantity" required min="1" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
             </div>
 
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">사유</label>
-              <input type="text" id="stockReason" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow" placeholder="예: 정기 입고, 파손 폐기 등">
+              <input type="text" id="stockReason" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow" placeholder="예: 정기 입고, 파손 폐기 등">
             </div>
 
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">비고 (선택)</label>
-              <textarea id="stockNotes" rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow resize-none"></textarea>
+              <textarea id="stockNotes" rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow resize-none"></textarea>
             </div>
           </div>
           
@@ -3834,7 +3875,7 @@ function injectStockModal() {
             <button type="button" onclick="closeStockModal()" class="px-5 py-2.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200">
               취소
             </button>
-            <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            <button type="submit" class="px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">
               저장하기
             </button>
           </div>
@@ -3979,33 +4020,33 @@ function injectTransferModal() {
           <div class="p-6 space-y-5">
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">상품 선택</label>
-              <select id="transProduct" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+              <select id="transProduct" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
               </select>
             </div>
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-2">출발 창고</label>
-                <select id="transFrom" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+                <select id="transFrom" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
                 </select>
               </div>
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-2">도착 창고</label>
-                <select id="transTo" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white">
+                <select id="transTo" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
                 </select>
               </div>
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">이동 수량</label>
-              <input type="number" id="transQuantity" required min="1" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+              <input type="number" id="transQuantity" required min="1" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">사유</label>
-              <input type="text" id="transReason" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow" placeholder="이동 사유">
+              <input type="text" id="transReason" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow" placeholder="이동 사유">
             </div>
           </div>
           <div class="bg-slate-50 px-6 py-4 flex justify-end space-x-3 rounded-b-2xl border-t border-slate-100">
             <button type="button" onclick="closeTransferModal()" class="px-5 py-2.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200">취소</button>
-            <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">이동하기</button>
+            <button type="submit" class="px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">이동하기</button>
           </div>
         </form>
       </div>
@@ -4079,14 +4120,14 @@ async function loadOutbound(content) {
     <div class="flex flex-col h-full">
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-slate-800">
-          <i class="fas fa-truck-loading mr-2 text-indigo-600"></i>출고 관리
+          <i class="fas fa-truck-loading mr-2 text-teal-600"></i>출고 관리
         </h1>
       </div>
 
       <!-- 프로세스 탭 -->
       <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
-        <button id="tab-instruction" class="px-6 py-4 font-bold text-indigo-600 border-b-2 border-indigo-600 transition-colors flex items-center" onclick="switchOutboundTab('instruction')">
-          <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs mr-2">1</div>
+        <button id="tab-instruction" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center" onclick="switchOutboundTab('instruction')">
+          <div class="w-6 h-6 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-xs mr-2">1</div>
           출고 지시
         </button>
         <button id="tab-picking" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchOutboundTab('picking')">
@@ -4116,17 +4157,17 @@ async function loadOutbound(content) {
 async function switchOutboundTab(tabName) {
   // 탭 스타일 업데이트
   document.querySelectorAll('[id^="tab-"]').forEach(el => {
-    el.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+    el.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
     el.classList.add('text-slate-500', 'font-medium', 'border-transparent');
-    el.querySelector('div').classList.remove('bg-indigo-100', 'text-indigo-600');
+    el.querySelector('div').classList.remove('bg-teal-100', 'text-teal-600');
     el.querySelector('div').classList.add('bg-slate-100', 'text-slate-500');
   });
   const activeTab = document.getElementById(`tab-${tabName}`);
   if (activeTab) {
     activeTab.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-    activeTab.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+    activeTab.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
     activeTab.querySelector('div').classList.remove('bg-slate-100', 'text-slate-500');
-    activeTab.querySelector('div').classList.add('bg-indigo-100', 'text-indigo-600');
+    activeTab.querySelector('div').classList.add('bg-teal-100', 'text-teal-600');
   }
 
   const container = document.getElementById('outboundTabContent');
@@ -4151,7 +4192,7 @@ async function renderOutboundInstruction(container) {
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
         <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 class="font-bold text-slate-800">출고 대기 주문 목록</h3>
-          <button onclick="createOutboundOrder()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+          <button onclick="createOutboundOrder()" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700">
             <i class="fas fa-file-alt mr-2"></i>출고지시서 생성
           </button>
         </div>
@@ -4224,7 +4265,7 @@ async function renderOutboundPicking(container) {
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow cursor-pointer" onclick="openPickingModal(${o.id})">
             <div class="flex justify-between items-start mb-4">
               <div>
-                <span class="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded mb-2 inline-block">${o.status}</span>
+                <span class="px-2 py-1 bg-teal-100 text-teal-700 text-xs font-bold rounded mb-2 inline-block">${o.status}</span>
                 <h4 class="font-bold text-lg text-slate-800">${o.order_number}</h4>
               </div>
               <div class="text-right">
@@ -4238,7 +4279,7 @@ async function renderOutboundPicking(container) {
             </div>
             <div class="border-t border-slate-100 pt-4 flex justify-between items-center">
               <span class="text-sm font-medium text-slate-600">총 ${o.item_count}개 품목</span>
-              <button class="text-indigo-600 hover:text-indigo-800 font-medium text-sm">피킹 시작 <i class="fas fa-arrow-right ml-1"></i></button>
+              <button class="text-teal-600 hover:text-indigo-800 font-medium text-sm">피킹 시작 <i class="fas fa-arrow-right ml-1"></i></button>
             </div>
           </div>
         `).join('')}
@@ -4273,8 +4314,8 @@ async function openPickingModal(id) {
             <div class="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
               <label class="block text-sm font-bold text-slate-700 mb-2">바코드 스캔 (시뮬레이션)</label>
               <div class="flex gap-2">
-                <input type="text" id="scanInput" class="flex-1 border border-slate-300 rounded px-4 py-2 focus:ring-2 focus:ring-indigo-500" placeholder="상품 SKU 입력 후 엔터" onkeyup="if(event.key==='Enter') simulateScan(this.value, ${id})">
-                <button onclick="simulateScan(document.getElementById('scanInput').value, ${id})" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">스캔</button>
+                <input type="text" id="scanInput" class="flex-1 border border-slate-300 rounded px-4 py-2 focus:ring-2 focus:ring-teal-500" placeholder="상품 SKU 입력 후 엔터" onkeyup="if(event.key==='Enter') simulateScan(this.value, ${id})">
+                <button onclick="simulateScan(document.getElementById('scanInput').value, ${id})" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700">스캔</button>
               </div>
             </div>
 
@@ -4295,7 +4336,7 @@ async function openPickingModal(id) {
                       <div class="text-xs text-slate-500 font-mono">${item.sku}</div>
                     </td>
                     <td class="px-4 py-3 text-center font-bold">${item.quantity_ordered}</td>
-                    <td class="px-4 py-3 text-center font-bold text-indigo-600" id="picked-${item.product_id}">${item.quantity_picked}</td>
+                    <td class="px-4 py-3 text-center font-bold text-teal-600" id="picked-${item.product_id}">${item.quantity_picked}</td>
                     <td class="px-4 py-3 text-center">
                       <span id="status-${item.product_id}" class="px-2 py-1 rounded text-xs font-bold ${item.quantity_picked >= item.quantity_ordered ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}">
                         ${item.quantity_picked >= item.quantity_ordered ? '완료' : '대기'}
@@ -4381,7 +4422,7 @@ async function renderOutboundPacking(container) {
                   <option value="C형">C형 (대)</option>
                 </select>
               </div>
-              <button onclick="submitPacking(${o.id})" class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 font-medium">
+              <button onclick="submitPacking(${o.id})" class="w-full bg-teal-600 text-white py-2 rounded hover:bg-teal-700 font-medium">
                 패킹 완료 및 송장 저장
               </button>
             </div>
@@ -4489,13 +4530,13 @@ async function loadOutbound(content) {
     <div class="flex flex-col h-full">
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-slate-800">
-          <i class="fas fa-truck-loading mr-2 text-indigo-600"></i>출고 관리
+          <i class="fas fa-truck-loading mr-2 text-teal-600"></i>출고 관리
         </h1>
       </div>
 
       <!-- 탭 네비게이션 -->
       <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
-        <button id="tab-out-reg" class="px-6 py-4 font-bold text-indigo-600 border-b-2 border-indigo-600 transition-colors flex items-center" onclick="switchOutboundTab('reg')">
+        <button id="tab-out-reg" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center" onclick="switchOutboundTab('reg')">
           <i class="fas fa-edit mr-2"></i>간편 출고 등록
         </button>
         <button id="tab-out-hist" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchOutboundTab('hist')">
@@ -4521,9 +4562,9 @@ async function switchOutboundTab(tabName) {
     const btn = document.getElementById(`tab-out-${t}`);
     if (t === tabName) {
       btn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-      btn.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+      btn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
     } else {
-      btn.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+      btn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
       btn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
     }
   });
@@ -4562,7 +4603,7 @@ async function renderOutboundRegistrationTab(container) {
           <div class="relative">
             <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
             <input type="text" id="outboundSearch" placeholder="상품명 또는 SKU 검색..." 
-                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
                    onkeyup="filterOutboundProducts()">
           </div>
         </div>
@@ -4576,7 +4617,7 @@ async function renderOutboundRegistrationTab(container) {
         <!-- 창고 선택 -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
           <h3 class="font-bold text-slate-800 mb-4">출고 창고 선택</h3>
-          <select id="outWarehouse" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500">
+          <select id="outWarehouse" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-teal-500">
             <option value="">창고를 선택하세요</option>
             ${window.warehouses ? window.warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join('') : ''}
           </select>
@@ -4590,14 +4631,14 @@ async function renderOutboundRegistrationTab(container) {
           </div>
           <div class="flex justify-between items-center pt-4 border-t border-slate-100">
             <span class="font-bold text-slate-600">총 수량</span>
-            <span class="font-bold text-indigo-600 text-lg" id="outboundTotalQty">0개</span>
+            <span class="font-bold text-teal-600 text-lg" id="outboundTotalQty">0개</span>
           </div>
         </div>
 
         <!-- 구매 경로 선택 -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
           <h3 class="font-bold text-slate-800 mb-4">구매 경로</h3>
-          <select id="outPurchasePath" onchange="toggleOutboundPathInput(this.value)" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 mb-2">
+          <select id="outPurchasePath" onchange="toggleOutboundPathInput(this.value)" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-teal-500 mb-2">
             <option value="자사몰">자사몰</option>
             <option value="스마트스토어">스마트스토어</option>
             <option value="쿠팡">쿠팡</option>
@@ -4605,7 +4646,7 @@ async function renderOutboundRegistrationTab(container) {
             <option value="지인소개">지인소개</option>
             <option value="custom">기타(직접입력)</option>
           </select>
-          <input type="text" id="outPurchasePathInput" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 hidden" placeholder="구매 경로 직접 입력">
+          <input type="text" id="outPurchasePathInput" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 hidden" placeholder="구매 경로 직접 입력">
         </div>
 
         <!-- 배송 정보 입력 -->
@@ -4615,16 +4656,16 @@ async function renderOutboundRegistrationTab(container) {
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1">수령인</label>
-                <input type="text" id="outDestName" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="outDestName" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500">
               </div>
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1">연락처</label>
-                <input type="text" id="outDestPhone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="outDestPhone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500">
               </div>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">주소</label>
-              <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 mb-2" placeholder="기본 주소">
+              <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 mb-2" placeholder="기본 주소">
             </div>
           </div>
         </div>
@@ -4656,16 +4697,16 @@ async function renderOutboundRegistrationTab(container) {
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">운송장 번호</label>
-              <input type="text" id="outTracking" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="운송장 번호 입력">
+              <input type="text" id="outTracking" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500" placeholder="운송장 번호 입력">
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">비고</label>
-              <input type="text" id="outNotes" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="배송 메모 등">
+              <input type="text" id="outNotes" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500" placeholder="배송 메모 등">
             </div>
           </div>
         </div>
 
-        <button onclick="submitDirectOutbound()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.99] mb-6">
+        <button onclick="submitDirectOutbound()" class="w-full bg-teal-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-teal-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.99] mb-6">
           출고 등록 완료
         </button>
       </div>
@@ -4689,13 +4730,13 @@ function renderOutboundProducts(filterText = '') {
     <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" onclick="addToOutboundCart(${p.id})">
       <div>
         <div class="font-medium text-slate-800">${p.name}</div>
-        <div class="text-xs text-indigo-600 mb-0.5 font-medium">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</div>
+        <div class="text-xs text-teal-600 mb-0.5 font-medium">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</div>
         <div class="text-xs text-slate-500 flex items-center gap-2">
           <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded">${p.sku}</span>
           <span>재고: <span class="${p.current_stock <= 0 ? 'text-rose-600 font-bold' : 'text-slate-600'}">${p.current_stock}</span></span>
         </div>
       </div>
-      <button class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100">
+      <button class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100">
         <i class="fas fa-plus"></i>
       </button>
     </div>
@@ -4747,7 +4788,7 @@ function renderOutboundCart() {
         <div class="flex-1 min-w-0">
           <div>
             <div class="font-medium text-slate-800 text-sm">${item.product.name}</div>
-            <div class="text-xs text-indigo-600 mb-0.5">${[item.product.category, item.product.category_medium, item.product.category_small].filter(Boolean).join(' > ')}</div>
+            <div class="text-xs text-teal-600 mb-0.5">${[item.product.category, item.product.category_medium, item.product.category_small].filter(Boolean).join(' > ')}</div>
             <div class="text-xs text-slate-500 font-mono">${item.product.sku}</div>
           </div>
         </div>
@@ -4902,9 +4943,9 @@ async function renderOutboundHistoryTab(container) {
           <div class="flex flex-1 gap-4 w-full md:w-auto">
             <div class="relative flex-1 md:max-w-xs">
               <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
-              <input type="text" id="outHistorySearch" placeholder="주문번호 또는 받는분 검색" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeyup="if(event.key === 'Enter') filterOutboundHistory()">
+              <input type="text" id="outHistorySearch" placeholder="주문번호 또는 받는분 검색" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" onkeyup="if(event.key === 'Enter') filterOutboundHistory()">
             </div>
-            <select id="outHistoryStatus" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterOutboundHistory()">
+            <select id="outHistoryStatus" class="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" onchange="filterOutboundHistory()">
               <option value="">전체 상태</option>
               <option value="PENDING">출고 대기</option>
               <option value="PICKING">피킹 중</option>
@@ -4917,7 +4958,7 @@ async function renderOutboundHistoryTab(container) {
             </button>
           </div>
           <div class="flex gap-2">
-            <button onclick="filterOutboundHistory()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
+            <button onclick="filterOutboundHistory()" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 font-medium transition-colors">
               <i class="fas fa-search mr-2"></i>조회
             </button>
             <button onclick="downloadOutboundExcel()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 font-medium transition-colors">
@@ -5091,7 +5132,7 @@ async function filterOutboundHistory() {
               <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">${o.status}</span></td>
               <td class="px-6 py-4 text-slate-600">${o.created_by_name || '-'}</td>
               <td class="px-6 py-4 text-center">
-                <button onclick="showOutboundDetail(${o.id})" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded text-xs font-bold transition-colors">
+                <button onclick="showOutboundDetail(${o.id})" class="text-teal-600 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded text-xs font-bold transition-colors">
                   <i class="fas fa-search mr-1"></i>상세보기
                 </button>
               </td>
@@ -5119,7 +5160,7 @@ async function showOutboundDetail(id) {
           <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
             <div>
               <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <i class="fas fa-file-invoice-dollar text-indigo-600"></i> 출고 상세 정보
+                <i class="fas fa-file-invoice-dollar text-teal-600"></i> 출고 상세 정보
               </h3>
               <p class="text-sm text-slate-500 mt-1 font-mono">${data.order_number}</p>
             </div>
@@ -5143,7 +5184,7 @@ async function showOutboundDetail(id) {
                 <h4 class="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">출고 상태</h4>
                 <div class="space-y-2 text-sm">
                   <div class="flex items-center"><span class="w-20 text-slate-500">상태</span> 
-                    <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-bold text-indigo-600 shadow-sm">${data.status}</span>
+                    <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-bold text-teal-600 shadow-sm">${data.status}</span>
                   </div>
                   <div class="flex"><span class="w-20 text-slate-500">등록일</span> <span class="text-slate-700">${new Date(data.created_at).toLocaleString()}</span></div>
                   <div class="flex"><span class="w-20 text-slate-500">비고</span> <span class="text-slate-700">${data.notes || '-'}</span></div>
@@ -5191,14 +5232,14 @@ async function showOutboundDetail(id) {
                 </h4>
                 <div class="grid grid-cols-1 gap-3">
                   ${packages.map(p => `
-                    <div class="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                    <div class="flex items-center justify-between p-4 bg-teal-50 border border-indigo-100 rounded-lg">
                       <div class="flex items-center gap-4">
-                        <div class="bg-white p-2 rounded-full shadow-sm text-indigo-600">
+                        <div class="bg-white p-2 rounded-full shadow-sm text-teal-600">
                           <i class="fas fa-shipping-fast"></i>
                         </div>
                         <div>
-                          <div class="font-bold text-indigo-900">${p.courier}</div>
-                          <div class="text-sm text-indigo-700 font-mono tracking-wide">${p.tracking_number}</div>
+                          <div class="font-bold text-teal-900">${p.courier}</div>
+                          <div class="text-sm text-teal-700 font-mono tracking-wide">${p.tracking_number}</div>
                         </div>
                       </div>
                       <div class="text-right text-sm">
@@ -5253,7 +5294,7 @@ async function loadSettingsPage(content) {
   content.innerHTML = `
     <div class="mb-6 border-b border-slate-200">
       <nav class="-mb-px flex space-x-8">
-        <button onclick="switchSettingsTab('subscription')" id="tab-subscription" class="border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+        <button onclick="switchSettingsTab('subscription')" id="tab-subscription" class="border-indigo-500 text-teal-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
           구독 정보
         </button>
         <button onclick="switchSettingsTab('team')" id="tab-team" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
@@ -5278,13 +5319,13 @@ async function loadSettingsPage(content) {
 async function switchSettingsTab(tab) {
   // 탭 스타일 변경
   document.querySelectorAll('[id^="tab-"]').forEach(el => {
-    el.classList.remove('border-indigo-500', 'text-indigo-600');
+    el.classList.remove('border-indigo-500', 'text-teal-600');
     el.classList.add('border-transparent', 'text-slate-500');
   });
   const activeTab = document.getElementById(`tab-${tab}`);
   if (activeTab) {
     activeTab.classList.remove('border-transparent', 'text-slate-500');
-    activeTab.classList.add('border-indigo-500', 'text-indigo-600');
+    activeTab.classList.add('border-indigo-500', 'text-teal-600');
   }
 
   const container = document.getElementById('settingsContent');
@@ -5330,7 +5371,7 @@ async function renderSubscriptionTab(container) {
               <h3 class="text-lg font-bold text-slate-800">현재 구독 플랜</h3>
               <p class="text-slate-500 text-sm">이용 중인 서비스 등급입니다.</p>
             </div>
-            <span class="px-3 py-1 rounded-full text-sm font-bold bg-indigo-100 text-indigo-700">
+            <span class="px-3 py-1 rounded-full text-sm font-bold bg-teal-100 text-teal-700">
               ${plan.name}
             </span>
           </div>
@@ -5345,7 +5386,7 @@ async function renderSubscriptionTab(container) {
               </div>
             `).join('')}
           </div>
-          <button onclick="alert('준비 중입니다.')" class="w-full py-2 border border-indigo-600 text-indigo-600 rounded-lg font-medium hover:bg-indigo-50 transition-colors">
+          <button onclick="alert('준비 중입니다.')" class="w-full py-2 border border-teal-600 text-teal-600 rounded-lg font-medium hover:bg-teal-50 transition-colors">
             플랜 업그레이드
           </button>
         </div>
@@ -5362,7 +5403,7 @@ async function renderSubscriptionTab(container) {
                 <span class="text-slate-500">${usage.products.toLocaleString()} / ${productLimitText}</span>
               </div>
               <div class="w-full bg-slate-100 rounded-full h-2.5">
-                <div class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: ${productPercent}%"></div>
+                <div class="bg-teal-600 h-2.5 rounded-full transition-all duration-500" style="width: ${productPercent}%"></div>
               </div>
               ${productPercent >= 90 ? '<p class="text-xs text-rose-500 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>한도에 근접했습니다.</p>' : ''}
             </div>
@@ -5396,7 +5437,7 @@ async function renderTeamTab(container) {
           <h3 class="text-lg font-bold text-slate-800">팀원 관리</h3>
           <p class="text-slate-500 text-sm">함께 일할 팀원을 초대하고 관리하세요.</p>
         </div>
-        <button onclick="openInviteModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+        <button onclick="openInviteModal()" class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors">
           <i class="fas fa-plus mr-2"></i>팀원 초대
         </button>
       </div>
@@ -5452,26 +5493,26 @@ async function renderTeamTab(container) {
         <form onsubmit="handleInvite(event)" class="p-6 space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-            <input type="email" name="email" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="colleague@company.com">
+            <input type="email" name="email" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="colleague@company.com">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
-            <input type="text" name="name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="홍길동">
+            <input type="text" name="name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="홍길동">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
-            <input type="password" name="password" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="초기 비밀번호 설정">
+            <input type="password" name="password" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="초기 비밀번호 설정">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">권한</label>
-            <select name="role" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <select name="role" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
               <option value="USER">일반 사용자 (USER)</option>
               <option value="ADMIN">관리자 (ADMIN)</option>
             </select>
           </div>
           <div class="pt-4 flex gap-3">
             <button type="button" onclick="closeInviteModal()" class="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium">취소</button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm">초대하기</button>
+            <button type="submit" class="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium shadow-sm">초대하기</button>
           </div>
         </form>
       </div>
@@ -5490,7 +5531,7 @@ async function renderWarehouseTab(container) {
           <h3 class="text-lg font-bold text-slate-800">창고 관리</h3>
           <p class="text-slate-500 text-sm">물류 창고를 등록하고 관리하세요.</p>
         </div>
-        <button onclick="openWarehouseModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+        <button onclick="openWarehouseModal()" class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors">
           <i class="fas fa-plus mr-2"></i>창고 등록
         </button>
       </div>
@@ -5517,7 +5558,7 @@ async function renderWarehouseTab(container) {
                   </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button onclick="openWarehouseModal(${w.id})" class="text-indigo-600 hover:text-indigo-900 mr-3">
+                  <button onclick="openWarehouseModal(${w.id})" class="text-teal-600 hover:text-teal-900 mr-3">
                     <i class="fas fa-edit"></i>
                   </button>
                   <button onclick="deleteWarehouse(${w.id})" class="text-rose-600 hover:text-rose-900">
@@ -5544,19 +5585,19 @@ async function renderWarehouseTab(container) {
           <input type="hidden" id="warehouseId">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">창고명</label>
-            <input type="text" id="warehouseName" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="예: 제1물류창고">
+            <input type="text" id="warehouseName" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="예: 제1물류창고">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">위치</label>
-            <input type="text" id="warehouseLocation" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="예: 서울 구로구">
+            <input type="text" id="warehouseLocation" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="예: 서울 구로구">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">설명</label>
-            <textarea id="warehouseDesc" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" rows="3" placeholder="창고에 대한 설명"></textarea>
+            <textarea id="warehouseDesc" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" rows="3" placeholder="창고에 대한 설명"></textarea>
           </div>
           <div class="pt-4 flex gap-3">
             <button type="button" onclick="closeWarehouseModal()" class="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium">취소</button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm">저장</button>
+            <button type="submit" class="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium shadow-sm">저장</button>
           </div>
         </form>
       </div>
@@ -5764,7 +5805,7 @@ function injectSalesAnalysisModal() {
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-4 h-[85vh] flex flex-col border border-slate-100">
         <div class="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50 rounded-t-2xl">
           <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <i class="fas fa-chart-bar text-indigo-600"></i> 판매 상세 분석
+            <i class="fas fa-chart-bar text-teal-600"></i> 판매 상세 분석
           </h3>
           <button onclick="document.getElementById('salesAnalysisModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
             <i class="fas fa-times text-lg"></i>
@@ -5772,7 +5813,7 @@ function injectSalesAnalysisModal() {
         </div>
         
         <div class="flex border-b border-slate-100 px-6 bg-white">
-          <button onclick="switchSalesAnalysisTab('weekly')" id="tab-sa-weekly" class="px-6 py-4 font-bold text-indigo-600 border-b-2 border-indigo-600 transition-colors">주간 매출</button>
+          <button onclick="switchSalesAnalysisTab('weekly')" id="tab-sa-weekly" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors">주간 매출</button>
           <button onclick="switchSalesAnalysisTab('monthly')" id="tab-sa-monthly" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors">월간 매출</button>
           <button onclick="switchSalesAnalysisTab('product')" id="tab-sa-product" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors">상품별 매출</button>
         </div>
@@ -5807,9 +5848,9 @@ async function switchSalesAnalysisTab(tab) {
     const btn = document.getElementById(`tab-sa-${t}`);
     if (t === tab) {
       btn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-      btn.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+      btn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
     } else {
-      btn.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'font-bold');
+      btn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
       btn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
     }
   });
@@ -5895,7 +5936,7 @@ async function switchSalesAnalysisTab(tab) {
                 <td class="px-4 py-2 font-medium text-slate-800">${item.name}</td>
                 <td class="px-4 py-2 text-slate-500 text-xs">${item.category}</td>
                 <td class="px-4 py-2 text-right">${item.total_sold}개</td>
-                <td class="px-4 py-2 text-right font-bold text-indigo-600">${formatCurrency(item.total_revenue)}</td>
+                <td class="px-4 py-2 text-right font-bold text-teal-600">${formatCurrency(item.total_revenue)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -5965,17 +6006,17 @@ function switchStockTab(tab) {
   const levelsContent = document.getElementById('stockLevelsContent');
 
   if (tab === 'movements') {
-    movementsBtn.classList.add('text-indigo-600', 'border-indigo-600', 'font-bold');
+    movementsBtn.classList.add('text-teal-600', 'border-teal-600', 'font-bold');
     movementsBtn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-    levelsBtn.classList.remove('text-indigo-600', 'border-indigo-600', 'font-bold');
+    levelsBtn.classList.remove('text-teal-600', 'border-teal-600', 'font-bold');
     levelsBtn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
 
     movementsContent.classList.remove('hidden');
     levelsContent.classList.add('hidden');
   } else {
-    levelsBtn.classList.add('text-indigo-600', 'border-indigo-600', 'font-bold');
+    levelsBtn.classList.add('text-teal-600', 'border-teal-600', 'font-bold');
     levelsBtn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-    movementsBtn.classList.remove('text-indigo-600', 'border-indigo-600', 'font-bold');
+    movementsBtn.classList.remove('text-teal-600', 'border-teal-600', 'font-bold');
     movementsBtn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
 
     movementsContent.classList.add('hidden');
@@ -6018,7 +6059,7 @@ async function loadWarehouseStockLevels() {
               <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">${s.sku}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${s.category || '-'}</td>
               <td class="px-6 py-4 whitespace-nowrap text-right">
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-teal-100 text-teal-700">
                   ${s.quantity}개
                 </span>
               </td>
@@ -6105,10 +6146,10 @@ async function renderSettingsPage() {
       <!-- 탭 네비게이션 -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6">
         <div class="flex border-b border-slate-200">
-          <button onclick="switchSettingsTab('team')" id="settingsTabTeam" class="px-6 py-4 font-medium text-indigo-600 border-b-2 border-indigo-600 focus:outline-none transition-colors">
+          <button onclick="switchSettingsTab('team')" id="settingsTabTeam" class="px-6 py-4 font-medium text-teal-600 border-b-2 border-teal-600 focus:outline-none transition-colors">
             팀원 관리
           </button>
-          <button onclick="switchSettingsTab('general')" id="settingsTabGeneral" class="px-6 py-4 font-medium text-slate-500 hover:text-indigo-600 focus:outline-none transition-colors">
+          <button onclick="switchSettingsTab('general')" id="settingsTabGeneral" class="px-6 py-4 font-medium text-slate-500 hover:text-teal-600 focus:outline-none transition-colors">
             일반 관리
           </button>
         </div>
@@ -6122,7 +6163,7 @@ async function renderSettingsPage() {
               <h3 class="text-lg font-bold text-slate-800">팀원 관리</h3>
               <p class="text-sm text-slate-500 mt-1">팀원을 초대하고 조직원을 관리하세요.</p>
             </div>
-            <button onclick="showTeamInviteModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm">
+            <button onclick="showTeamInviteModal()" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2 shadow-sm">
               <i class="fas fa-plus"></i>
               팀원 초대
             </button>
@@ -6139,14 +6180,14 @@ async function renderSettingsPage() {
           <form onsubmit="handleCompanyInfoSubmit(event)" class="space-y-4 max-w-md">
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">회사명</label>
-              <input type="text" id="settingCompanyName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <input type="text" id="settingCompanyName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">로고 설정</label>
               <div class="flex flex-col gap-3">
                   <!-- URL 입력 -->
                   <div class="flex gap-2">
-                      <input type="url" id="settingLogoUrl" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="https://example.com/logo.png (선택사항)">
+                      <input type="url" id="settingLogoUrl" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="https://example.com/logo.png (선택사항)">
                       <button type="button" onclick="previewLogo()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors whitespace-nowrap">URL 미리보기</button>
                   </div>
                   
@@ -6155,7 +6196,7 @@ async function renderSettingsPage() {
                   <!-- 파일 선택 -->
                   <div class="flex gap-2 items-center">
                       <input type="file" id="logoFileInput" accept="image/*" class="hidden" onchange="handleLogoFileSelect(event)">
-                      <button type="button" onclick="document.getElementById('logoFileInput').click()" class="w-full px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2">
+                      <button type="button" onclick="document.getElementById('logoFileInput').click()" class="w-full px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-teal-500 hover:text-teal-600 transition-colors flex items-center justify-center gap-2">
                           <i class="fas fa-image"></i>
                           <span>내 컴퓨터에서 이미지 선택</span>
                       </button>
@@ -6168,7 +6209,7 @@ async function renderSettingsPage() {
                 <img id="logoPreviewImg" src="" class="h-16 mx-auto object-contain">
             </div>
             <div class="pt-2">
-              <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+              <button type="submit" class="bg-teal-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-teal-700 transition-colors">
                 저장하기
               </button>
             </div>
@@ -6189,20 +6230,20 @@ async function renderSettingsPage() {
         <form onsubmit="handleTeamInvite(event)" class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-            <input type="email" id="inviteEmail" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="user@example.com">
+            <input type="email" id="inviteEmail" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="user@example.com">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
-            <input type="text" id="inviteName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="홍길동">
+            <input type="text" id="inviteName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="홍길동">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
-            <input type="password" id="invitePassword" required minlength="8" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="••••••••">
+            <input type="password" id="invitePassword" required minlength="8" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="••••••••">
             <p class="text-xs text-slate-500 mt-1">최소 8자 이상</p>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">권한</label>
-            <select id="inviteRole" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <select id="inviteRole" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
               <option value="USER">일반 사용자 (USER)</option>
               <option value="ADMIN">관리자 (ADMIN)</option>
             </select>
@@ -6211,7 +6252,7 @@ async function renderSettingsPage() {
             <button type="button" onclick="closeTeamInviteModal()" class="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               취소
             </button>
-            <button type="submit" class="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+            <button type="submit" class="flex-1 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
               초대하기
             </button>
           </div>
@@ -6231,16 +6272,16 @@ function switchSettingsTab(tab) {
   const generalContent = document.getElementById('settingsTabContentGeneral');
 
   if (tab === 'team') {
-    teamTab.classList.add('text-indigo-600', 'border-indigo-600');
+    teamTab.classList.add('text-teal-600', 'border-teal-600');
     teamTab.classList.remove('text-slate-500');
-    generalTab.classList.remove('text-indigo-600', 'border-indigo-600');
+    generalTab.classList.remove('text-teal-600', 'border-teal-600');
     generalTab.classList.add('text-slate-500');
     teamContent.classList.remove('hidden');
     generalContent.classList.add('hidden');
   } else {
-    generalTab.classList.add('text-indigo-600', 'border-indigo-600');
+    generalTab.classList.add('text-teal-600', 'border-teal-600');
     generalTab.classList.remove('text-slate-500');
-    teamTab.classList.remove('text-indigo-600', 'border-indigo-600');
+    teamTab.classList.remove('text-teal-600', 'border-teal-600');
     teamTab.classList.add('text-slate-500');
     generalContent.classList.remove('hidden');
     teamContent.classList.add('hidden');
@@ -6401,11 +6442,13 @@ function renderTeamMembers(members) {
             <td class="py-3 px-4">
               <span class="px-2 py-1 rounded text-xs font-medium ${m.role === 'OWNER' ? 'bg-purple-100 text-purple-700' :
       m.role === 'ADMIN' ? 'bg-blue-100 text-blue-700' :
-        'bg-slate-100 text-slate-700'
+        m.role === 'SUPER_ADMIN' ? 'bg-teal-100 text-teal-700' :
+          'bg-slate-100 text-slate-700'
     }">
                 ${m.role === 'OWNER' ? '소유자' :
       m.role === 'ADMIN' ? '관리자' :
-        '일반'
+        m.role === 'SUPER_ADMIN' ? '슈퍼 관리자' :
+          '일반'
     }
               </span>
             </td>
@@ -6502,13 +6545,13 @@ async function renderStockPage() {
       <!-- 탭 네비게이션 -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
         <div class="flex border-b border-slate-200 overflow-x-auto">
-          <button onclick="switchStockPageTab('levels')" id="stockTabLevels" class="px-6 py-4 font-medium text-indigo-600 border-b-2 border-indigo-600 focus:outline-none transition-colors whitespace-nowrap">
+          <button onclick="switchStockPageTab('levels')" id="stockTabLevels" class="px-6 py-4 font-medium text-teal-600 border-b-2 border-teal-600 focus:outline-none transition-colors whitespace-nowrap">
             재고 현황
           </button>
-          <button onclick="switchStockPageTab('movements')" id="stockTabMovements" class="px-6 py-4 font-medium text-slate-500 hover:text-indigo-600 focus:outline-none transition-colors whitespace-nowrap">
+          <button onclick="switchStockPageTab('movements')" id="stockTabMovements" class="px-6 py-4 font-medium text-slate-500 hover:text-teal-600 focus:outline-none transition-colors whitespace-nowrap">
             입출고 내역
           </button>
-          <button onclick="switchStockPageTab('warehouses')" id="stockTabWarehouses" class="px-6 py-4 font-medium text-slate-500 hover:text-indigo-600 focus:outline-none transition-colors whitespace-nowrap">
+          <button onclick="switchStockPageTab('warehouses')" id="stockTabWarehouses" class="px-6 py-4 font-medium text-slate-500 hover:text-teal-600 focus:outline-none transition-colors whitespace-nowrap">
             창고 관리
           </button>
         </div>
@@ -6536,11 +6579,11 @@ async function renderStockPage() {
                 <i class="fas fa-sync mr-1"></i>동기화
               </button>
               <div class="w-px h-8 bg-slate-200 mx-1"></div>
-              <select id="levelWarehouseFilter" onchange="loadWarehouseStockLevels()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <select id="levelWarehouseFilter" onchange="loadWarehouseStockLevels()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 <option value="">전체 창고</option>
                 <!-- 창고 목록 동적 로드 -->
               </select>
-              <button onclick="loadWarehouseStockLevels()" class="p-2 text-slate-500 hover:text-indigo-600 transition-colors">
+              <button onclick="loadWarehouseStockLevels()" class="p-2 text-slate-500 hover:text-teal-600 transition-colors">
                 <i class="fas fa-sync-alt"></i>
               </button>
             </div>
@@ -6557,24 +6600,24 @@ async function renderStockPage() {
           <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
             <h3 class="text-lg font-bold text-slate-800">입출고 내역</h3>
             <div class="flex flex-wrap gap-2 items-center w-full md:w-auto">
-              <input type="text" id="moveSearch" placeholder="상품명/SKU 검색" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full md:w-48">
-              <select id="moveType" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <input type="text" id="moveSearch" placeholder="상품명/SKU 검색" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-full md:w-48">
+              <select id="moveType" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 <option value="">전체 구분</option>
                 <option value="입고">입고</option>
                 <option value="출고">출고</option>
                 <option value="이동">이동</option>
                 <option value="조정">조정</option>
               </select>
-              <select id="moveWarehouse" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <select id="moveWarehouse" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 <option value="">전체 창고</option>
                 <!-- 창고 목록 동적 로드 -->
               </select>
               <div class="flex items-center gap-1">
-                <input type="date" id="moveStartDate" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="date" id="moveStartDate" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 <span class="text-slate-400">~</span>
-                <input type="date" id="moveEndDate" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="date" id="moveEndDate" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
               </div>
-              <button onclick="loadStockMovements()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+              <button onclick="loadStockMovements()" class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors">
                 조회
               </button>
             </div>
@@ -6606,21 +6649,21 @@ async function renderStockPage() {
           <input type="hidden" id="stockWarehouseId">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">창고명</label>
-            <input type="text" id="stockWarehouseName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="예: 제1물류창고">
+            <input type="text" id="stockWarehouseName" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="예: 제1물류창고">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">위치</label>
-            <input type="text" id="stockWarehouseLocation" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="예: 서울 구로구">
+            <input type="text" id="stockWarehouseLocation" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="예: 서울 구로구">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">설명</label>
-            <textarea id="stockWarehouseDesc" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" rows="3" placeholder="창고에 대한 설명"></textarea>
+            <textarea id="stockWarehouseDesc" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" rows="3" placeholder="창고에 대한 설명"></textarea>
           </div>
           <div class="flex gap-2 pt-2">
             <button type="button" onclick="closeStockWarehouseModal()" class="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               취소
             </button>
-            <button type="submit" class="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+            <button type="submit" class="flex-1 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
               저장
             </button>
           </div>
@@ -6643,11 +6686,11 @@ function switchStockPageTab(tab) {
     const content = document.getElementById(`stockContent${t.charAt(0).toUpperCase() + t.slice(1)}`);
 
     if (t === tab) {
-      btn.classList.add('text-indigo-600', 'border-indigo-600');
+      btn.classList.add('text-teal-600', 'border-teal-600');
       btn.classList.remove('text-slate-500');
       content.classList.remove('hidden');
     } else {
-      btn.classList.remove('text-indigo-600', 'border-indigo-600');
+      btn.classList.remove('text-teal-600', 'border-teal-600');
       btn.classList.add('text-slate-500');
       content.classList.add('hidden');
     }
@@ -6712,7 +6755,7 @@ async function loadStockWarehouses() {
             <h3 class="text-lg font-bold text-slate-800">창고 목록</h3>
             <p class="text-slate-500 text-sm">등록된 창고 리스트입니다.</p>
           </div>
-          <button onclick="openStockWarehouseModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2">
+          <button onclick="openStockWarehouseModal()" class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors flex items-center gap-2">
             <i class="fas fa-plus"></i>
             창고 등록
           </button>
@@ -6740,7 +6783,7 @@ async function loadStockWarehouses() {
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button onclick="openStockWarehouseModal(${w.id})" class="text-indigo-600 hover:text-indigo-900 mr-3">
+                    <button onclick="openStockWarehouseModal(${w.id})" class="text-teal-600 hover:text-teal-900 mr-3">
                       <i class="fas fa-edit"></i>
                     </button>
                     <button onclick="deleteStockWarehouse(${w.id})" class="text-rose-600 hover:text-rose-900">
@@ -7045,7 +7088,7 @@ async function loadWarehouseStockLevels(page = 1) {
                 </button>
                 
                 ${Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => `
-                  <button onclick="loadWarehouseStockLevels(${p})" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold ${p === pagination.page ? 'bg-indigo-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600' : 'text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0'}">
+                  <button onclick="loadWarehouseStockLevels(${p})" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold ${p === pagination.page ? 'bg-teal-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600' : 'text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0'}">
                     ${p}
                   </button>
                 `).join('')}
@@ -7193,7 +7236,7 @@ async function loadStockMovements(page = 1) {
                 </button>
                 
                 ${Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => `
-                  <button onclick="loadStockMovements(${p})" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold ${p === pagination.page ? 'bg-indigo-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600' : 'text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0'}">
+                  <button onclick="loadStockMovements(${p})" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold ${p === pagination.page ? 'bg-teal-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600' : 'text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0'}">
                     ${p}
                   </button>
                 `).join('')}
@@ -7213,3 +7256,273 @@ async function loadStockMovements(page = 1) {
     container.innerHTML = '<div class="text-center py-10 text-rose-500">데이터 로드 실패</div>';
   }
 }
+
+// ==========================================
+// Super Admin Functions
+// ==========================================
+
+async function renderSuperAdminPage(content) {
+  content.innerHTML = `
+    <div class="flex flex-col h-full">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">
+          <i class="fas fa-user-shield mr-2 text-teal-600"></i>시스템 관리
+        </h1>
+        <div class="flex gap-2">
+            <span class="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold">SUPER ADMIN ACCESS</span>
+        </div>
+      </div>
+
+      <!-- 탭 -->
+      <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
+        <button id="sa-tab-tenants" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center" onclick="switchSuperAdminTab('tenants')">
+          <i class="fas fa-building mr-2"></i>조직(Tenant) 관리
+        </button>
+        <button id="sa-tab-users" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchSuperAdminTab('users')">
+          <i class="fas fa-users mr-2"></i>전체 사용자 관리
+        </button>
+        <button id="sa-tab-stats" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchSuperAdminTab('stats')">
+          <i class="fas fa-chart-pie mr-2"></i>시스템 통계
+        </button>
+      </div>
+
+      <div id="superAdminContent" class="flex-1 overflow-hidden flex flex-col relative">
+        <!-- Content -->
+      </div>
+    </div>
+  `;
+
+  switchSuperAdminTab('tenants');
+}
+
+async function switchSuperAdminTab(tab) {
+  // Tabs UI
+  ['tenants', 'users', 'stats'].forEach(t => {
+    const btn = document.getElementById(`sa-tab-${t}`);
+    if (btn) {
+      if (t === tab) {
+        btn.className = "px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center";
+      } else {
+        btn.className = "px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center";
+      }
+    }
+  });
+
+  const container = document.getElementById('superAdminContent');
+  container.innerHTML = '<div class="flex items-center justify-center h-64"><i class="fas fa-spinner fa-spin text-3xl text-teal-500"></i></div>';
+
+  try {
+    if (tab === 'tenants') await renderAllTenants(container);
+    else if (tab === 'users') await renderAllUsers(container);
+    else if (tab === 'stats') {
+      const res = await axios.get(`${API_BASE}/super-admin/stats`);
+      const stats = res.data.data;
+      container.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-slate-500 text-sm font-medium">전체 조직 수</h3>
+                    <p class="text-3xl font-bold text-slate-800 mt-2">${stats.total_tenants}</p>
+                    <p class="text-xs text-emerald-600 mt-1">활성: ${stats.active_tenants}</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-slate-500 text-sm font-medium">전체 사용자 수</h3>
+                    <p class="text-3xl font-bold text-slate-800 mt-2">${stats.total_users}</p>
+                </div>
+            </div>
+          `;
+    }
+  } catch (e) {
+    console.error(e);
+    container.innerHTML = `<div class="text-center py-10 text-rose-500">로드 실패: ${e.response?.data?.error || e.message}</div>`;
+  }
+}
+
+async function renderAllTenants(container) {
+  const res = await axios.get(`${API_BASE}/super-admin/tenants`);
+  const tenants = res.data.data;
+
+  container.innerHTML = `
+        <div class="mb-4 flex justify-between">
+            <h3 class="font-bold text-lg">등록된 조직 목록</h3>
+            <button onclick="openCreateTenantModal()" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700">
+                <i class="fas fa-plus mr-2"></i>조직 생성
+            </button>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">조직명</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">플랜</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">상태</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">사용자수</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">상품수</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">생성일</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">관리</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                    ${tenants.map(t => `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">#${t.id}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${t.name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${t.plan}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${t.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                                    ${t.status}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${t.user_count}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${t.product_count}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${new Date(t.created_at).toLocaleDateString()}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button onclick="impersonateTenant(${t.id}, '${t.name}')" class="text-white bg-teal-600 hover:bg-teal-700 px-3 py-1 rounded text-xs transition-colors">
+                                    <i class="fas fa-sign-in-alt mr-1"></i>접속하기
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function renderAllUsers(container) {
+  const res = await axios.get(`${API_BASE}/super-admin/users`);
+  const users = res.data.data;
+
+  container.innerHTML = `
+        <div class="mb-4">
+            <h3 class="font-bold text-lg">전체 사용자 목록</h3>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">이름</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">이메일</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">소속 조직</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">권한</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">가입일</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">관리</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                    ${users.map(u => `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${u.name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${u.email}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${u.tenant_name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${u.role}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${new Date(u.created_at).toLocaleDateString()}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button onclick="alert('준비중: 사용자 관리 기능')" class="text-teal-600 hover:text-teal-900">수정</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function openCreateTenantModal() {
+  const modalHtml = `
+      <div id="createTenantModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold mb-4">새 조직 생성</h3>
+            <form onsubmit="createTenant(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">조직명</label>
+                    <input type="text" name="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">플랜</label>
+                    <select name="plan" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="BASIC">BASIC</option>
+                        <option value="PRO">PRO</option>
+                        <option value="ENTERPRISE">ENTERPRISE</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="document.getElementById('createTenantModal').remove()" class="px-4 py-2 border rounded text-gray-600">취소</button>
+                    <button type="submit" class="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700">생성</button>
+                </div>
+            </form>
+        </div>
+      </div>
+    `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function createTenant(e) {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = {
+    name: formData.get('name'),
+    plan: formData.get('plan')
+  };
+
+  try {
+    await axios.post(`${API_BASE}/super-admin/tenants`, data);
+    alert('조직이 생성되었습니다.');
+    document.getElementById('createTenantModal').remove();
+    loadPage('super-admin'); // Reload
+  } catch (err) {
+    alert('생성 실패: ' + (err.response?.data?.error || err.message));
+  }
+}
+
+// Impersonation Functions
+function impersonateTenant(tenantId, tenantName) {
+  if (!confirm(`'${tenantName}' 조직의 관리자 권한으로 접속하시겠습니까?\n모든 작업은 해당 조직의 데이터에 영향을 줍니다.`)) return;
+
+  localStorage.setItem('impersonatedTenantId', tenantId);
+  localStorage.setItem('impersonatedTenantName', tenantName);
+
+  // Refresh to apply interceptor and load new data
+  window.location.reload();
+}
+
+function exitImpersonation() {
+  localStorage.removeItem('impersonatedTenantId');
+  localStorage.removeItem('impersonatedTenantName');
+  window.location.reload();
+}
+
+function checkImpersonationStatus() {
+  const tenantId = localStorage.getItem('impersonatedTenantId');
+  const tenantName = localStorage.getItem('impersonatedTenantName');
+
+  if (tenantId && tenantName) {
+    const banner = document.createElement('div');
+    banner.className = 'bg-rose-600 text-white px-4 py-2 flex justify-between items-center shadow-md z-[100] relative';
+    banner.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas fa-user-secret text-xl mr-3"></i>
+                <span class="font-bold">현재 '${tenantName}'(#${tenantId}) 조직으로 접속 중입니다. (슈퍼관리자 권한)</span>
+            </div>
+            <button onclick="exitImpersonation()" class="bg-white text-rose-600 px-4 py-1.5 rounded font-bold text-sm hover:bg-rose-50 transition-colors">
+                <i class="fas fa-sign-out-alt mr-1"></i> 접속 종료
+            </button>
+        `;
+    document.body.prepend(banner);
+
+    // Sidebar indication
+    const companyNameEl = document.getElementById('companyName');
+    if (companyNameEl) {
+      companyNameEl.textContent = `[접속] ${tenantName}`;
+      companyNameEl.classList.add('text-rose-400');
+    }
+  }
+}
+
+// Global Assignments
+window.renderSuperAdminPage = renderSuperAdminPage;
+window.switchSuperAdminTab = switchSuperAdminTab;
+window.openCreateTenantModal = openCreateTenantModal;
+window.createTenant = createTenant;
+window.impersonateTenant = impersonateTenant;
+window.exitImpersonation = exitImpersonation;

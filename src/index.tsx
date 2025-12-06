@@ -17,6 +17,7 @@ import authRouter from './routes/auth'
 import subscriptionRouter from './routes/subscription'
 import importExportRouter from './routes/import-export'
 import settingsRouter from './routes/settings'
+import superAdminRouter from './routes/super-admin'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -40,6 +41,7 @@ app.route('/api/users', usersRouter)
 app.route('/api/outbound', outboundRouter)
 app.route('/api/warehouses', warehouseRouter)
 app.route('/api/settings', settingsRouter)
+app.route('/api/super-admin', superAdminRouter)
 
 // 로그인 페이지
 app.get('/login', (c: Context) => {
@@ -502,7 +504,7 @@ async function handleLogin(e) {
 // 메인 페이지
 app.get('/', (c: Context) => {
     return c.html(`
-    < !DOCTYPE html >
+    <!DOCTYPE html>
         <html lang="ko">
             <head>
                 <meta charset="UTF-8">
@@ -515,8 +517,8 @@ app.get('/', (c: Context) => {
                             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
                                 <style>
                                     body {
-                                        font - family: 'Inter', 'Noto Sans KR', sans-serif;
-                                    background-color: #f8fafc; /* Slate 50 */
+                                        font-family: 'Inter', 'Noto Sans KR', sans-serif;
+                                    background-color: #f0fdfa; /* Teal 50 */
             }
 
                                     /* Custom Scrollbar */
@@ -540,19 +542,21 @@ app.get('/', (c: Context) => {
             }
 
                                     .nav-link.active {
-                                        background: #4f46e5; /* Indigo 600 */
-                                    color: white;
-                                    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);
+                                        background: #2dd4bf; /* Teal 400 - Pastel */
+                                    color: #ffffff;
+                                    box-shadow: 0 4px 6px -1px rgba(45, 212, 191, 0.3);
+                                    font-weight: 600;
             }
 
                                     .nav-link:not(.active):hover {
-                                        background: #1e293b; /* Slate 800 */
-                                    color: #e2e8f0;
+                                        background: rgba(45, 212, 191, 0.1); /* Teal 400 with opacity */
+                                    color: #ccfbf1; /* Teal 100 */
             }
 
                                     .glass-header {
-                                        background: rgba(255, 255, 255, 0.9);
-                                    backdrop-filter: blur(8px);
+                                        background: rgba(255, 255, 255, 0.85);
+                                    backdrop-filter: blur(12px);
+                                    border-bottom: 1px solid rgba(204, 251, 241, 0.5); /* Teal 100 border */
             }
                                 </style>
                                 <script>
@@ -562,6 +566,18 @@ app.get('/', (c: Context) => {
                                         colors: {
                                         primary: '#4f46e5', // Indigo 600
                                     secondary: '#64748b', // Slate 500
+                                            teal: {
+                                                50: '#f0fdfa',
+                                                100: '#ccfbf1',
+                                                200: '#99f6e4',
+                                                300: '#5eead4',
+                                                400: '#2dd4bf',
+                                                500: '#14b8a6',
+                                                600: '#0d9488',
+                                                700: '#0f766e',
+                                                800: '#115e59',
+                                                900: '#134e4a',
+                                            }
                         },
                                     fontFamily: {
                                         sans: ['Inter', 'Noto Sans KR', 'sans-serif'],
@@ -577,16 +593,16 @@ app.get('/', (c: Context) => {
                                     <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden md:hidden transition-opacity" onclick="toggleSidebar()"></div>
 
                                     <!-- 사이드바 -->
-                                    <aside id="sidebar" class="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-30 fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out">
-                                        <div class="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-900 justify-between">
+                                    <aside id="sidebar" class="w-64 bg-gradient-to-b from-teal-900 via-teal-800 to-teal-900 text-teal-100 flex flex-col shadow-xl z-30 fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out border-r border-teal-800/50">
+                                        <div class="h-16 flex items-center px-6 border-b border-teal-700/50 bg-teal-900/50 justify-between">
                                             <div class="flex items-center gap-3">
                                                 <div class="relative w-8 h-8">
-                                                    <div id="companyLogoPlaceholder" class="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/30 absolute inset-0">W</div>
+                                                    <div id="companyLogoPlaceholder" class="w-8 h-8 bg-teal-400 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-teal-400/30 absolute inset-0">W</div>
                                                     <img id="companyLogo" src="" alt="Logo" class="w-8 h-8 rounded-lg object-cover shadow-lg hidden relative z-10">
                                                 </div>
                                                 <div>
-                                                    <h1 id="companyName" class="text-white font-bold text-lg leading-none">WOW3D</h1>
-                                                    <p class="text-xs text-slate-500 font-medium mt-0.5">Sales Manager</p>
+                                                    <h1 id="companyName" class="text-white font-bold text-lg leading-none tracking-tight">WOW3D</h1>
+                                                    <p class="text-xs text-teal-400 font-medium mt-0.5 tracking-wide">Sales Manager</p>
                                                 </div>
                                             </div>
                                             <!-- 모바일 닫기 버튼 -->
@@ -595,8 +611,8 @@ app.get('/', (c: Context) => {
                                             </button>
                                         </div>
 
-                                        <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-                                            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Menu</p>
+                                        <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+                                            <p class="px-3 text-xs font-bold text-teal-500/70 uppercase tracking-widest mb-3 text-[10px]">Menu</p>
                                             <a href="#" data-page="dashboard" class="nav-link active flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
                                                 <i class="fas fa-chart-pie w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                                                 <span class="font-medium">대시보드</span>
@@ -629,9 +645,9 @@ app.get('/', (c: Context) => {
                                             </div>
                                         </nav>
 
-                                        <div class="p-4 border-t border-slate-800 bg-slate-900">
+                                        <div class="p-4 border-t border-teal-700/50 bg-teal-900/50">
                                             <div class="flex items-center gap-3 px-2">
-                                                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-md" id="user-avatar">
+                                                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-400 to-emerald-400 flex items-center justify-center text-white font-bold text-sm shadow-md" id="user-avatar">
                                                     U
                                                 </div>
                                                 <div class="flex-1 min-w-0">
@@ -646,7 +662,7 @@ app.get('/', (c: Context) => {
                                     </aside>
 
                                     <!-- 메인 컨텐츠 -->
-                                    <div class="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50 w-full">
+                                    <div class="flex-1 flex flex-col h-screen overflow-hidden bg-gradient-to-br from-teal-50 to-white w-full">
                                         <!-- 헤더 -->
                                         <header class="h-16 glass-header border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 z-10 sticky top-0">
                                             <div class="flex items-center">
@@ -661,7 +677,7 @@ app.get('/', (c: Context) => {
                                                     <p class="text-xs font-medium text-slate-500" id="current-date"></p>
                                                     <p class="text-sm font-bold text-slate-700 font-mono" id="current-time"></p>
                                                 </div>
-                                                <button class="p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-full hover:bg-indigo-50">
+                                                <button class="p-2 text-teal-400 hover:text-teal-600 transition-colors rounded-full hover:bg-teal-50">
                                                     <i class="fas fa-bell text-lg"></i>
                                                 </button>
                                             </div>
@@ -708,7 +724,7 @@ app.get('/', (c: Context) => {
                                     updateTime();
                                     setInterval(updateTime, 1000);
                                 </script>
-                                <script src="/static/app.js?v=2"></script>
+                                <script src="/static/app.js?v=3"></script>
                             </body>
                         </html>
                         `)

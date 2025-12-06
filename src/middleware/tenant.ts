@@ -28,7 +28,18 @@ export const tenantMiddleware = async (c: Context, next: Next) => {
         console.log('[TENANT MIDDLEWARE] Token verified. Payload:', payload)
 
         // 컨텍스트에 저장
-        c.set('tenantId', payload.tenantId)
+        let tenantId = payload.tenantId
+
+        // 슈퍼관리자 Impersonation (조직 접속) 기능
+        if (payload.role === 'SUPER_ADMIN') {
+            const targetTenantId = c.req.header('X-Tenant-ID')
+            if (targetTenantId) {
+                console.log(`[SUPER ADMIN] Switches context to Tenant #${targetTenantId}`)
+                tenantId = parseInt(targetTenantId)
+            }
+        }
+
+        c.set('tenantId', tenantId)
         c.set('userId', payload.sub)
         c.set('userRole', payload.role)
 
