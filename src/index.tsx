@@ -43,462 +43,300 @@ app.route('/api/warehouses', warehouseRouter)
 app.route('/api/settings', settingsRouter)
 app.route('/api/super-admin', superAdminRouter)
 
-// 로그인 페이지
 app.get('/login', (c: Context) => {
-    return c.html(`
-<!DOCTYPE html>
+    return c.html(`<!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로그인 - WOW Sales ERP</title>
+    <title>로그인 - 재고/판매 관리 시스템</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        teal: {
-                            50: '#f0fdfa',
-                            100: '#ccfbf1',
-                            200: '#99f6e4',
-                            300: '#5eead4',
-                            400: '#2dd4bf',
-                            500: '#14b8a6',
-                            600: '#0d9488',
-                            700: '#0f766e',
-                            800: '#115e59',
-                            900: '#134e4a',
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Outfit', 'Noto Sans KR', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body {
-            background-color: #e6fffa; /* Very light teal */
-            overflow: hidden;
-        }
-
-        /* Custom Shapes */
-        .curved-panel {
-            position: relative;
-            background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 100%);
-            overflow: hidden;
-        }
-        
-        .curved-panel::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: -50px;
-            bottom: 0;
-            width: 100px;
-            background: #ffffff;
-            border-radius: 50% 0 0 50%;
-            transform: scaleX(0.5);
-            z-index: 10;
-        }
-
-        /* Input Styles */
-        .input-underline {
-            border: none;
-            border-bottom: 2px solid #e2e8f0;
-            border-radius: 0;
-            background: transparent;
-            padding-left: 0;
-            padding-right: 2rem;
-            transition: all 0.3s ease;
-        }
-        .input-underline:focus {
-            border-bottom-color: #14b8a6; /* Teal 500 */
-            box-shadow: none;
-            outline: none;
-        }
-
-        /* Orbit Animation (Scaled Down) */
-        .orbit-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0.6);
-            width: 600px;
-            height: 600px;
-            pointer-events: none;
-            z-index: 1;
-            opacity: 0.6;
-        }
-
-        .orbit {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-        }
-
-        .orbit-1 { width: 300px; height: 300px; animation: rotate 20s linear infinite; }
-        .orbit-2 { width: 450px; height: 450px; animation: rotate 30s linear infinite reverse; }
-
-        .planet {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 30px;
-            height: 30px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #0d9488;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-        }
-
-        /* Orbit 1 */
-        .orbit-1 .planet:nth-child(1) { transform: translate(-50%, -50%) rotate(0deg) translateX(150px) rotate(0deg); }
-        .orbit-1 .planet:nth-child(2) { transform: translate(-50%, -50%) rotate(120deg) translateX(150px) rotate(-120deg); }
-        .orbit-1 .planet:nth-child(3) { transform: translate(-50%, -50%) rotate(240deg) translateX(150px) rotate(-240deg); }
-
-        /* Orbit 2 */
-        .orbit-2 .planet:nth-child(1) { transform: translate(-50%, -50%) rotate(45deg) translateX(225px) rotate(-45deg); }
-        .orbit-2 .planet:nth-child(2) { transform: translate(-50%, -50%) rotate(135deg) translateX(225px) rotate(-135deg); }
-        .orbit-2 .planet:nth-child(3) { transform: translate(-50%, -50%) rotate(225deg) translateX(225px) rotate(-225deg); }
-        .orbit-2 .planet:nth-child(4) { transform: translate(-50%, -50%) rotate(315deg) translateX(225px) rotate(-315deg); }
-
-        @keyframes rotate {
-            from { transform: translate(-50%, -50%) rotate(0deg); }
-            to { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-        
-        .vertical-text {
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
-        }
-    </style>
 </head>
-<body class="h-screen w-full flex items-center justify-center p-4">
 
-    <!-- Main Card -->
-    <div class="bg-white w-full max-w-5xl min-h-[600px] h-auto rounded-[40px] shadow-2xl overflow-hidden flex relative flex-col md:flex-row">
-        
-        <!-- Left Panel (Colored) -->
-        <div class="w-full md:w-5/12 curved-panel relative flex flex-col items-center justify-center p-8 min-h-[300px] md:min-h-full">
-            <!-- Decorative Orbit -->
-            <div class="orbit-container">
-                <div class="orbit orbit-1">
-                    <div class="planet"><i class="fas fa-chart-line"></i></div>
-                    <div class="planet"><i class="fas fa-users"></i></div>
-                    <div class="planet"><i class="fas fa-box"></i></div>
+<body class="bg-slate-50 min-h-screen font-sans text-slate-900">
+    <div class="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+
+        <!-- Login Container -->
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden mb-20 relative z-10">
+            <div class="p-8">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-teal-600 mb-2">Stock Manager</h1>
+                    <p class="text-slate-500">재고와 판매를 한 곳에서 관리하세요</p>
                 </div>
-                <div class="orbit orbit-2">
-                    <div class="planet"><i class="fas fa-truck"></i></div>
-                    <div class="planet"><i class="fas fa-file-invoice-dollar"></i></div>
-                    <div class="planet"><i class="fas fa-cog"></i></div>
-                    <div class="planet"><i class="fas fa-headset"></i></div>
+
+                <!-- 탭 버튼 -->
+                <div class="flex mb-6 border-b border-slate-200">
+                    <button onclick="switchTab('login')" id="loginTabBtn"
+                        class="flex-1 py-3 text-sm font-medium text-teal-600 border-b-2 border-teal-600 focus:outline-none transition-colors">로그인</button>
+                    <button onclick="switchTab('register')" id="registerTabBtn"
+                        class="flex-1 py-3 text-sm font-medium text-slate-500 hover:text-teal-600 focus:outline-none transition-colors">회원가입</button>
                 </div>
-            </div>
 
-            <!-- Content -->
-            <div class="relative z-10 text-center text-white">
-                <img src="/static/login_logo.png" alt="Logo" class="h-32 mx-auto mb-8 object-contain drop-shadow-lg brightness-0 invert opacity-90">
-                <h2 class="text-3xl font-bold mb-2 tracking-wide">WOW Sales ERP</h2>
-            </div>
-
-            <!-- Vertical Text -->
-            <div class="absolute left-8 top-1/2 transform -translate-y-1/2 z-10 hidden md:block">
-                <h1 class="vertical-text text-6xl font-bold text-white opacity-20 tracking-widest select-none">환영합니다</h1>
-            </div>
-        </div>
-
-        <!-- Right Panel (Form) -->
-        <div class="w-full md:w-7/12 bg-white p-8 md:p-12 flex flex-col justify-center relative">
-            <!-- Tabs -->
-            <div class="absolute top-8 right-12 flex gap-4 z-20">
-                <button onclick="switchTab('login')" id="loginTabBtn" class="text-sm font-bold text-teal-600 border-b-2 border-teal-600 pb-1 transition-all">로그인</button>
-                <button onclick="switchTab('register')" id="registerTabBtn" class="text-sm font-medium text-slate-400 hover:text-teal-500 pb-1 transition-all">회원가입</button>
-            </div>
-
-            <!-- Login Form -->
-            <div id="loginForm" class="w-full max-w-sm mx-auto animate-fade-in mt-12 md:mt-0">
-                <h2 class="text-4xl font-bold text-teal-600 mb-12 text-center">로그인</h2>
-                
-                <form onsubmit="handleLogin(event)" class="space-y-8">
-                    <div class="relative group">
-                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">이메일</label>
-                        <input type="email" id="loginEmail" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="name@company.com">
-                        <i class="fas fa-user absolute right-0 bottom-3 text-teal-300 group-hover:text-teal-500 transition-colors"></i>
+                <!-- 로그인 폼 -->
+                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-3 top-3 text-slate-400"></i>
+                            <input type="email" id="loginEmail" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="example@company.com">
+                        </div>
                     </div>
-                    
-                    <div class="relative group">
-                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">비밀번호</label>
-                        <input type="password" id="loginPassword" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="••••••••">
-                        <i class="fas fa-key absolute right-0 bottom-3 text-teal-300 group-hover:text-teal-500 transition-colors"></i>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-3 top-3 text-slate-400"></i>
+                            <input type="password" id="loginPassword" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="••••••••">
+                        </div>
                     </div>
-
-                    <div class="flex justify-end">
-                        <button type="button" onclick="showFindEmailModal()" class="text-xs text-slate-400 hover:text-teal-600 transition-colors">비밀번호를 잊으셨나요?</button>
-                    </div>
-                    
-                    <button type="submit" class="w-full bg-gradient-to-r from-teal-400 to-teal-600 text-white py-4 rounded-full font-bold text-lg shadow-lg shadow-teal-200 hover:shadow-xl hover:from-teal-500 hover:to-teal-700 transition-all transform hover:-translate-y-0.5">
+                    <button type="submit"
+                        class="w-full bg-teal-600 text-white py-2.5 rounded-lg font-medium hover:bg-teal-700 transition-colors shadow-sm mt-2">
                         로그인
                     </button>
                 </form>
-            </div>
 
-            <!-- Register Form -->
-            <div id="registerForm" class="w-full max-w-sm mx-auto hidden animate-fade-in mt-12 md:mt-0">
-                <h2 class="text-4xl font-bold text-teal-600 mb-8 text-center">회원가입</h2>
-                
-                <form onsubmit="handleRegister(event)" class="space-y-6">
-                    <div class="relative group">
-                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">이메일</label>
-                        <input type="email" id="regEmail" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="name@company.com">
-                        <i class="fas fa-envelope absolute right-0 bottom-3 text-teal-300"></i>
-                    </div>
-                    
-                    <div class="relative group">
-                        <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">비밀번호</label>
-                        <input type="password" id="regPassword" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="••••••••">
-                        <i class="fas fa-lock absolute right-0 bottom-3 text-teal-300"></i>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-6">
-                        <div class="relative group">
-                            <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">이름</label>
-                            <input type="text" id="regName" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="이름">
-                        </div>
-                        <div class="relative group">
-                            <label class="block text-xs font-bold text-teal-400 mb-1 uppercase tracking-wider">회사명</label>
-                            <input type="text" id="regCompany" required class="w-full py-2 input-underline text-slate-700 placeholder-slate-300" placeholder="회사명">
+                <!-- 회원가입 폼 -->
+                <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-3 top-3 text-slate-400"></i>
+                            <input type="email" id="regEmail" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="example@company.com">
                         </div>
                     </div>
-                    
-                    <button type="submit" class="w-full bg-gradient-to-r from-teal-400 to-teal-600 text-white py-4 rounded-full font-bold text-lg shadow-lg shadow-teal-200 hover:shadow-xl hover:from-teal-500 hover:to-teal-700 transition-all transform hover:-translate-y-0.5 mt-4">
-                        계정 생성
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-3 top-3 text-slate-400"></i>
+                            <input type="password" id="regPassword" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="••••••••">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
+                        <div class="relative">
+                            <i class="fas fa-user absolute left-3 top-3 text-slate-400"></i>
+                            <input type="text" id="regName" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="홍길동">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">회사명 (조직 이름)</label>
+                        <div class="relative">
+                            <i class="fas fa-building absolute left-3 top-3 text-slate-400"></i>
+                            <input type="text" id="regCompany" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="(주)와우3D">
+                        </div>
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-teal-600 text-white py-2.5 rounded-lg font-medium hover:bg-teal-700 transition-colors shadow-sm mt-2">
+                        회원가입 및 조직 생성
                     </button>
                 </form>
             </div>
-
-            <div class="absolute bottom-8 right-12 text-right">
-                <a href="#" class="text-xs text-slate-300 hover:text-teal-500 transition-colors">도움말</a>
+            <div class="bg-teal-50 px-8 py-4 border-t border-teal-100 text-center text-xs text-teal-600 font-medium">
+                Tip: 아래에서 요금제 정보를 확인하세요!
             </div>
         </div>
-    </div>
 
-    <!-- Modals (Teal Theme) -->
-    <div id="findEmailModal" class="hidden fixed inset-0 bg-teal-900/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 border border-teal-100">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-teal-800">아이디 찾기</h3>
-                <button onclick="closeFindEmailModal()" class="text-slate-400 hover:text-teal-600 transition-colors">
-                    <i class="fas fa-times text-lg"></i>
-                </button>
+        <!-- Pricing Section -->
+        <div class="w-full max-w-5xl px-4 animate-fade-in-up">
+            <div class="text-center mb-12">
+                <h2 class="text-2xl font-bold text-slate-800 mb-3">
+                    <i class="fas fa-rocket text-teal-600 mr-2"></i>서비스 요금제 안내
+                </h2>
+                <p class="text-slate-500">비즈니스 규모에 맞는 최적의 플랜을 선택하세요.</p>
             </div>
-            <form onsubmit="handleFindEmail(event)" class="space-y-6">
-                <div class="relative">
-                    <label class="block text-xs font-bold text-teal-600 mb-1 uppercase">이름</label>
-                    <input type="text" id="findEmailName" required class="w-full py-2 input-underline text-slate-700 focus:border-teal-500" placeholder="가입 시 등록한 이름">
-                </div>
-                <button type="submit" class="w-full bg-teal-500 text-white py-3 rounded-full font-bold hover:bg-teal-600 transition-colors shadow-md shadow-teal-200">
-                    찾기
-                </button>
-            </form>
-            <div id="findEmailResult" class="hidden mt-6 p-4 bg-teal-50 border border-teal-100 rounded-xl">
-                <p class="text-sm text-teal-700 font-bold mb-1"><i class="fas fa-check-circle mr-2"></i>아이디를 찾았습니다!</p>
-                <p class="text-sm text-slate-600 pl-6" id="foundEmailMessage"></p>
-            </div>
-        </div>
-    </div>
 
-    <div id="resetPasswordModal" class="hidden fixed inset-0 bg-teal-900/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 border border-teal-100">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-teal-800">비밀번호 재설정</h3>
-                <button onclick="closeResetPasswordModal()" class="text-slate-400 hover:text-teal-600 transition-colors">
-                    <i class="fas fa-times text-lg"></i>
-                </button>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Free Plan -->
+                <div
+                    class="bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 relative group overflow-hidden">
+                    <div
+                        class="absolute top-0 left-0 w-full h-1.5 bg-slate-300 group-hover:bg-slate-400 transition-colors">
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">Free</h3>
+                    <div class="flex items-baseline mb-4">
+                        <span class="text-4xl font-bold text-slate-900">₩0</span>
+                        <span class="text-slate-500 ml-2">/월</span>
+                    </div>
+                    <p class="text-sm text-slate-500 mb-8 h-10">개인 또는 소규모 팀의<br>간단한 재고 관리를 위해</p>
+
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-teal-500 mt-1 mr-3"></i> <span>상품 100개 제한</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-teal-500 mt-1 mr-3"></i> <span>사용자 1명 (초대 불가)</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-teal-500 mt-1 mr-3"></i> <span>기본 재고 입출고</span>
+                        </li>
+                    </ul>
+                    <button onclick="scrollToTop('register')"
+                        class="w-full py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 hover:text-slate-800 transition-colors">
+                        무료로 시작하기
+                    </button>
+                </div>
+
+                <!-- Basic Plan -->
+                <div
+                    class="bg-white rounded-2xl p-8 shadow-md hover:shadow-2xl transition-all duration-300 border-2 border-teal-500 relative transform md:-translate-y-4 z-10">
+                    <div
+                        class="absolute top-0 right-0 bg-teal-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl">
+                        인기 플랜</div>
+                    <div class="absolute top-0 left-0 w-full h-1 bg-teal-500"></div>
+                    <h3 class="text-xl font-bold text-teal-700 mb-2">Basic</h3>
+                    <div class="flex items-baseline mb-4">
+                        <span class="text-4xl font-bold text-slate-900">₩9,900</span>
+                        <span class="text-slate-500 ml-2">/월</span>
+                    </div>
+                    <p class="text-sm text-slate-500 mb-8 h-10">성장하는 팀을 위한<br>표준 재고 관리 기능</p>
+
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>상품 1,000개</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>사용자 5명까지</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>주간/월간 리포트</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>데이터 엑셀 내보내기</span>
+                        </li>
+                    </ul>
+                    <button onclick="scrollToTop('register')"
+                        class="w-full py-3 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-700 transition-colors shadow-lg shadow-teal-200">
+                        지금 시작하기
+                    </button>
+                </div>
+
+                <!-- Pro Plan -->
+                <div
+                    class="bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 relative group overflow-hidden">
+                    <div
+                        class="absolute top-0 left-0 w-full h-1.5 bg-purple-500 group-hover:bg-purple-600 transition-colors">
+                    </div>
+                    <h3 class="text-xl font-bold text-purple-700 mb-2">Pro</h3>
+                    <div class="flex items-baseline mb-4">
+                        <span class="text-4xl font-bold text-slate-900">₩29,900</span>
+                        <span class="text-slate-500 ml-2">/월</span>
+                    </div>
+                    <p class="text-sm text-slate-500 mb-8 h-10">본격적인 비즈니스 확장을 위한<br>고급 기능 및 무제한 사용</p>
+
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>상품 무제한</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>사용자 무제한</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>API 및 웹훅 연동(예정)</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>우선 기술 지원</span>
+                        </li>
+                    </ul>
+                    <button onclick="scrollToTop('register')"
+                        class="w-full py-3 rounded-xl border border-purple-200 text-purple-700 font-bold hover:bg-purple-50 transition-colors">
+                        Enterprise 문의
+                    </button>
+                </div>
             </div>
-            <form onsubmit="handleResetPassword(event)" class="space-y-6">
-                <div class="relative">
-                    <label class="block text-xs font-bold text-teal-600 mb-1 uppercase">이메일</label>
-                    <input type="email" id="resetEmail" required class="w-full py-2 input-underline text-slate-700 focus:border-teal-500" placeholder="example@company.com">
-                </div>
-                <div class="relative">
-                    <label class="block text-xs font-bold text-teal-600 mb-1 uppercase">이름</label>
-                    <input type="text" id="resetName" required class="w-full py-2 input-underline text-slate-700 focus:border-teal-500" placeholder="홍길동">
-                </div>
-                <button type="submit" class="w-full bg-teal-500 text-white py-3 rounded-full font-bold hover:bg-teal-600 transition-colors shadow-md shadow-teal-200">
-                    임시 비밀번호 발급
-                </button>
-            </form>
-            <div id="resetPasswordResult" class="hidden mt-6 p-4 bg-teal-50 border border-teal-100 rounded-xl">
-                <p class="text-sm text-teal-700 font-bold mb-2" id="resetSuccessMessage"></p>
-                <p class="text-sm text-slate-600 mb-2" id="tempPasswordDisplay" style="display: none;">임시 비밀번호: <span class="font-mono font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded" id="tempPassword"></span></p>
+
+            <div class="mt-20 text-center text-xs text-slate-400">
+                &copy; 2025 Stock Sales Manager. All rights reserved.
             </div>
         </div>
     </div>
 
     <script>
-const API_BASE = '/api';
+        const API_BASE = '/api';
 
-function switchTab(tab) {
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
-    const loginBtn = document.getElementById('loginTabBtn');
-    const registerBtn = document.getElementById('registerTabBtn');
+        function switchTab(tab) {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const loginBtn = document.getElementById('loginTabBtn');
+            const registerBtn = document.getElementById('registerTabBtn');
 
-    if (tab === 'login') {
-        loginForm.classList.remove('hidden');
-        registerForm.classList.add('hidden');
-        
-        loginBtn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
-        loginBtn.classList.remove('text-slate-400', 'font-medium');
-        
-        registerBtn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
-        registerBtn.classList.add('text-slate-400', 'font-medium');
-    } else {
-        loginForm.classList.add('hidden');
-        registerForm.classList.remove('hidden');
-        
-        registerBtn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
-        registerBtn.classList.remove('text-slate-400', 'font-medium');
-        
-        loginBtn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
-        loginBtn.classList.add('text-slate-400', 'font-medium');
-    }
-}
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                loginBtn.classList.add('text-teal-600', 'border-teal-600');
+                loginBtn.classList.remove('text-slate-500');
+                registerBtn.classList.remove('text-teal-600', 'border-teal-600');
+                registerBtn.classList.add('text-slate-500');
+            } else {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                registerBtn.classList.add('text-teal-600', 'border-teal-600');
+                registerBtn.classList.remove('text-slate-500');
+                loginBtn.classList.remove('text-teal-600', 'border-teal-600');
+                loginBtn.classList.add('text-slate-500');
+            }
+        }
 
-async function handleLogin(e) {
-    e.preventDefault();
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
+        function scrollToTop(tab) {
+            if (tab) switchTab(tab);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
 
-    try {
-        const res = await axios.post(\`\${API_BASE}/auth/login\`, {email, password});
-        if (res.data.success) {
-                    try {
-            localStorage.setItem('token', res.data.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data.data.user));
-        if (res.data.data.tenant) {
-            localStorage.setItem('tenant', JSON.stringify(res.data.data.tenant));
-                        }
-        window.location.href = '/';
-                    } catch (storageErr) {
-            console.error('Storage error:', storageErr);
-        alert('브라우저 저장소 접근 권한이 없습니다. 쿠키/사이트 데이터 설정을 확인해주세요.');
-                    }
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const res = await axios.post(\`\${API_BASE}/auth/login\`, { email, password });
+                if (res.data.success) {
+                    localStorage.setItem('token', res.data.data.token);
+                    localStorage.setItem('user', JSON.stringify(res.data.data.user));
+                    window.location.href = '/';
                 }
             } catch (err) {
-            console.error('Login API error:', err);
-        alert(err.response?.data?.error || '로그인 실패');
+                alert(err.response?.data?.error || '로그인 실패');
             }
         }
 
         async function handleRegister(e) {
             e.preventDefault();
-        const email = document.getElementById('regEmail').value;
-        const password = document.getElementById('regPassword').value;
-        const name = document.getElementById('regName').value;
-        const company_name = document.getElementById('regCompany').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const name = document.getElementById('regName').value;
+            const company_name = document.getElementById('regCompany').value;
 
-        try {
+            try {
                 const res = await axios.post(\`\${API_BASE}/auth/register\`, {
-            email, password, name, company_name
-        });
-        if (res.data.success) {
-            alert('회원가입이 완료되었습니다. 자동 로그인됩니다.');
-        localStorage.setItem('token', res.data.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data.data.user));
-        if (res.data.data.tenant) {
-            localStorage.setItem('tenant', JSON.stringify(res.data.data.tenant));
-                    }
-        window.location.href = '/';
+                    email, password, name, company_name
+                });
+                if (res.data.success) {
+                    alert('회원가입이 완료되었습니다. 자동 로그인됩니다.');
+                    localStorage.setItem('token', res.data.data.token);
+                    localStorage.setItem('user', JSON.stringify(res.data.data.user));
+                    window.location.href = '/';
                 }
             } catch (err) {
-            alert(err.response?.data?.error || '회원가입 실패');
-            }
-        }
-
-        // 아이디 찾기 모달
-        function showFindEmailModal() {
-            document.getElementById('findEmailModal').classList.remove('hidden');
-        document.getElementById('findEmailResult').classList.add('hidden');
-        document.getElementById('findEmailName').value = '';
-        }
-
-        function closeFindEmailModal() {
-            document.getElementById('findEmailModal').classList.add('hidden');
-        }
-
-        async function handleFindEmail(e) {
-            e.preventDefault();
-        const name = document.getElementById('findEmailName').value;
-
-        try {
-                const res = await axios.post(\`\${API_BASE}/auth/find-email\`, {name});
-        if (res.data.success) {
-                    const maskedEmail = res.data.data.maskedEmail || '';
-        const message = res.data.data.message || '아이디를 찾았습니다.';
-        document.getElementById('foundEmailMessage').textContent = '마스킹된 주소: ' + maskedEmail;
-        document.getElementById('findEmailResult').classList.remove('hidden');
-                }
-            } catch (err) {
-            alert(err.response?.data?.error || '아이디 찾기 실패');
-            }
-        }
-
-        // 비밀번호 재설정 모달
-        function showResetPasswordModal() {
-            document.getElementById('resetPasswordModal').classList.remove('hidden');
-        document.getElementById('resetPasswordResult').classList.add('hidden');
-        document.getElementById('resetEmail').value = '';
-        document.getElementById('resetName').value = '';
-        }
-
-        function closeResetPasswordModal() {
-            document.getElementById('resetPasswordModal').classList.add('hidden');
-        }
-
-        async function handleResetPassword(e) {
-            e.preventDefault();
-        const email = document.getElementById('resetEmail').value;
-        const name = document.getElementById('resetName').value;
-
-        try {
-                const res = await axios.post(\`\${API_BASE}/auth/reset-password\`, {email, name});
-        if (res.data.success) {
-                    const message = res.data.data.message;
-        const emailSent = res.data.data.emailSent;
-
-        document.getElementById('resetSuccessMessage').textContent = message;
-
-        // 이메일 전송이 안된 경우에만 화면에 비밀번호 표시
-        if (!emailSent && res.data.data.tempPassword) {
-            document.getElementById('tempPassword').textContent = res.data.data.tempPassword;
-        document.getElementById('tempPasswordDisplay').style.display = 'block';
-                    } else {
-            document.getElementById('tempPasswordDisplay').style.display = 'none';
-                    }
-
-        document.getElementById('resetPasswordResult').classList.remove('hidden');
-                }
-            } catch (err) {
-            alert(err.response?.data?.error || '비밀번호 재설정 실패');
+                alert(err.response?.data?.error || '회원가입 실패');
             }
         }
     </script>
 </body>
-</html>
-    `)
+
+</html>`)
 })
 
 // 메인 페이지
