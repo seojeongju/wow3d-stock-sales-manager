@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
-import { Bindings } from '../types'
+import { Bindings, Variables } from '../types'
 
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // 모든 테넌트 조회
 app.get('/tenants', async (c) => {
@@ -61,6 +61,64 @@ app.get('/stats', async (c) => {
                 total_users: userCount
             }
         })
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500)
+    }
+})
+
+// 플랜 변경 요청 목록 조회
+app.get('/plan-requests', async (c) => {
+    try {
+        const { results } = await c.env.DB.prepare(
+            `SELECT r.*, t.name as tenant_name, u.name as user_name, u.email as user_email
+            FROM plan_change_requests r
+            JOIN tenants t ON r.tenant_id = t.id
+            LEFT JOIN users u ON r.request_user_id = u.id
+            WHERE r.status = 'PENDING'
+            ORDER BY r.requested_at DESC`
+        ).all()
+        return c.json({ success: true, data: results })
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500)
+    }
+})
+
+// 플랜 변경 요청 승인
+app.post('/plan-requests/:id/approve', async (c) => {
+    const id = c.req.param('id')
+    const adminId = c.get('userId')
+    try {
+        // 1. 요청 정보 조회
+        const request = await c.env.DB.prepare('SELECT * FROM plan_change_requests WHERE id = ?').bind(id).first<any>()
+        if (!request || request.status !== 'PENDING') {
+            return c.json({ success: false, error: '유효하지 않은 요청입니다.' }, 400)
+        }
+
+        // 2. 테넌트 플랜 업데이트
+        await c.env.DB.prepare('UPDATE tenants SET plan_type = ? WHERE id = ?')
+            .bind(request.requested_plan, request.tenant_id).run()
+
+        // 3. 요청 상태 업데이트
+        await c.env.DB.prepare(
+            "UPDATE plan_change_requests SET status = 'APPROVED', processed_at = CURRENT_TIMESTAMP, processed_by = ? WHERE id = ?"
+        ).bind(adminId, id).run()
+
+        return c.json({ success: true, message: '플랜 변경이 승인되었습니다.' })
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500)
+    }
+})
+
+// 플랜 변경 요청 거절
+app.post('/plan-requests/:id/reject', async (c) => {
+    const id = c.req.param('id')
+    const adminId = c.get('userId')
+    try {
+        await c.env.DB.prepare(
+            "UPDATE plan_change_requests SET status = 'REJECTED', processed_at = CURRENT_TIMESTAMP, processed_by = ? WHERE id = ?"
+        ).bind(adminId, id).run()
+
+        return c.json({ success: true, message: '플랜 변경 요청이 거절되었습니다.' })
     } catch (e) {
         return c.json({ success: false, error: (e as Error).message }, 500)
     }

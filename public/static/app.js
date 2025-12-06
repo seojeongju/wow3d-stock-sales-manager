@@ -270,6 +270,10 @@ async function loadPage(page) {
       updatePageTitle('설정', '시스템 및 회사 정보 설정');
       await renderSettingsPage(content);
       break;
+    case 'super-admin':
+      updatePageTitle('시스템 관리', '전체 조직 및 사용자 관리');
+      await renderSuperAdminPage(content);
+      break;
     default:
       content.innerHTML = '<div class="p-4">준비 중인 페이지입니다.</div>';
   }
@@ -5343,92 +5347,6 @@ async function switchSettingsTab(tab) {
     console.error(e);
     container.innerHTML = '<div class="text-center py-10 text-rose-500">데이터를 불러오는데 실패했습니다.</div>';
   }
-}
-
-async function renderSubscriptionTab(container) {
-  const subRes = await axios.get(`${API_BASE}/subscription`);
-  const subData = subRes.data.data;
-  const plan = subData.plan;
-  const usage = subData.usage;
-  const limits = subData.limits;
-
-  // 상품 사용량 퍼센트
-  const productPercent = limits.products === null ? 0 : Math.min(100, (usage.products / limits.products) * 100);
-  const productLimitText = limits.products === null ? '무제한' : `${limits.products}개`;
-
-  // 사용자 사용량 퍼센트
-  const userPercent = limits.users === null ? 0 : Math.min(100, (usage.users / limits.users) * 100);
-  const userLimitText = limits.users === null ? '무제한' : `${limits.users}명`;
-
-  container.innerHTML = `
-    <div class="space-y-6">
-      <!-- 구독 정보 -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- 플랜 정보 -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div class="flex justify-between items-start mb-4">
-            <div>
-              <h3 class="text-lg font-bold text-slate-800">현재 구독 플랜</h3>
-              <p class="text-slate-500 text-sm">이용 중인 서비스 등급입니다.</p>
-            </div>
-            <span class="px-3 py-1 rounded-full text-sm font-bold bg-teal-100 text-teal-700">
-              ${plan.name}
-            </span>
-          </div>
-          <div class="mb-6">
-            <span class="text-3xl font-bold text-slate-800">₩${plan.price.toLocaleString()}</span>
-            <span class="text-slate-500">/월</span>
-          </div>
-          <div class="space-y-3 mb-6">
-            ${plan.features.map(f => `
-              <div class="flex items-center text-sm text-slate-600">
-                <i class="fas fa-check text-emerald-500 mr-2"></i> ${f}
-              </div>
-            `).join('')}
-          </div>
-          <button onclick="alert('준비 중입니다.')" class="w-full py-2 border border-teal-600 text-teal-600 rounded-lg font-medium hover:bg-teal-50 transition-colors">
-            플랜 업그레이드
-          </button>
-        </div>
-
-        <!-- 사용량 정보 -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h3 class="text-lg font-bold text-slate-800 mb-4">사용량 현황</h3>
-          
-          <div class="space-y-6">
-            <!-- 상품 수 -->
-            <div>
-              <div class="flex justify-between text-sm mb-1">
-                <span class="font-medium text-slate-700">상품 등록 수</span>
-                <span class="text-slate-500">${usage.products.toLocaleString()} / ${productLimitText}</span>
-              </div>
-              <div class="w-full bg-slate-100 rounded-full h-2.5">
-                <div class="bg-teal-600 h-2.5 rounded-full transition-all duration-500" style="width: ${productPercent}%"></div>
-              </div>
-              ${productPercent >= 90 ? '<p class="text-xs text-rose-500 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>한도에 근접했습니다.</p>' : ''}
-            </div>
-
-            <!-- 사용자 수 -->
-            <div>
-              <div class="flex justify-between text-sm mb-1">
-                <span class="font-medium text-slate-700">팀원 수</span>
-                <span class="text-slate-500">${usage.users.toLocaleString()} / ${userLimitText}</span>
-              </div>
-              <div class="w-full bg-slate-100 rounded-full h-2.5">
-                <div class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: ${userPercent}%"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-async function renderTeamTab(container) {
-  const usersRes = await axios.get(`${API_BASE}/users`);
-  const users = usersRes.data.data;
-
   container.innerHTML = `
     <!-- 팀원 관리 -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -7258,35 +7176,32 @@ async function loadStockMovements(page = 1) {
 }
 
 // ==========================================
-// Super Admin Functions
-// ==========================================
-
 async function renderSuperAdminPage(content) {
   content.innerHTML = `
-    <div class="flex flex-col h-full">
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-slate-800">
-          <i class="fas fa-user-shield mr-2 text-teal-600"></i>시스템 관리
-        </h1>
-        <div class="flex gap-2">
-            <span class="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold">SUPER ADMIN ACCESS</span>
-        </div>
+    <div class="mb-8 flex justify-between items-center">
+      <div>
+        <h2 class="text-3xl font-bold text-slate-800">시스템 관리</h2>
+        <p class="text-slate-500 mt-1">전체 조직 및 사용자, 시스템 상태를 관리합니다.</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden flex flex-col h-[calc(100vh-200px)]">
+      <div class="border-b border-slate-200 bg-slate-50 flex">
+        <button onclick="switchSuperAdminTab('tenants')" id="sa-tab-tenants" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center">
+            <i class="fas fa-building mr-2"></i>조직(Tenant) 관리
+        </button>
+        <button onclick="switchSuperAdminTab('users')" id="sa-tab-users" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center">
+            <i class="fas fa-users mr-2"></i>전체 사용자 관리
+        </button>
+        <button onclick="switchSuperAdminTab('stats')" id="sa-tab-stats" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center">
+            <i class="fas fa-chart-line mr-2"></i>시스템 통계
+        </button>
+        <button onclick="switchSuperAdminTab('requests')" id="sa-tab-requests" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center">
+            <i class="fas fa-clipboard-list mr-2"></i>플랜 변경 요청
+        </button>
       </div>
 
-      <!-- 탭 -->
-      <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
-        <button id="sa-tab-tenants" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center" onclick="switchSuperAdminTab('tenants')">
-          <i class="fas fa-building mr-2"></i>조직(Tenant) 관리
-        </button>
-        <button id="sa-tab-users" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchSuperAdminTab('users')">
-          <i class="fas fa-users mr-2"></i>전체 사용자 관리
-        </button>
-        <button id="sa-tab-stats" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors flex items-center" onclick="switchSuperAdminTab('stats')">
-          <i class="fas fa-chart-pie mr-2"></i>시스템 통계
-        </button>
-      </div>
-
-      <div id="superAdminContent" class="flex-1 overflow-hidden flex flex-col relative">
+      <div id="superAdminContent" class="flex-1 overflow-hidden flex flex-col relative p-6 overflow-y-auto">
         <!-- Content -->
       </div>
     </div>
@@ -7297,7 +7212,7 @@ async function renderSuperAdminPage(content) {
 
 async function switchSuperAdminTab(tab) {
   // Tabs UI
-  ['tenants', 'users', 'stats'].forEach(t => {
+  ['tenants', 'users', 'stats', 'requests'].forEach(t => {
     const btn = document.getElementById(`sa-tab-${t}`);
     if (btn) {
       if (t === tab) {
@@ -7314,6 +7229,7 @@ async function switchSuperAdminTab(tab) {
   try {
     if (tab === 'tenants') await renderAllTenants(container);
     else if (tab === 'users') await renderAllUsers(container);
+    else if (tab === 'requests') await renderPlanRequests(container);
     else if (tab === 'stats') {
       const res = await axios.get(`${API_BASE}/super-admin/stats`);
       const stats = res.data.data;
@@ -7334,6 +7250,75 @@ async function switchSuperAdminTab(tab) {
   } catch (e) {
     console.error(e);
     container.innerHTML = `<div class="text-center py-10 text-rose-500">로드 실패: ${e.response?.data?.error || e.message}</div>`;
+  }
+}
+
+async function renderPlanRequests(container) {
+  const res = await axios.get(`${API_BASE}/super-admin/plan-requests`);
+  const requests = res.data.data;
+
+  container.innerHTML = `
+        <div class="mb-4">
+             <h3 class="font-bold text-lg">플랜 변경 요청 목록</h3>
+             <p class="text-sm text-slate-500">사용자들이 요청한 플랜 변경 내역입니다.</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">조직명</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">요청자</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">현재 플랜</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">요청 플랜</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">요청일시</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">관리</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                    ${requests.length === 0 ?
+      `<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">요청 내역이 없습니다.</td></tr>` :
+      requests.map(r => `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${r.tenant_name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${r.user_name} (${r.user_email})</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${r.current_plan}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-teal-600">${r.requested_plan}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${new Date(r.requested_at).toLocaleString()}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                <button onclick="approvePlanRequest('${r.id}')" class="text-white bg-teal-600 hover:bg-teal-700 px-3 py-1 rounded text-xs transition-colors">
+                                    승인
+                                </button>
+                                <button onclick="rejectPlanRequest('${r.id}')" class="text-white bg-rose-600 hover:bg-rose-700 px-3 py-1 rounded text-xs transition-colors">
+                                    거절
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function approvePlanRequest(id) {
+  if (!confirm('해당 요청을 승인하시겠습니까? 승인 즉시 플랜이 변경됩니다.')) return;
+  try {
+    await axios.post(`${API_BASE}/super-admin/plan-requests/${id}/approve`);
+    alert('승인되었습니다.');
+    switchSuperAdminTab('requests');
+  } catch (e) {
+    alert('승인 실패: ' + (e.response?.data?.error || e.message));
+  }
+}
+
+async function rejectPlanRequest(id) {
+  if (!confirm('해당 요청을 거절하시겠습니까?')) return;
+  try {
+    await axios.post(`${API_BASE}/super-admin/plan-requests/${id}/reject`);
+    alert('거절되었습니다.');
+    switchSuperAdminTab('requests');
+  } catch (e) {
+    alert('처리 실패: ' + (e.response?.data?.error || e.message));
   }
 }
 
@@ -7526,3 +7511,5 @@ window.openCreateTenantModal = openCreateTenantModal;
 window.createTenant = createTenant;
 window.impersonateTenant = impersonateTenant;
 window.exitImpersonation = exitImpersonation;
+window.approvePlanRequest = approvePlanRequest;
+window.rejectPlanRequest = rejectPlanRequest;
