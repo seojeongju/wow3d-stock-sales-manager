@@ -1315,10 +1315,21 @@ function renderCharts(salesData, categoryData, profitData) {
 }
 
 // 상품 관리 로드
+// 상품 페이지네이션 상태
+let productsCurrentPage = 1;
+const productsPerPage = 10;
+
 async function loadProducts(content) {
+  productsCurrentPage = productsCurrentPage || 1; // 현재 페이지 유지 또는 초기화
   try {
-    const response = await axios.get(`${API_BASE}/products`);
+    const response = await axios.get(`${API_BASE}/products`, {
+      params: {
+        limit: productsPerPage,
+        offset: (productsCurrentPage - 1) * productsPerPage
+      }
+    });
     const products = response.data.data;
+    const pagination = response.data.pagination;
 
     content.innerHTML = `
       <div class="flex justify-between items-center mb-6">
@@ -1456,6 +1467,9 @@ async function loadProducts(content) {
           </table>
         </div>
       </div>
+      
+      <!-- 페이지네이션 -->
+      <div id="productPaginationContainer" class="mt-4"></div>
     `;
 
     // 카테고리 목록 로드
@@ -1463,6 +1477,11 @@ async function loadProducts(content) {
 
     // 모달 주입
     injectProductModal();
+
+    // 페이지네이션 렌더링
+    if (pagination) {
+      renderProductsPagination(pagination);
+    }
 
   } catch (error) {
     console.error('상품 목록 로드 실패:', error);
@@ -1473,6 +1492,115 @@ async function loadProducts(content) {
 function toggleProductFilters() {
   const filters = document.getElementById('productDetailFilters');
   filters.classList.toggle('hidden');
+}
+
+function renderProductsPagination(pagination) {
+  const container = document.getElementById('productPaginationContainer');
+  if (!container || !pagination) return;
+
+  const totalPages = Math.ceil(pagination.total / productsPerPage);
+
+  if (totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const maxButtons = 5;
+  let startPage = Math.max(1, productsCurrentPage - Math.floor(maxButtons / 2));
+  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+  if (endPage - startPage < maxButtons - 1) {
+    startPage = Math.max(1, endPage - maxButtons + 1);
+  }
+
+  let buttons = '';
+
+  // 이전 버튼
+  buttons += `
+    <button 
+      onclick="changeProductsPage(${productsCurrentPage - 1})" 
+      ${productsCurrentPage === 1 ? 'disabled' : ''}
+      class="px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+    >
+      <i class="fas fa-chevron-left"></i>
+    </button>
+  `;
+
+  // 첫 페이지
+  if (startPage > 1) {
+    buttons += `
+      <button 
+        onclick="changeProductsPage(1)" 
+        class="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors"
+      >
+        1
+      </button>
+    `;
+    if (startPage > 2) {
+      buttons += '<span class="px-2 py-2 text-slate-500">...</span>';
+    }
+  }
+
+  // 페이지 번호들
+  for (let i = startPage; i <= endPage; i++) {
+    buttons += `
+      <button 
+        onclick="changeProductsPage(${i})" 
+        class="px-4 py-2 rounded-lg border transition-colors ${i === productsCurrentPage
+        ? 'bg-teal-600 text-white border-teal-600'
+        : 'border-slate-300 hover:bg-slate-50'
+      }"
+      >
+        ${i}
+      </button>
+    `;
+  }
+
+  // 마지막 페이지
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) {
+      buttons += '<span class="px-2 py-2 text-slate-500">...</span>';
+    }
+    buttons += `
+      <button 
+        onclick="changeProductsPage(${totalPages})" 
+        class="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors"
+      >
+        ${totalPages}
+      </button>
+    `;
+  }
+
+  // 다음 버튼
+  buttons += `
+    <button 
+      onclick="changeProductsPage(${productsCurrentPage + 1})" 
+      ${productsCurrentPage === totalPages ? 'disabled' : ''}
+      class="px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+    >
+      <i class="fas fa-chevron-right"></i>
+    </button>
+  `;
+
+  container.innerHTML = `
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+      <div class="flex items-center justify-between">
+        <div class="text-sm text-slate-600">
+          전체 <span class="font-bold text-teal-600">${pagination.total}</span>개 
+          (${productsCurrentPage} / ${totalPages} 페이지)
+        </div>
+        <div class="flex gap-2">
+          ${buttons}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function changeProductsPage(page) {
+  productsCurrentPage = page;
+  const content = document.getElementById('content');
+  await loadProducts(content);
 }
 
 async function filterProductsList() {
