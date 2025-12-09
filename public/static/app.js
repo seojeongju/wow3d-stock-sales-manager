@@ -709,13 +709,13 @@ async function renderOutboundHistoryTab(container) {
         </div>
       </div>
 
-      <!-- 리스트 -->
-      <div id="outboundHistoryList" class="flex-1 overflow-auto bg-white rounded-xl shadow-sm border border-slate-100 mb-4 p-4">
-        <!-- 동적 로드 -->
-        <div class="flex items-center justify-center h-full text-slate-400">
-          <i class="fas fa-spinner fa-spin mr-2"></i>데이터 로딩 중...
-        </div>
+      <!-- 리스트 영역 -->
+      <div id="outboundHistoryList" class="flex-1 overflow-auto bg-white rounded-xl shadow-sm border border-slate-100 mb-4 p-0">
+        <!-- 테이블이 여기에 로드됨 -->
       </div>
+
+      <!-- 페이지네이션 영역 (상품 관리와 동일 구조) -->
+      <div id="outboundPaginationContainer" class="shrink-0 pb-6"></div>
     </div>
   `;
 
@@ -740,7 +740,13 @@ async function filterOutboundHistory() {
   const endDate = document.getElementById('outEndDate')?.value || '';
   const courier = document.getElementById('outCourier')?.value || '';
 
-  const container = document.getElementById('outboundHistoryList');
+  const listContainer = document.getElementById('outboundHistoryList');
+  // 로딩 표시
+  listContainer.innerHTML = `
+    <div class="flex items-center justify-center h-full text-slate-400">
+      <i class="fas fa-spinner fa-spin mr-2"></i>데이터 로딩 중...
+    </div>
+  `;
 
   try {
     const params = {
@@ -755,19 +761,26 @@ async function filterOutboundHistory() {
 
     const res = await axios.get(`${API_BASE}/outbound`, { params });
     const list = res.data.data;
-    const pagination = res.data.pagination;
 
-    // 테이블 HTML 생성
-    let html = `
-      <table class="min-w-full text-sm text-left mb-6">
-        <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0">
+    // 안전장치: 백엔드에서 pagination이 안 오면 리스트 길이로 추정
+    const pagination = res.data.pagination || {
+      total: list.length,
+      limit: outboundPerPage,
+      offset: (outboundCurrentPage - 1) * outboundPerPage,
+      hasMore: false
+    };
+
+    // 1. 리스트 렌더링
+    listContainer.innerHTML = `
+      <table class="min-w-full text-sm text-left">
+        <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0 z-10">
           <tr>
-            <th class="px-6 py-3">출고번호</th>
-            <th class="px-6 py-3">일시</th>
-            <th class="px-6 py-3">수령인</th>
-            <th class="px-6 py-3">품목수</th>
-            <th class="px-6 py-3">상태</th>
-            <th class="px-6 py-3 text-center">관리</th>
+            <th class="px-6 py-3 border-b border-slate-200 bg-slate-50">출고번호</th>
+            <th class="px-6 py-3 border-b border-slate-200 bg-slate-50">일시</th>
+            <th class="px-6 py-3 border-b border-slate-200 bg-slate-50">수령인</th>
+            <th class="px-6 py-3 border-b border-slate-200 bg-slate-50">품목수</th>
+            <th class="px-6 py-3 border-b border-slate-200 bg-slate-50">상태</th>
+            <th class="px-6 py-3 border-b border-slate-200 bg-slate-50 text-center">관리</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -790,24 +803,34 @@ async function filterOutboundHistory() {
       </table>
     `;
 
-    // 페이지네이션 HTML 생성 및 추가
-    if (pagination) {
-      html += getOutboundPaginationHTML(pagination);
-    }
-
-    container.innerHTML = html;
+    // 2. 페이지네이션 렌더링 (상품 관리 방식 사용)
+    renderOutboundPagination(pagination);
 
   } catch (e) {
     console.error(e);
+    listContainer.innerHTML = `<div class="p-8 text-center text-red-500">조회 중 오류가 발생했습니다.</div>`;
     showToast('조회 실패', 'error');
   }
 }
 
-function getOutboundPaginationHTML(pagination) {
-  const totalPages = Math.ceil(pagination.total / outboundPerPage);
+function renderOutboundPagination(pagination) {
+  const container = document.getElementById('outboundPaginationContainer');
+  if (!container) return; // 컨테이너가 없으면 중단
 
-  // 1페이지여도 표시 (사용자 피드백 반영)
-  if (totalPages <= 0) return '';
+  // 데이터 없어도 기본 객체 생성
+  const safePagination = pagination || { total: 0 };
+  const totalPages = Math.ceil(safePagination.total / outboundPerPage); // outboundPerPage는 전역 변수 (10)
+
+  // 0페이지여도 태그는 비우고 리턴 (안전장치)
+  if (totalPages <= 0) {
+    // 혹시 모르니 1페이지인 것처럼 UI 표시 (사용자 요청: 무조건 보여줘)
+    // 데이터가 아예 없으면 숨기는게 맞으므로 0일땐 숨김.
+    // 하지만 list가 있는데 total이 0일 순 없음.
+    if (safePagination.total === 0) {
+      container.innerHTML = '';
+      return;
+    }
+  }
 
   const maxButtons = 5;
   let startPage = Math.max(1, outboundCurrentPage - Math.floor(maxButtons / 2));
@@ -819,6 +842,7 @@ function getOutboundPaginationHTML(pagination) {
 
   let buttons = '';
 
+  // 이전 버튼
   buttons += `
     <button onclick="changeOutboundPage(${outboundCurrentPage - 1})" 
       ${outboundCurrentPage === 1 ? 'disabled' : ''}
@@ -827,11 +851,13 @@ function getOutboundPaginationHTML(pagination) {
     </button>
   `;
 
+  // 첫 페이지
   if (startPage > 1) {
     buttons += `<button onclick="changeOutboundPage(1)" class="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors">1</button>`;
     if (startPage > 2) buttons += '<span class="px-2 py-2 text-slate-500">...</span>';
   }
 
+  // 페이지 번호
   for (let i = startPage; i <= endPage; i++) {
     buttons += `
       <button onclick="changeOutboundPage(${i})" 
@@ -841,11 +867,13 @@ function getOutboundPaginationHTML(pagination) {
     `;
   }
 
+  // 마지막 페이지
   if (endPage < totalPages) {
     if (endPage < totalPages - 1) buttons += '<span class="px-2 py-2 text-slate-500">...</span>';
     buttons += `<button onclick="changeOutboundPage(${totalPages})" class="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors">${totalPages}</button>`;
   }
 
+  // 다음 버튼
   buttons += `
     <button onclick="changeOutboundPage(${outboundCurrentPage + 1})" 
       ${outboundCurrentPage === totalPages ? 'disabled' : ''}
@@ -854,11 +882,11 @@ function getOutboundPaginationHTML(pagination) {
     </button>
   `;
 
-  return `
-    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mt-4 mb-4">
+  container.innerHTML = `
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
       <div class="flex items-center justify-between">
         <div class="text-sm text-slate-600">
-          전체 <span class="font-bold text-teal-600">${pagination.total}</span>개 
+          전체 <span class="font-bold text-teal-600">${safePagination.total}</span>개 
           (${outboundCurrentPage} / ${totalPages} 페이지)
         </div>
         <div class="flex gap-2">${buttons}</div>
