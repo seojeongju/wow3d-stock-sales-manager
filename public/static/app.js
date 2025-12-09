@@ -710,16 +710,15 @@ async function renderOutboundHistoryTab(container) {
       </div>
 
       <!-- 리스트 -->
-      <div id="outboundHistoryList" class="flex-1 overflow-auto bg-white rounded-xl shadow-sm border border-slate-100">
+      <div id="outboundHistoryList" class="flex-1 overflow-auto bg-white rounded-xl shadow-sm border border-slate-100 mb-4">
         <!-- 동적 로드 -->
         <div class="flex items-center justify-center h-full text-slate-400">
           <i class="fas fa-spinner fa-spin mr-2"></i>데이터 로딩 중...
         </div>
       </div>
-      </div>
 
       <!-- 페이지네이션 -->
-      <div id="outboundPaginationContainer" class="mt-4 shrink-0 pb-6"></div>
+      <div id="outboundPaginationContainer" class="shrink-0 pb-6"></div>
     </div>
   `;
 

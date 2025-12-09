@@ -73,8 +73,12 @@ app.get('/', async (c) => {
     const total = countResult?.total || 0
 
     // Pagination
-    const limit = parseInt(c.req.query('limit') || '0')
+    let limit = parseInt(c.req.query('limit') || '0')
     const offset = parseInt(c.req.query('offset') || '0')
+
+    // 기본값 10개 설정 (프론트엔드 캐시 문제 방지용)
+    if (limit === 0) limit = 10
+
     if (limit > 0) {
         query += ' LIMIT ? OFFSET ?'
         params.push(limit, offset)
