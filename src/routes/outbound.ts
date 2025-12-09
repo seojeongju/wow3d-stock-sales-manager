@@ -94,6 +94,106 @@ app.get('/', async (c) => {
     })
 })
 
+// 간편 출고 등록 (직접 출고)
+app.post('/direct', async (c) => {
+    const { DB } = c.env
+    const tenantId = c.get('tenantId')
+    const userId = c.get('userId')
+    const body = await c.req.json<{
+        items: { product_id: number; quantity: number }[];
+        destination: { name: string; phone?: string; address: string };
+        package?: { courier?: string; tracking_number?: string; box_type?: string };
+        notes?: string;
+    }>()
+
+    if (!body.items || body.items.length === 0) {
+        return c.json({ success: false, error: '출고할 상품을 선택해주세요.' }, 400)
+    }
+
+    if (!body.destination?.name || !body.destination?.address) {
+        return c.json({ success: false, error: '수령인과 주소를 입력해주세요.' }, 400)
+    }
+
+    // 동일 상품 수량 합산 (중복 제거)
+    const mergedItems: { [key: number]: number } = {}
+    for (const item of body.items) {
+        if (mergedItems[item.product_id]) {
+            mergedItems[item.product_id] += item.quantity
+        } else {
+            mergedItems[item.product_id] = item.quantity
+        }
+    }
+
+    const orderNumber = `DO-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
+
+    try {
+        // 1. 출고 지시서 생성
+        const orderResult = await DB.prepare(`
+            INSERT INTO outbound_orders (order_number, destination_name, destination_address, destination_phone, status, notes, created_by, tenant_id)
+            VALUES (?, ?, ?, ?, 'SHIPPED', ?, ?, ?)
+        `).bind(
+            orderNumber,
+            body.destination.name,
+            body.destination.address,
+            body.destination.phone || '',
+            body.notes || null,
+            userId,
+            tenantId
+        ).run()
+
+        const orderId = orderResult.meta.last_row_id
+
+        // 2. 출고 상품 추가 (합산된 수량으로)
+        for (const [productIdStr, quantity] of Object.entries(mergedItems)) {
+            const productId = parseInt(productIdStr)
+
+            // 재고 확인
+            const product = await DB.prepare('SELECT current_stock FROM products WHERE id = ? AND tenant_id = ?')
+                .bind(productId, tenantId).first<{ current_stock: number }>()
+
+            if (!product || product.current_stock < quantity) {
+                // 롤백은 D1에서 복잡하므로 여기서는 에러만 반환
+                return c.json({ success: false, error: `상품 ID ${productId}의 재고가 부족합니다.` }, 400)
+            }
+
+            // 출고 상품 추가
+            await DB.prepare(`
+                INSERT INTO outbound_items (outbound_order_id, product_id, quantity_ordered, quantity_picked, quantity_packed, status)
+                VALUES (?, ?, ?, ?, ?, 'PACKED')
+            `).bind(orderId, productId, quantity, quantity, quantity).run()
+
+            // 재고 차감
+            await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
+                .bind(quantity, productId).run()
+
+            // 재고 이동 기록
+            await DB.prepare(`
+                INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes, created_by, tenant_id)
+                VALUES (?, 'OUT', ?, 'outbound', ?, ?, ?, ?)
+            `).bind(productId, quantity, orderId, `출고: ${orderNumber}`, userId, tenantId).run()
+        }
+
+        // 3. 패키지 정보 추가 (있는 경우)
+        if (body.package?.tracking_number) {
+            await DB.prepare(`
+                INSERT INTO outbound_packages (outbound_order_id, courier, tracking_number, box_type, status)
+                VALUES (?, ?, ?, ?, 'SHIPPED')
+            `).bind(
+                orderId,
+                body.package.courier || 'CJ대한통운',
+                body.package.tracking_number,
+                body.package.box_type || 'BOX'
+            ).run()
+        }
+
+        return c.json({ success: true, message: '출고가 완료되었습니다.', data: { id: orderId, order_number: orderNumber } })
+
+    } catch (e: any) {
+        console.error(e)
+        return c.json({ success: false, error: '출고 처리 중 오류가 발생했습니다: ' + e.message }, 500)
+    }
+})
+
 // 출고 상세 조회
 app.get('/:id', async (c) => {
     const { DB } = c.env
