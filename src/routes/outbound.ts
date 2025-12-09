@@ -54,9 +54,44 @@ app.get('/', async (c) => {
 
     query += ' ORDER BY o.created_at DESC'
 
+    // Get total count for pagination
+    const countQuery = `SELECT COUNT(*) as total FROM outbound_orders o WHERE o.tenant_id = ?` +
+        (status ? ' AND o.status = ?' : '') +
+        (search ? ' AND (o.order_number LIKE ? OR o.destination_name LIKE ?)' : '') +
+        (startDate ? ' AND DATE(o.created_at) >= ?' : '') +
+        (endDate ? ' AND DATE(o.created_at) <= ?' : '') +
+        (courier ? ' AND EXISTS (SELECT 1 FROM outbound_packages op WHERE op.outbound_order_id = o.id AND op.courier = ?)' : '')
+
+    const countParams: any[] = [tenantId]
+    if (status) countParams.push(status)
+    if (search) countParams.push(`%${search}%`, `%${search}%`)
+    if (startDate) countParams.push(startDate)
+    if (endDate) countParams.push(endDate)
+    if (courier) countParams.push(courier)
+
+    const countResult = await DB.prepare(countQuery).bind(...countParams).first<{ total: number }>()
+    const total = countResult?.total || 0
+
+    // Pagination
+    const limit = parseInt(c.req.query('limit') || '0')
+    const offset = parseInt(c.req.query('offset') || '0')
+    if (limit > 0) {
+        query += ' LIMIT ? OFFSET ?'
+        params.push(limit, offset)
+    }
+
     const { results } = await DB.prepare(query).bind(...params).all<OutboundOrder>()
 
-    return c.json({ success: true, data: results })
+    return c.json({
+        success: true,
+        data: results,
+        pagination: {
+            total,
+            limit: limit > 0 ? limit : total,
+            offset,
+            hasMore: offset + (limit > 0 ? limit : total) < total
+        }
+    })
 })
 
 // 출고 상세 조회

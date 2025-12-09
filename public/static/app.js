@@ -716,12 +716,21 @@ async function renderOutboundHistoryTab(container) {
           <i class="fas fa-spinner fa-spin mr-2"></i>데이터 로딩 중...
         </div>
       </div>
+      </div>
+
+      <!-- 페이지네이션 -->
+      <div id="outboundPaginationContainer" class="mt-4"></div>
     </div>
   `;
 
   // 초기 데이터 로드
+  outboundCurrentPage = 1;
   await filterOutboundHistory();
 }
+
+// 출고 이력 페이지네이션 상태
+let outboundCurrentPage = 1;
+const outboundPerPage = 10;
 
 function toggleOutboundFilters() {
   const filters = document.getElementById('outboundDetailFilters');
@@ -738,7 +747,10 @@ async function filterOutboundHistory() {
   const container = document.getElementById('outboundHistoryList');
 
   try {
-    const params = {};
+    const params = {
+      limit: outboundPerPage,
+      offset: (outboundCurrentPage - 1) * outboundPerPage
+    };
     if (search) params.search = search;
     if (status) params.status = status;
     if (startDate) params.start_date = startDate;
@@ -779,10 +791,89 @@ async function filterOutboundHistory() {
         </tbody>
       </table>
     `;
+
+    // 페이지네이션 렌더링
+    if (res.data.pagination) {
+      renderOutboundPagination(res.data.pagination);
+    }
   } catch (e) {
     console.error(e);
     showToast('조회 실패', 'error');
   }
+}
+
+function renderOutboundPagination(pagination) {
+  const container = document.getElementById('outboundPaginationContainer');
+  if (!container || !pagination) return;
+
+  const totalPages = Math.ceil(pagination.total / outboundPerPage);
+
+  if (totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const maxButtons = 5;
+  let startPage = Math.max(1, outboundCurrentPage - Math.floor(maxButtons / 2));
+  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+  if (endPage - startPage < maxButtons - 1) {
+    startPage = Math.max(1, endPage - maxButtons + 1);
+  }
+
+  let buttons = '';
+
+  buttons += `
+    <button onclick="changeOutboundPage(${outboundCurrentPage - 1})" 
+      ${outboundCurrentPage === 1 ? 'disabled' : ''}
+      class="px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+  `;
+
+  if (startPage > 1) {
+    buttons += `<button onclick="changeOutboundPage(1)" class="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors">1</button>`;
+    if (startPage > 2) buttons += '<span class="px-2 py-2 text-slate-500">...</span>';
+  }
+
+  for (let i = startPage; i <= endPage; i++) {
+    buttons += `
+      <button onclick="changeOutboundPage(${i})" 
+        class="px-4 py-2 rounded-lg border transition-colors ${i === outboundCurrentPage ? 'bg-teal-600 text-white border-teal-600' : 'border-slate-300 hover:bg-slate-50'}">
+        ${i}
+      </button>
+    `;
+  }
+
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) buttons += '<span class="px-2 py-2 text-slate-500">...</span>';
+    buttons += `<button onclick="changeOutboundPage(${totalPages})" class="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors">${totalPages}</button>`;
+  }
+
+  buttons += `
+    <button onclick="changeOutboundPage(${outboundCurrentPage + 1})" 
+      ${outboundCurrentPage === totalPages ? 'disabled' : ''}
+      class="px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+      <i class="fas fa-chevron-right"></i>
+    </button>
+  `;
+
+  container.innerHTML = `
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+      <div class="flex items-center justify-between">
+        <div class="text-sm text-slate-600">
+          전체 <span class="font-bold text-teal-600">${pagination.total}</span>개 
+          (${outboundCurrentPage} / ${totalPages} 페이지)
+        </div>
+        <div class="flex gap-2">${buttons}</div>
+      </div>
+    </div>
+  `;
+}
+
+async function changeOutboundPage(page) {
+  outboundCurrentPage = page;
+  await filterOutboundHistory();
 }
 
 async function showOutboundDetail(id) {
