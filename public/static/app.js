@@ -719,7 +719,7 @@ async function renderOutboundHistoryTab(container) {
       </div>
 
       <!-- 페이지네이션 -->
-      <div id="outboundPaginationContainer" class="mt-4"></div>
+      <div id="outboundPaginationContainer" class="mt-4 shrink-0 pb-6"></div>
     </div>
   `;
 
@@ -1560,7 +1560,7 @@ async function loadProducts(content) {
       </div>
       
       <!-- 페이지네이션 -->
-      <div id="productPaginationContainer" class="mt-4"></div>
+      <div id="productPaginationContainer" class="mt-4 shrink-0 pb-6"></div>
     `;
 
     // 카테고리 목록 로드
