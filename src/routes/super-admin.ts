@@ -39,9 +39,39 @@ app.post('/tenants', async (c) => {
     const { name, plan } = await c.req.json()
     try {
         const { results } = await c.env.DB.prepare(
-            `INSERT INTO tenants (name, plan, status) VALUES (?, ?, 'ACTIVE') RETURNING id`
+            `INSERT INTO tenants (name, plan_type, status) VALUES (?, ?, 'ACTIVE') RETURNING id`
         ).bind(name, plan || 'BASIC').all()
         return c.json({ success: true, data: results[0] })
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500)
+    }
+})
+
+// 테넌트 수정
+app.put('/tenants/:id', async (c) => {
+    const id = c.req.param('id')
+    const { name, plan_type, status } = await c.req.json()
+    try {
+        await c.env.DB.prepare(
+            `UPDATE tenants SET name = ?, plan_type = ?, status = ? WHERE id = ?`
+        ).bind(name, plan_type, status, id).run()
+        return c.json({ success: true })
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500)
+    }
+})
+
+// 테넌트 삭제
+app.delete('/tenants/:id', async (c) => {
+    const id = c.req.param('id')
+    try {
+        // 관련된 데이터 삭제 (Cascade 삭제가 설정되어 있지 않은 경우를 대비해 수동 삭제)
+        await c.env.DB.prepare('DELETE FROM plan_change_requests WHERE tenant_id = ?').bind(id).run()
+        await c.env.DB.prepare('DELETE FROM products WHERE tenant_id = ?').bind(id).run()
+        await c.env.DB.prepare('DELETE FROM users WHERE tenant_id = ?').bind(id).run()
+        await c.env.DB.prepare('DELETE FROM tenants WHERE id = ?').bind(id).run()
+
+        return c.json({ success: true })
     } catch (e) {
         return c.json({ success: false, error: (e as Error).message }, 500)
     }

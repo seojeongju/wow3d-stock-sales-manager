@@ -42,7 +42,6 @@ app.route('/api/outbound', outboundRouter)
 app.route('/api/warehouses', warehouseRouter)
 app.route('/api/settings', settingsRouter)
 app.route('/api/super-admin', superAdminRouter)
-
 app.get('/login', (c: Context) => {
     return c.html(`<!DOCTYPE html>
 <html lang="ko">
@@ -121,13 +120,28 @@ app.get('/login', (c: Context) => {
                                 placeholder="••••••••">
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
-                        <div class="relative">
-                            <i class="fas fa-user absolute left-3 top-3 text-slate-400"></i>
-                            <input type="text" id="regName" required
-                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
-                                placeholder="홍길동">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
+                            <div class="relative">
+                                <i class="fas fa-user absolute left-3 top-3 text-slate-400"></i>
+                                <input type="text" id="regName" required
+                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                    placeholder="홍길동">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">요금제 선택</label>
+                            <div class="relative">
+                                <i class="fas fa-rocket absolute left-3 top-3 text-slate-400"></i>
+                                <select id="regPlan"
+                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow appearance-none bg-white">
+                                    <option value="FREE">Free (₩0)</option>
+                                    <option value="BASIC">Basic (₩9,900)</option>
+                                    <option value="PRO">Pro (₩29,900)</option>
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-slate-400 pointer-events-none"></i>
+                            </div>
                         </div>
                     </div>
                     <div>
@@ -184,7 +198,7 @@ app.get('/login', (c: Context) => {
                             <i class="fas fa-check text-teal-500 mt-1 mr-3"></i> <span>기본 재고 입출고</span>
                         </li>
                     </ul>
-                    <button onclick="scrollToTop('register')"
+                    <button onclick="scrollToTop('register', 'FREE')"
                         class="w-full py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 hover:text-slate-800 transition-colors">
                         무료로 시작하기
                     </button>
@@ -218,7 +232,7 @@ app.get('/login', (c: Context) => {
                             <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>데이터 엑셀 내보내기</span>
                         </li>
                     </ul>
-                    <button onclick="scrollToTop('register')"
+                    <button onclick="scrollToTop('register', 'BASIC')"
                         class="w-full py-3 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-700 transition-colors shadow-lg shadow-teal-200">
                         지금 시작하기
                     </button>
@@ -251,7 +265,7 @@ app.get('/login', (c: Context) => {
                             <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>우선 기술 지원</span>
                         </li>
                     </ul>
-                    <button onclick="scrollToTop('register')"
+                    <button onclick="scrollToTop('register', 'PRO')"
                         class="w-full py-3 rounded-xl border border-purple-200 text-purple-700 font-bold hover:bg-purple-50 transition-colors">
                         Enterprise 문의
                     </button>
@@ -290,8 +304,12 @@ app.get('/login', (c: Context) => {
             }
         }
 
-        function scrollToTop(tab) {
+        function scrollToTop(tab, plan) {
             if (tab) switchTab(tab);
+            if (plan) {
+                const planSelect = document.getElementById('regPlan');
+                if (planSelect) planSelect.value = plan;
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -318,10 +336,11 @@ app.get('/login', (c: Context) => {
             const password = document.getElementById('regPassword').value;
             const name = document.getElementById('regName').value;
             const company_name = document.getElementById('regCompany').value;
+            const plan = document.getElementById('regPlan').value;
 
             try {
                 const res = await axios.post(\`\${API_BASE}/auth/register\`, {
-                    email, password, name, company_name
+                    email, password, name, company_name, plan
                 });
                 if (res.data.success) {
                     alert('회원가입이 완료되었습니다. 자동 로그인됩니다.');

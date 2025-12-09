@@ -14,11 +14,16 @@ app.post('/register', async (c) => {
         password: string;
         name: string;
         company_name: string;
+        plan?: string;
     }>()
 
     if (!body.email || !body.password || !body.name || !body.company_name) {
         return c.json({ success: false, error: '모든 필드를 입력해주세요.' }, 400)
     }
+
+    // 플랜 유효성 검사 및 기본값 설정
+    const allowedPlans = ['FREE', 'BASIC', 'PRO']
+    const selectedPlan = body.plan && allowedPlans.includes(body.plan) ? body.plan : 'FREE'
 
     // 이메일 중복 체크
     const existingUser = await DB.prepare('SELECT id FROM users WHERE email = ?').bind(body.email).first()
@@ -29,8 +34,8 @@ app.post('/register', async (c) => {
     try {
         // 1. 테넌트 생성
         const tenantResult = await DB.prepare(`
-      INSERT INTO tenants (name, plan_type) VALUES (?, 'FREE')
-    `).bind(body.company_name).run()
+      INSERT INTO tenants (name, plan_type) VALUES (?, ?)
+    `).bind(body.company_name, selectedPlan).run()
 
         const tenantId = tenantResult.meta.last_row_id
 
@@ -61,7 +66,8 @@ app.post('/register', async (c) => {
                 token,
                 user: { id: userId, email: body.email, name: body.name, role: 'OWNER', tenant_id: tenantId },
                 tenant: {
-                    name: body.company_name
+                    name: body.company_name,
+                    plan: selectedPlan
                 }
             }
         })

@@ -1,0 +1,127 @@
+{
+    "tech_stack": [
+        "TypeScript",
+        "Hono",
+        "Cloudflare Workers",
+        "Cloudflare D1",
+        "Vite",
+        "TailwindCSS",
+        "Axios"
+    ],
+    "features": [
+        {
+            "name": "Main Application & Rendering",
+            "description": "Entry point setup, Hono app instance, middleware injection, and HTML rendering for frontend pages (Login, Dashboard, etc).",
+            "files": [
+                "src/index.tsx",
+                "src/renderer.tsx",
+                "src/types.ts"
+            ]
+        },
+        {
+            "name": "Authentication",
+            "description": "User login, registration, and authentication logic.",
+            "files": [
+                "src/routes/auth.ts"
+            ]
+        },
+        {
+            "name": "Tenant Middleware",
+            "description": "Middleware for handling multi-tenant context and security.",
+            "files": [
+                "src/middleware/tenant.ts"
+            ]
+        },
+        {
+            "name": "Dashboard",
+            "description": "Dashboard data aggregation and display statistics.",
+            "files": [
+                "src/routes/dashboard.ts"
+            ]
+        },
+        {
+            "name": "Products Management",
+            "description": "CRUD operations for products.",
+            "files": [
+                "src/routes/products.ts"
+            ]
+        },
+        {
+            "name": "Sales Management",
+            "description": "Managing sales orders and transactions.",
+            "files": [
+                "src/routes/sales.ts"
+            ]
+        },
+        {
+            "name": "Stock Management",
+            "description": "Inventory tracking, stock updates, and adjustments.",
+            "files": [
+                "src/routes/stock.ts"
+            ]
+        },
+        {
+            "name": "Outbound Management",
+            "description": "Managing outbound shipments and status workflow.",
+            "files": [
+                "src/routes/outbound.ts"
+            ]
+        },
+        {
+            "name": "Customers Management",
+            "description": "Managing customer profiles and data.",
+            "files": [
+                "src/routes/customers.ts"
+            ]
+        },
+        {
+            "name": "Claims Management",
+            "description": "Handling returns, refunds, and claims.",
+            "files": [
+                "src/routes/claims.ts"
+            ]
+        },
+        {
+            "name": "Warehouse Management",
+            "description": "Managing warehouse locations and details.",
+            "files": [
+                "src/routes/warehouse.ts"
+            ]
+        },
+        {
+            "name": "User Management",
+            "description": "Managing system users within a tenant.",
+            "files": [
+                "src/routes/users.ts"
+            ]
+        },
+        {
+            "name": "Super Admin",
+            "description": "Administrative functions for platform owners.",
+            "files": [
+                "src/routes/super-admin.ts"
+            ]
+        },
+        {
+            "name": "Settings",
+            "description": "Application and tenant settings.",
+            "files": [
+                "src/routes/settings.ts"
+            ]
+        },
+        {
+            "name": "Subscription",
+            "description": "Handling billing and subscription plans.",
+            "files": [
+                "src/routes/subscription.ts"
+            ]
+        },
+        {
+            "name": "Import/Export",
+            "description": "Data import and export functionality.",
+            "files": [
+                "src/routes/import-export.ts"
+            ]
+        }
+    ]
+}

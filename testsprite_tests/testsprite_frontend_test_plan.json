@@ -1,0 +1,562 @@
+[
+  {
+    "id": "TC001",
+    "title": "User login success with valid credentials",
+    "description": "Verify that a user can successfully log in using valid username/email and password credentials.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Input valid username/email and password"
+      },
+      {
+        "type": "action",
+        "description": "Click the login button"
+      },
+      {
+        "type": "assertion",
+        "description": "User is successfully authenticated and redirected to tenant-specific dashboard"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "User login fail with invalid credentials",
+    "description": "Verify that login attempt fails with invalid username/email or password and appropriate error message is shown.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Input invalid username/email or password"
+      },
+      {
+        "type": "action",
+        "description": "Click the login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Login fails with 401 Unauthorized error and appropriate error message"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Multi-tenant data isolation middleware enforcement",
+    "description": "Verify that tenant middleware enforces data isolation and filters database queries by tenant_id for all endpoints.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send API request with a valid user token to access product data"
+      },
+      {
+        "type": "assertion",
+        "description": "Returned product data is filtered only for the user's tenant_id"
+      },
+      {
+        "type": "action",
+        "description": "Send API request for data from a different tenant_id with valid token"
+      },
+      {
+        "type": "assertion",
+        "description": "Request is denied or returns no data"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Access API endpoint with missing token should fail",
+    "description": "Verify that API endpoints secured by authentication middleware respond with 401 error when token is missing.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send API request without authentication token"
+      },
+      {
+        "type": "assertion",
+        "description": "Response returns 401 Unauthorized status"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Super Admin tenant lifecycle management",
+    "description": "Verify that Super Admin can create, update, and delete tenants with proper permission checks and data validation.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Super Admin"
+      },
+      {
+        "type": "action",
+        "description": "Create a new tenant with valid data"
+      },
+      {
+        "type": "assertion",
+        "description": "Tenant is created successfully and persisted in system"
+      },
+      {
+        "type": "action",
+        "description": "Update tenant details with valid changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Tenant details are updated accordingly"
+      },
+      {
+        "type": "action",
+        "description": "Delete an existing tenant"
+      },
+      {
+        "type": "assertion",
+        "description": "Tenant and related data removed securely"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Super Admin impersonation header validation",
+    "description": "Verify that Super Admin impersonation via X-Tenant-ID header is strictly validated to prevent unauthorized cross-tenant access.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Super Admin"
+      },
+      {
+        "type": "action",
+        "description": "Send API request with X-Tenant-ID header to impersonate a tenant"
+      },
+      {
+        "type": "assertion",
+        "description": "Request is authorized only if Super Admin permissions validated and tenant ID is allowed"
+      },
+      {
+        "type": "action",
+        "description": "Send API request as tenant user with X-Tenant-ID header attempting impersonation"
+      },
+      {
+        "type": "assertion",
+        "description": "Request is rejected with 401 Unauthorized or forbidden error"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "CRUD operations for Products",
+    "description": "Verify create, read, update, and delete operations for Products function correctly respecting tenant boundaries.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create a product with valid details under the logged-in tenant"
+      },
+      {
+        "type": "assertion",
+        "description": "Product is created and assigned to the tenant"
+      },
+      {
+        "type": "action",
+        "description": "List products and verify created product appears"
+      },
+      {
+        "type": "assertion",
+        "description": "Product list contains products only from authenticated tenant"
+      },
+      {
+        "type": "action",
+        "description": "Update product details"
+      },
+      {
+        "type": "assertion",
+        "description": "Product details are updated correctly"
+      },
+      {
+        "type": "action",
+        "description": "Delete product"
+      },
+      {
+        "type": "assertion",
+        "description": "Product is removed from tenant's product list"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Sales order transactions CRUD and data reflection",
+    "description": "Verify sales order creation, updates, and deletions reflect properly in sales data and dashboard statistics with tenant scoping.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create a sales order with valid data referencing existing products"
+      },
+      {
+        "type": "assertion",
+        "description": "Sales order is created and linked to tenant and products"
+      },
+      {
+        "type": "action",
+        "description": "Update sales order details"
+      },
+      {
+        "type": "assertion",
+        "description": "Updates reflected in sales order and dashboard sales summaries"
+      },
+      {
+        "type": "action",
+        "description": "Delete sales order"
+      },
+      {
+        "type": "assertion",
+        "description": "Sales order removed and dashboard updates accordingly"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Stock quantity synchronization with sales and outbound",
+    "description": "Verify stock quantities are updated transactionally and accurately when sales and outbound shipments are processed.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create stock record with initial quantity"
+      },
+      {
+        "type": "action",
+        "description": "Create sales order reducing stock"
+      },
+      {
+        "type": "assertion",
+        "description": "Stock quantity decreases accordingly, transactional update applied"
+      },
+      {
+        "type": "action",
+        "description": "Process outbound shipment moving stock through PENDING to SHIPPED status"
+      },
+      {
+        "type": "assertion",
+        "description": "Stock is decremented and consistent through shipment lifecycle"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Outbound shipment status workflow sequence",
+    "description": "Verify that outbound shipment statuses can only transition sequentially in the order: PENDING -> PICKING -> PACKING -> SHIPPED.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create an outbound shipment with initial status PENDING"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to transition direct from PENDING to PACKING"
+      },
+      {
+        "type": "assertion",
+        "description": "Transition is rejected with an error due to invalid status flow"
+      },
+      {
+        "type": "action",
+        "description": "Transition PENDING -> PICKING -> PACKING -> SHIPPED sequentially"
+      },
+      {
+        "type": "assertion",
+        "description": "All status transitions succeed correctly in order"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Dashboard data aggregation accuracy",
+    "description": "Verify the dashboard correctly aggregates and displays sales statistics, stock levels, and other operational insights per tenant.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as tenant user"
+      },
+      {
+        "type": "action",
+        "description": "Access the dashboard page"
+      },
+      {
+        "type": "assertion",
+        "description": "Dashboard displays correct sales statistics and stock counts corresponding only to the tenant data"
+      },
+      {
+        "type": "action",
+        "description": "Create and update sales and stock data"
+      },
+      {
+        "type": "assertion",
+        "description": "Dashboard reflects real-time changes correctly"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Settings management persistence per tenant",
+    "description": "Verify settings changes made by tenant users are persisted and isolated, and reflected after reload.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as tenant user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to settings management page"
+      },
+      {
+        "type": "action",
+        "description": "Modify configurable settings"
+      },
+      {
+        "type": "assertion",
+        "description": "Settings are saved successfully and persist after page reload"
+      },
+      {
+        "type": "assertion",
+        "description": "Settings changes are scoped to tenant and do not affect other tenants"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Subscription billing and plan management flow",
+    "description": "Verify subscription endpoints allow plan upgrades, downgrades, billing info update, and reflect changes correctly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as tenant admin"
+      },
+      {
+        "type": "action",
+        "description": "Access subscription management UI or API"
+      },
+      {
+        "type": "action",
+        "description": "Perform subscription plan upgrade or downgrade"
+      },
+      {
+        "type": "assertion",
+        "description": "Plan changes are accepted and billing updated accordingly"
+      },
+      {
+        "type": "action",
+        "description": "Update subscription payment details"
+      },
+      {
+        "type": "assertion",
+        "description": "Payment details updated and validated"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Data import functionality with tenant isolation",
+    "description": "Verify that bulk data imports are processed correctly and only affect data within the authorized tenant's scope.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as tenant admin"
+      },
+      {
+        "type": "action",
+        "description": "Upload valid bulk import data file"
+      },
+      {
+        "type": "assertion",
+        "description": "Data import process completes successfully"
+      },
+      {
+        "type": "assertion",
+        "description": "Imported data is associated only with tenant and visible only within tenant context"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Data export functionality with tenant data only",
+    "description": "Verify that data exported includes only tenant-specific data and export formats conform to expected structure.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as tenant user"
+      },
+      {
+        "type": "action",
+        "description": "Request data export for products or sales"
+      },
+      {
+        "type": "assertion",
+        "description": "Export completes successfully with data scoped to tenant"
+      },
+      {
+        "type": "assertion",
+        "description": "Export data format matches expected schema and contains no cross-tenant information"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Routing conflicts avoidance for frontend login and static assets",
+    "description": "Verify routing configuration prevents conflicts between frontend login page and static assets serving and handles unknown routes gracefully.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access frontend login page URL"
+      },
+      {
+        "type": "assertion",
+        "description": "Login page loads correctly without resource conflicts"
+      },
+      {
+        "type": "action",
+        "description": "Request static assets like app.js or CSS files"
+      },
+      {
+        "type": "assertion",
+        "description": "Static assets load without route conflicts"
+      },
+      {
+        "type": "action",
+        "description": "Request invalid or unknown route"
+      },
+      {
+        "type": "assertion",
+        "description": "Responds with appropriate 404 or error page"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Large app.js file performance and modular loading audit",
+    "description": "Verify large JavaScript files such as app.js load efficiently without client-side errors and support modular loading to improve performance.",
+    "category": "performance",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access frontend page loading app.js"
+      },
+      {
+        "type": "assertion",
+        "description": "app.js loads completely without client side errors or timeouts"
+      },
+      {
+        "type": "assertion",
+        "description": "App uses modular scripts to optimize loading time and memory usage"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Database migration and synchronization correctness",
+    "description": "Verify all database migrations are applied fully and legacy data is mapped correctly with tenant IDs associated.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Run all migration scripts on test database"
+      },
+      {
+        "type": "assertion",
+        "description": "Migrations apply without errors and schema is up to date"
+      },
+      {
+        "type": "action",
+        "description": "Verify legacy data has correct tenant_id mappings"
+      },
+      {
+        "type": "assertion",
+        "description": "All legacy data queries respect tenant isolation and integrity"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Environment variables and secrets configuration validation",
+    "description": "Verify environment variables and secret keys are correctly set in both local (.env) and cloud (wrangler.jsonc) for secure and consistent operation.",
+    "category": "configuration",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Check local development environment variables file for required entries"
+      },
+      {
+        "type": "assertion",
+        "description": "Required environment variables and secrets exist with valid values"
+      },
+      {
+        "type": "action",
+        "description": "Check cloud deployment configuration in wrangler.jsonc"
+      },
+      {
+        "type": "assertion",
+        "description": "Secrets and environment variables set correctly and accessed by runtime without errors"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Unauthorized access attempt returns 401 error",
+    "description": "Verify that unauthorized or invalid token attempts accessing protected routes return 401 Unauthorized errors consistently.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send API requests with invalid token"
+      },
+      {
+        "type": "assertion",
+        "description": "Endpoints return 401 Unauthorized"
+      },
+      {
+        "type": "action",
+        "description": "Send API requests without token"
+      },
+      {
+        "type": "assertion",
+        "description": "Endpoints return 401 Unauthorized"
+      }
+    ]
+  }
+]

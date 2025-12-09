@@ -1,0 +1,16 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "wow3d-stock-sales-manager",
+    "projectPath": "d:\\Program_DEV\\wow3d-stock-sales-manager",
+    "testIds": [],
+    "additionalInstruction": "Check for basic functionality and any console errors.",
+    "envs": {
+      "API_KEY": "sk-user-rJF5gWlNof_mEvJnZGy1NUrCxaRZZentt8PJ7eTqNfKGjr8HlPubiNHJneR7Rx-y9ND9e2SUl66w0ugNCIA4NYs2gl3rojvGY3AjW3ALIwZzcJMKAxn34u4UnKyxd03-Kcw"
+    }
+  },
+  "proxy": "http://a3bbe58f-ccb4-43a0-b350-3e5b3115eb0b:ElScJOR34ZSzxfCt26Hjg8Z8NIctzozZ@tun.testsprite.com:8080"
+}

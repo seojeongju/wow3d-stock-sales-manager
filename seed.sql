@@ -49,6 +49,12 @@ UPDATE customers SET total_purchase_amount = 120000, purchase_count = 1 WHERE id
 UPDATE customers SET total_purchase_amount = 480000, purchase_count = 1 WHERE id = 3;
 
 -- 테스트 사용자 데이터
-INSERT OR IGNORE INTO users (name, email, role, avatar_url) VALUES 
-  ('관리자', 'admin@wow3d.com', 'admin', 'https://ui-avatars.com/api/?name=Admin&background=random');
+INSERT OR IGNORE INTO users (name, email, role, avatar_url, password_hash, tenant_id) VALUES 
+  ('관리자', 'admin@wow3d.com', 'ADMIN', 'https://ui-avatars.com/api/?name=Admin&background=random', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 1);
+
+UPDATE users SET 
+  password_hash = 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f',
+  tenant_id = 1,
+  role = 'ADMIN'
+WHERE email = 'admin@wow3d.com';
 
