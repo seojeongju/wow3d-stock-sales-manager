@@ -808,7 +808,7 @@ function renderOutboundPagination(pagination) {
 
   const totalPages = Math.ceil(pagination.total / outboundPerPage);
 
-  if (totalPages <= 1) {
+  if (totalPages <= 0) {
     container.innerHTML = '';
     return;
   }
@@ -1591,7 +1591,7 @@ function renderProductsPagination(pagination) {
 
   const totalPages = Math.ceil(pagination.total / productsPerPage);
 
-  if (totalPages <= 1) {
+  if (totalPages <= 0) {
     container.innerHTML = '';
     return;
   }
