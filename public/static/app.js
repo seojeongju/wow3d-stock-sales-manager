@@ -710,15 +710,12 @@ async function renderOutboundHistoryTab(container) {
       </div>
 
       <!-- 리스트 -->
-      <div id="outboundHistoryList" class="flex-1 overflow-auto bg-white rounded-xl shadow-sm border border-slate-100 mb-4">
+      <div id="outboundHistoryList" class="flex-1 overflow-auto bg-white rounded-xl shadow-sm border border-slate-100 mb-4 p-4">
         <!-- 동적 로드 -->
         <div class="flex items-center justify-center h-full text-slate-400">
           <i class="fas fa-spinner fa-spin mr-2"></i>데이터 로딩 중...
         </div>
       </div>
-
-      <!-- 페이지네이션 -->
-      <div id="outboundPaginationContainer" class="shrink-0 pb-6"></div>
     </div>
   `;
 
@@ -758,9 +755,11 @@ async function filterOutboundHistory() {
 
     const res = await axios.get(`${API_BASE}/outbound`, { params });
     const list = res.data.data;
+    const pagination = res.data.pagination;
 
-    container.innerHTML = `
-      <table class="min-w-full text-sm text-left">
+    // 테이블 HTML 생성
+    let html = `
+      <table class="min-w-full text-sm text-left mb-6">
         <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0">
           <tr>
             <th class="px-6 py-3">출고번호</th>
@@ -791,26 +790,24 @@ async function filterOutboundHistory() {
       </table>
     `;
 
-    // 페이지네이션 렌더링
-    if (res.data.pagination) {
-      renderOutboundPagination(res.data.pagination);
+    // 페이지네이션 HTML 생성 및 추가
+    if (pagination) {
+      html += getOutboundPaginationHTML(pagination);
     }
+
+    container.innerHTML = html;
+
   } catch (e) {
     console.error(e);
     showToast('조회 실패', 'error');
   }
 }
 
-function renderOutboundPagination(pagination) {
-  const container = document.getElementById('outboundPaginationContainer');
-  if (!container || !pagination) return;
-
+function getOutboundPaginationHTML(pagination) {
   const totalPages = Math.ceil(pagination.total / outboundPerPage);
 
-  if (totalPages <= 0) {
-    container.innerHTML = '';
-    return;
-  }
+  // 1페이지여도 표시 (사용자 피드백 반영)
+  if (totalPages <= 0) return '';
 
   const maxButtons = 5;
   let startPage = Math.max(1, outboundCurrentPage - Math.floor(maxButtons / 2));
@@ -857,8 +854,8 @@ function renderOutboundPagination(pagination) {
     </button>
   `;
 
-  container.innerHTML = `
-    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+  return `
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mt-4 mb-4">
       <div class="flex items-center justify-between">
         <div class="text-sm text-slate-600">
           전체 <span class="font-bold text-teal-600">${pagination.total}</span>개 
