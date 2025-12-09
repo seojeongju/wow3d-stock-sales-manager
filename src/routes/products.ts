@@ -73,6 +73,11 @@ app.get('/', async (c) => {
 
   query += ' ORDER BY created_at DESC'
 
+  // Get total count for pagination (before LIMIT)
+  const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total')
+  const countResult = await DB.prepare(countQuery).bind(...params).first<{ total: number }>()
+  const total = countResult?.total || 0
+
   // Pagination
   const limit = parseInt(c.req.query('limit') || '0')
   const offset = parseInt(c.req.query('offset') || '0')
@@ -83,7 +88,16 @@ app.get('/', async (c) => {
 
   const { results } = await DB.prepare(query).bind(...params).all<Product>()
 
-  return c.json({ success: true, data: results })
+  return c.json({
+    success: true,
+    data: results,
+    pagination: {
+      total,
+      limit: limit > 0 ? limit : total,
+      offset,
+      hasMore: offset + (limit > 0 ? limit : total) < total
+    }
+  })
 })
 
 // 상품 상세 조회
