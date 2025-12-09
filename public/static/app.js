@@ -118,6 +118,25 @@ function showError(target, msg) {
   }
 }
 
+// 날짜/시간 포맷 유틸리티 - UTC를 한국 시간(KST)으로 변환
+function formatDateTimeKST(utcDateString) {
+  if (!utcDateString) return '-';
+
+  const date = new Date(utcDateString);
+
+  // 한국 시간(KST, UTC+9)으로 변환하여 표시
+  return date.toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
+
 // 현재 페이지 상태
 let currentPage = 'dashboard';
 
@@ -745,7 +764,7 @@ async function filterOutboundHistory() {
           ${list.map(o => `
             <tr class="hover:bg-slate-50 transition-colors">
               <td class="px-6 py-4 font-mono">${o.order_number}</td>
-              <td class="px-6 py-4 text-slate-500">${new Date(o.created_at).toLocaleString()}</td>
+              <td class="px-6 py-4 text-slate-500">${formatDateTimeKST(o.created_at)}</td>
               <td class="px-6 py-4 font-medium text-slate-800">${o.destination_name}</td>
               <td class="px-6 py-4">${o.item_count}</td>
               <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">${o.status}</span></td>
@@ -804,7 +823,7 @@ async function showOutboundDetail(id) {
                   <div class="flex items-center"><span class="w-20 text-slate-500">상태</span> 
                     <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-bold text-teal-600 shadow-sm">${data.status}</span>
                   </div>
-                  <div class="flex"><span class="w-20 text-slate-500">등록일</span> <span class="text-slate-700">${new Date(data.created_at).toLocaleString()}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">등록일</span> <span class="text-slate-700">${formatDateTimeKST(data.created_at)}</span></div>
                   <div class="flex"><span class="w-20 text-slate-500">비고</span> <span class="text-slate-700">${data.notes || '-'}</span></div>
                 </div>
               </div>
@@ -1802,7 +1821,7 @@ async function loadStock(content) {
                 ${movements.length > 0 ? movements.map(m => `
                   <tr class="hover:bg-slate-50 transition-colors">
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      ${new Date(m.created_at).toLocaleString()}
+                      ${formatDateTimeKST(m.created_at)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                       ${m.warehouse_name || '-'}
@@ -1926,7 +1945,7 @@ async function filterStockMovements() {
           ${movements.length > 0 ? movements.map(m => `
             <tr class="hover:bg-slate-50 transition-colors">
               <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                ${new Date(m.created_at).toLocaleString()}
+                ${formatDateTimeKST(m.created_at)}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                 ${m.warehouse_name || '-'}
@@ -2201,7 +2220,7 @@ async function renderOrderManagementTab(container) {
               ${sales.map(s => `
                 <tr class="hover:bg-slate-50 transition-colors">
                   <td class="px-6 py-4 font-mono text-slate-600">#${s.id}</td>
-                  <td class="px-6 py-4 text-slate-600">${new Date(s.created_at).toLocaleString()}</td>
+                  <td class="px-6 py-4 text-slate-600">${formatDateTimeKST(s.created_at)}</td>
                   <td class="px-6 py-4">
                     <div class="font-medium text-slate-900">${s.customer_name || '비회원'}</div>
                     <div class="text-xs text-slate-500">${s.customer_phone || '-'}</div>
@@ -2297,7 +2316,7 @@ async function filterOrderList() {
           ${sales.map(s => `
             <tr class="hover:bg-slate-50 transition-colors">
               <td class="px-6 py-4 font-mono text-slate-600">#${s.id}</td>
-              <td class="px-6 py-4 text-slate-600">${new Date(s.created_at).toLocaleString()}</td>
+              <td class="px-6 py-4 text-slate-600">${formatDateTimeKST(s.created_at)}</td>
               <td class="px-6 py-4">
                 <div class="font-medium text-slate-900">${s.customer_name || '비회원'}</div>
                 <div class="text-xs text-slate-500">${s.customer_phone || '-'}</div>
@@ -2371,7 +2390,7 @@ async function renderClaimsTab(container) {
             <tbody class="divide-y divide-slate-200 bg-white">
               ${claims.length > 0 ? claims.map(c => `
                 <tr class="hover:bg-slate-50 transition-colors">
-                  <td class="px-6 py-4 text-slate-600">${new Date(c.created_at).toLocaleString()}</td>
+                  <td class="px-6 py-4 text-slate-600">${formatDateTimeKST(c.created_at)}</td>
                   <td class="px-6 py-4">
                     <span class="px-2.5 py-1 rounded-full text-xs font-bold ${c.type === 'return' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">
                       ${c.type === 'return' ? '반품' : '교환'}
@@ -5049,7 +5068,7 @@ async function downloadOutboundExcel() {
       const productName = o.first_product_name ? (o.first_product_name + (o.item_count > 1 ? ` 외 ${o.item_count - 1}건` : '')) : '-';
       return [
         o.order_number,
-        new Date(o.created_at).toLocaleString(),
+        formatDateTimeKST(o.created_at),
         o.status,
         productName,
         o.total_quantity || 0,
@@ -5126,7 +5145,7 @@ async function filterOutboundHistory() {
           ${list.map(o => `
             <tr class="hover:bg-slate-50 transition-colors">
               <td class="px-6 py-4 font-mono">${o.order_number}</td>
-              <td class="px-6 py-4 text-slate-500">${new Date(o.created_at).toLocaleString()}</td>
+              <td class="px-6 py-4 text-slate-500">${formatDateTimeKST(o.created_at)}</td>
               <td class="px-6 py-4 font-medium text-slate-800">
                 ${o.first_product_name ? (o.first_product_name + (o.item_count > 1 ? ` 외 ${o.item_count - 1}건` : '')) : '-'}
               </td>
@@ -5190,7 +5209,7 @@ async function showOutboundDetail(id) {
                   <div class="flex items-center"><span class="w-20 text-slate-500">상태</span> 
                     <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-bold text-teal-600 shadow-sm">${data.status}</span>
                   </div>
-                  <div class="flex"><span class="w-20 text-slate-500">등록일</span> <span class="text-slate-700">${new Date(data.created_at).toLocaleString()}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">등록일</span> <span class="text-slate-700">${formatDateTimeKST(data.created_at)}</span></div>
                   <div class="flex"><span class="w-20 text-slate-500">비고</span> <span class="text-slate-700">${data.notes || '-'}</span></div>
                 </div>
               </div>
@@ -5981,7 +6000,7 @@ async function loadWarehouseStockLevels() {
                   ${s.quantity}개
                 </span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${new Date(s.updated_at).toLocaleString()}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${formatDateTimeKST(s.updated_at)}</td>
             </tr>
           `).join('') : `
             <tr>
@@ -6070,6 +6089,9 @@ async function renderSettingsPage() {
           <button onclick="switchSettingsTab('general')" id="settingsTabGeneral" class="px-6 py-4 font-medium text-slate-500 hover:text-teal-600 focus:outline-none transition-colors">
             일반 관리
           </button>
+          <button onclick="switchSettingsTab('subscription')" id="settingsTabSubscription" class="px-6 py-4 font-medium text-slate-500 hover:text-teal-600 focus:outline-none transition-colors">
+            구독/결제
+          </button>
         </div>
       </div>
 
@@ -6133,6 +6155,20 @@ async function renderSettingsPage() {
             </div>
           </form>
         </div>
+        </div>
+      </div>
+
+      <!-- 구독/결제 탭 -->
+      <div id="settingsTabContentSubscription" class="hidden">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">구독 및 결제 관리</h3>
+            <div id="subscriptionContent" class="py-4">
+                <div class="text-center py-10">
+                    <i class="fas fa-circle-notch fa-spin text-teal-500 text-3xl"></i>
+                    <p class="mt-4 text-slate-500">정보를 불러오는 중...</p>
+                </div>
+            </div>
+        </div>
       </div>
     </div>
 
@@ -6186,26 +6222,178 @@ async function renderSettingsPage() {
 function switchSettingsTab(tab) {
   const teamTab = document.getElementById('settingsTabTeam');
   const generalTab = document.getElementById('settingsTabGeneral');
+  const subscriptionTab = document.getElementById('settingsTabSubscription');
   const teamContent = document.getElementById('settingsTabContentTeam');
   const generalContent = document.getElementById('settingsTabContentGeneral');
+  const subscriptionContent = document.getElementById('settingsTabContentSubscription');
 
   if (tab === 'team') {
     teamTab.classList.add('text-teal-600', 'border-teal-600');
     teamTab.classList.remove('text-slate-500');
     generalTab.classList.remove('text-teal-600', 'border-teal-600');
     generalTab.classList.add('text-slate-500');
+    subscriptionTab.classList.remove('text-teal-600', 'border-teal-600');
+    subscriptionTab.classList.add('text-slate-500');
+
     teamContent.classList.remove('hidden');
     generalContent.classList.add('hidden');
-  } else {
+    subscriptionContent.classList.add('hidden');
+  } else if (tab === 'general') {
     generalTab.classList.add('text-teal-600', 'border-teal-600');
     generalTab.classList.remove('text-slate-500');
     teamTab.classList.remove('text-teal-600', 'border-teal-600');
     teamTab.classList.add('text-slate-500');
+    subscriptionTab.classList.remove('text-teal-600', 'border-teal-600');
+    subscriptionTab.classList.add('text-slate-500');
+
     generalContent.classList.remove('hidden');
     teamContent.classList.add('hidden');
+    subscriptionContent.classList.add('hidden');
 
     // 회사 정보 로드
     loadCompanySettings();
+  } else if (tab === 'subscription') {
+    subscriptionTab.classList.add('text-teal-600', 'border-teal-600');
+    subscriptionTab.classList.remove('text-slate-500');
+
+    teamTab.classList.remove('text-teal-600', 'border-teal-600');
+    teamTab.classList.add('text-slate-500');
+    generalTab.classList.remove('text-teal-600', 'border-teal-600');
+    generalTab.classList.add('text-slate-500');
+
+    subscriptionContent.classList.remove('hidden');
+    teamContent.classList.add('hidden');
+    generalContent.classList.add('hidden');
+
+    loadSubscriptionSettings();
+  }
+}
+
+// 구독 정보 로드
+async function loadSubscriptionSettings() {
+  const container = document.getElementById('subscriptionContent');
+  try {
+    const res = await axios.get(`${API_BASE}/subscription`);
+    const { plan, usage, pendingRequest } = res.data.data;
+
+    // 플랜별 기능 정의 (표시용)
+    const planFeatures = {
+      'FREE': ['상품 100개', '사용자 1명'],
+      'BASIC': ['상품 1,000개', '사용자 5명', '기본 리포트'],
+      'PRO': ['상품 무제한', '사용자 무제한', '고급 기능', '우선 지원']
+    };
+
+    const currentFeatures = planFeatures[plan.type] || [];
+
+    let html = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- 현재 플랜 -->
+                <div>
+                    <h4 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">YOUR PLAN</h4>
+                    <div class="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <span class="bg-teal-100 text-teal-800 text-xs font-bold px-2 py-1 rounded mb-2 inline-block">CURRENT</span>
+                                <h2 class="text-3xl font-bold text-slate-800">${plan.type}</h2>
+                                <p class="text-slate-500 mt-1">${plan.price.toLocaleString()}원 / 월</p>
+                            </div>
+                            <i class="fas fa-rocket text-4xl text-teal-200"></i>
+                        </div>
+                        <ul class="space-y-2 mb-6">
+                            ${currentFeatures.map(f => `<li class="flex items-center text-sm text-slate-600"><i class="fas fa-check text-teal-500 mr-2"></i> ${f}</li>`).join('')}
+                        </ul>
+                        
+                        <!-- 사용량 -->
+                        <div class="space-y-4 pt-4 border-t border-slate-200">
+                           <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-slate-600">상품 수</span>
+                                    <span class="font-bold text-slate-800">${usage.products.toLocaleString()} / ${plan.type === 'FREE' ? 100 : (plan.type === 'BASIC' ? '1,000' : '∞')}</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-1.5">
+                                    <div class="bg-teal-500 h-1.5 rounded-full" style="width: ${Math.min((usage.products / (plan.type === 'FREE' ? 100 : (plan.type === 'BASIC' ? 1000 : usage.products))) * 100, 100)}%"></div>
+                                </div>
+                           </div>
+                           <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-slate-600">팀원 수</span>
+                                    <span class="font-bold text-slate-800">${usage.users} / ${plan.type === 'FREE' ? 1 : (plan.type === 'BASIC' ? 5 : '∞')}</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-1.5">
+                                    <div class="bg-indigo-500 h-1.5 rounded-full" style="width: ${Math.min((usage.users / (plan.type === 'FREE' ? 1 : (plan.type === 'BASIC' ? 5 : usage.users))) * 100, 100)}%"></div>
+                                </div>
+                           </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 플랜 변경 -->
+                <div>
+                     <h4 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">CHANGE PLAN</h4>
+                     
+                     ${pendingRequest ? `
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-4">
+                            <div class="flex items-start">
+                                <i class="fas fa-clock text-amber-500 mt-1 mr-3 text-lg"></i>
+                                <div>
+                                    <h5 class="font-bold text-amber-800">변경 요청 대기중</h5>
+                                    <p class="text-sm text-amber-700 mt-1">
+                                        현재 <strong>${pendingRequest.requested_plan}</strong> 플랜으로 변경을 요청하셨습니다.<br>
+                                        관리자 승인 후 변경됩니다. (${new Date(pendingRequest.requested_at).toLocaleDateString()})
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                     ` : ''}
+
+                     <div class="space-y-3">
+                        ${['FREE', 'BASIC', 'PRO'].map(p => {
+      if (p === plan.type) return ''; // 현재 플랜은 표시 안 함
+
+      const prices = { 'FREE': 0, 'BASIC': 9900, 'PRO': 29900 };
+      const isUpgrade = prices[p] > plan.price;
+
+      return `
+                                <div class="border border-slate-200 rounded-lg p-4 flex justify-between items-center hover:border-teal-500 transition-colors ${pendingRequest ? 'opacity-50 pointer-events-none' : ''}">
+                                    <div>
+                                        <div class="font-bold text-slate-800">${p}</div>
+                                        <div class="text-sm text-slate-500">${prices[p].toLocaleString()}원 / 월</div>
+                                    </div>
+                                    <button onclick="requestPlanChange('${p}')" class="px-4 py-2 ${isUpgrade ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} rounded-lg text-sm font-medium transition-colors">
+                                        ${isUpgrade ? '업그레이드' : '다운그레이드'}
+                                    </button>
+                                </div>
+                            `;
+    }).join('')}
+                     </div>
+                     <p class="text-xs text-slate-400 mt-4">
+                        * 플랜 변경을 요청하시면 관리자가 확인 후 승인합니다.<br>
+                        * 다운그레이드 시 일부 데이터나 기능이 제한될 수 있습니다.
+                     </p>
+                </div>
+            </div>
+        `;
+
+    container.innerHTML = html;
+
+  } catch (e) {
+    console.error(e);
+    container.innerHTML = `<div class="text-center py-10 text-rose-500">정보를 불러오지 못했습니다: ${e.response?.data?.error || e.message}</div>`;
+  }
+}
+
+// 플랜 변경 요청
+async function requestPlanChange(requestedPlan) {
+  if (!confirm(`${requestedPlan} 플랜으로 변경을 요청하시겠습니까?`)) return;
+
+  try {
+    const res = await axios.post(`${API_BASE}/subscription/request`, { requestedPlan });
+    if (res.data.success) {
+      alert('변경 요청이 접수되었습니다.');
+      loadSubscriptionSettings(); // 새로고침
+    }
+  } catch (e) {
+    alert('요청 실패: ' + (e.response?.data?.error || e.message));
   }
 }
 
@@ -6850,7 +7038,7 @@ async function loadStockMovements() {
           ${filteredMovements.map(m => `
             <tr class="hover:bg-slate-50">
               <td class="px-6 py-4 text-slate-500 whitespace-nowrap">
-                ${new Date(m.created_at).toLocaleString()}
+                ${formatDateTimeKST(m.created_at)}
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <span class="px-2.5 py-1 rounded-full text-xs font-bold 
@@ -6976,7 +7164,7 @@ async function loadWarehouseStockLevels(page = 1) {
                     ${s.quantity.toLocaleString()}
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-slate-500">
-                    ${new Date(s.updated_at).toLocaleString()}
+                    ${formatDateTimeKST(s.updated_at)}
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                     <button onclick="deleteWarehouseStock(${s.id})" class="text-rose-400 hover:text-rose-600 transition-colors" title="목록에서 삭제">
@@ -7095,7 +7283,7 @@ async function loadStockMovements(page = 1) {
               ${filteredMovements.map(m => `
                 <tr class="hover:bg-slate-50 transition-colors">
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    ${new Date(m.created_at).toLocaleString()}
+                    ${formatDateTimeKST(m.created_at)}
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <span class="px-2.5 py-1 rounded-full text-xs font-bold 
@@ -7283,7 +7471,7 @@ async function renderPlanRequests(container) {
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${r.user_name} (${r.user_email})</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${r.current_plan}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-teal-600">${r.requested_plan}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${new Date(r.requested_at).toLocaleString()}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${formatDateTimeKST(r.requested_at)}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                 <button onclick="approvePlanRequest('${r.id}')" class="text-white bg-teal-600 hover:bg-teal-700 px-3 py-1 rounded text-xs transition-colors">
                                     승인
@@ -7352,7 +7540,7 @@ async function renderAllTenants(container) {
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">#${t.id}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${t.name}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${t.plan}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${t.plan_type || t.plan || '-'}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${t.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
                                     ${t.status}
@@ -7361,9 +7549,15 @@ async function renderAllTenants(container) {
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${t.user_count}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${t.product_count}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${new Date(t.created_at).toLocaleDateString()}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                <button onclick="openEditTenantModal(${t.id}, '${t.name}', '${t.plan_type || t.plan || 'FREE'}', '${t.status}')" class="text-teal-600 hover:text-teal-900 border border-teal-200 hover:bg-teal-50 px-2 py-1 rounded transition-colors">
+                                    <i class="fas fa-edit"></i>
+                                </button>
                                 <button onclick="impersonateTenant(${t.id}, '${t.name}')" class="text-white bg-teal-600 hover:bg-teal-700 px-3 py-1 rounded text-xs transition-colors">
-                                    <i class="fas fa-sign-in-alt mr-1"></i>접속하기
+                                    <i class="fas fa-sign-in-alt mr-1"></i>접속
+                                </button>
+                                <button onclick="deleteTenant(${t.id})" class="text-rose-600 hover:text-rose-900 border border-rose-200 hover:bg-rose-50 px-2 py-1 rounded transition-colors">
+                                    <i class="fas fa-trash-alt"></i>
                                 </button>
                             </td>
                         </tr>
@@ -7371,7 +7565,86 @@ async function renderAllTenants(container) {
                 </tbody>
             </table>
         </div>
+        
+        <!-- 수정 모달 (동적 생성됨) -->
+        <div id="editTenantModalContainer"></div>
     `;
+}
+
+// 조직 수정 모달 열기
+function openEditTenantModal(id, name, plan, status) {
+  const modalHtml = `
+      <div id="editTenantModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold mb-4">조직 정보 수정</h3>
+            <form onsubmit="handleUpdateTenant(event, ${id})">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">조직명</label>
+                    <input type="text" id="editTenantName" value="${name}" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">플랜</label>
+                    <select id="editTenantPlan" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="FREE" ${plan === 'FREE' ? 'selected' : ''}>FREE</option>
+                        <option value="BASIC" ${plan === 'BASIC' ? 'selected' : ''}>BASIC</option>
+                        <option value="PRO" ${plan === 'PRO' ? 'selected' : ''}>PRO</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">상태</label>
+                    <select id="editTenantStatus" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="ACTIVE" ${status === 'ACTIVE' ? 'selected' : ''}>ACTIVE</option>
+                        <option value="INACTIVE" ${status === 'INACTIVE' ? 'selected' : ''}>INACTIVE</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="document.getElementById('editTenantModal').remove()" class="px-4 py-2 border rounded text-gray-600">취소</button>
+                    <button type="submit" class="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700">수정</button>
+                </div>
+            </form>
+        </div>
+      </div>
+    `;
+
+  // 기존 모달이 있다면 제거
+  const existing = document.getElementById('editTenantModal');
+  if (existing) existing.remove();
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// 조직 정보 수정 처리
+async function handleUpdateTenant(e, id) {
+  e.preventDefault();
+  const name = document.getElementById('editTenantName').value;
+  const plan_type = document.getElementById('editTenantPlan').value;
+  const status = document.getElementById('editTenantStatus').value;
+
+  try {
+    const res = await axios.put(`${API_BASE}/super-admin/tenants/${id}`, { name, plan_type, status });
+    if (res.data.success) {
+      alert('조직 정보가 수정되었습니다.');
+      document.getElementById('editTenantModal').remove();
+      switchSuperAdminTab('tenants'); // 목록 갱신
+    }
+  } catch (err) {
+    alert('수정 실패: ' + (err.response?.data?.error || err.message));
+  }
+}
+
+// 조직 삭제 처리
+async function deleteTenant(id) {
+  if (!confirm('정말로 이 조직을 삭제하시겠습니까?\n모든 사용자, 상품, 데이터가 영구적으로 삭제됩니다.')) return;
+
+  try {
+    const res = await axios.delete(`${API_BASE}/super-admin/tenants/${id}`);
+    if (res.data.success) {
+      alert('조직이 삭제되었습니다.');
+      switchSuperAdminTab('tenants'); // 목록 갱신
+    }
+  } catch (err) {
+    alert('삭제 실패: ' + (err.response?.data?.error || err.message));
+  }
 }
 
 async function renderAllUsers(container) {

@@ -172,7 +172,7 @@ app.post('/create', async (c) => {
 
         return c.json({ success: true, message: '출고 지시가 생성되었습니다.', data: { id: orderId } })
 
-    } catch (e) {
+    } catch (e: any) {
         return c.json({ success: false, error: '출고 지시 생성 중 오류가 발생했습니다: ' + e.message }, 500)
     }
 })
@@ -352,34 +352,42 @@ app.post('/direct', async (c) => {
         const orderId = orderResult.meta.last_row_id
 
         // 2. 아이템 등록 및 재고 차감
+        // 2. 아이템 등록 및 재고 차감
+        // 중복된 상품 ID가 있을 경우 수량을 합산하여 처리
+        const mergedItems = new Map<number, number>();
         for (const item of body.items) {
+            const currentQty = mergedItems.get(item.product_id) || 0;
+            mergedItems.set(item.product_id, currentQty + item.quantity);
+        }
+
+        for (const [productId, quantity] of mergedItems) {
             // 아이템 등록 (주문=피킹=패킹 수량 동일)
             await DB.prepare(`
                 INSERT INTO outbound_items (outbound_order_id, product_id, quantity_ordered, quantity_picked, quantity_packed, status)
                 VALUES (?, ?, ?, ?, ?, 'PACKED')
-            `).bind(orderId, item.product_id, item.quantity, item.quantity, item.quantity).run()
+            `).bind(orderId, productId, quantity, quantity, quantity).run()
 
             // 창고 재고 확인
             const whStock = await DB.prepare('SELECT quantity FROM product_warehouse_stocks WHERE product_id = ? AND warehouse_id = ?')
-                .bind(item.product_id, warehouseId).first<{ quantity: number }>()
+                .bind(productId, warehouseId).first<{ quantity: number }>()
 
-            if (!whStock || whStock.quantity < item.quantity) {
-                throw new Error(`상품 ID ${item.product_id}의 창고 재고가 부족합니다.`);
+            if (!whStock || whStock.quantity < quantity) {
+                throw new Error(`상품 ID ${productId}의 창고 재고가 부족합니다.`);
             }
 
             // 창고 재고 차감
             await DB.prepare('UPDATE product_warehouse_stocks SET quantity = quantity - ? WHERE product_id = ? AND warehouse_id = ?')
-                .bind(item.quantity, item.product_id, warehouseId).run()
+                .bind(quantity, productId, warehouseId).run()
 
             // 총 재고 차감 (FIFO 무시하고 총 재고에서 단순 차감 - 간편 모드이므로)
             await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
-                .bind(item.quantity, item.product_id).run()
+                .bind(quantity, productId).run()
 
             // 재고 이동 기록
             await DB.prepare(`
                 INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, reason, reference_id, created_by)
                 VALUES (?, ?, '출고', ?, '간편 출고', ?, ?)
-            `).bind(item.product_id, warehouseId, item.quantity, orderId, c.get('userId')).run()
+            `).bind(productId, warehouseId, quantity, orderId, c.get('userId')).run()
         }
 
         // 3. 패키지(송장) 정보 등록
