@@ -1,8 +1,9 @@
 /* outbound.js - 출고 관리 모듈 */
 
-// 전역 상태
-let outboundCurrentPage = 1;
+let outboundCurrentPage = 1; // History pagination
 const outboundPerPage = 10;
+let outboundProdPage = 1; // Product list pagination
+const outboundProdLimit = 6; // Product items per page
 let outboundInputMode = 'auto'; // 'auto' | 'manual'
 if (!window.outboundCart) window.outboundCart = [];
 
@@ -97,6 +98,8 @@ async function renderOutboundRegistrationTab(container) {
         <div class="flex-1 overflow-y-auto p-2" id="outboundProductList">
           <!-- 상품 목록 렌더링 -->
         </div>
+        <!-- 페이지네이션 컨트롤 -->
+        <div id="outboundProductPagination" class="p-2 border-t border-slate-100 bg-white"></div>
       </div>
 
       <!-- 우측: 출고 정보 입력 -->
@@ -171,31 +174,89 @@ async function renderOutboundRegistrationTab(container) {
 
 function renderOutboundProducts(filterText = '') {
   const container = document.getElementById('outboundProductList');
+  const pagContainer = document.getElementById('outboundProductPagination');
+
   if (!container || !window.products) return;
 
+  // 1. 필터링
   const filtered = window.products.filter(p =>
     p.name.toLowerCase().includes(filterText.toLowerCase()) ||
     p.sku.toLowerCase().includes(filterText.toLowerCase())
   );
 
-  container.innerHTML = filtered.map(p => `
-    <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" onclick="addToOutboundCart(${p.id})">
-      <div>
-        <div class="font-medium text-slate-800">${p.name}</div>
-        <div class="text-xs text-slate-500 flex items-center gap-2">
-          <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded">${p.sku}</span>
-          <span>재고: <span class="${p.current_stock <= 0 ? 'text-rose-600 font-bold' : 'text-slate-600'}">${p.current_stock}</span></span>
+  // 2. 페이지네이션 계산
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / outboundProdLimit);
+
+  // 현재 페이지 보정
+  if (outboundProdPage > totalPages && totalPages > 0) outboundProdPage = 1;
+  if (outboundProdPage < 1) outboundProdPage = 1;
+
+  const start = (outboundProdPage - 1) * outboundProdLimit;
+  const end = start + outboundProdLimit;
+  const pageItems = filtered.slice(start, end);
+
+  // 3. 상품 목록 렌더링
+  if (total === 0) {
+    container.innerHTML = '<div class="text-center text-slate-400 py-10">검색 결과가 없습니다.</div>';
+  } else {
+    container.innerHTML = pageItems.map(p => `
+        <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" onclick="addToOutboundCart(${p.id})">
+          <div>
+            <div class="font-medium text-slate-800">${p.name}</div>
+            <div class="text-xs text-slate-500 flex items-center gap-2">
+              <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded">${p.sku}</span>
+              <span>재고: <span class="${p.current_stock <= 0 ? 'text-rose-600 font-bold' : 'text-slate-600'}">${p.current_stock}</span></span>
+            </div>
+          </div>
+          <button class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100">
+            <i class="fas fa-plus"></i>
+          </button>
         </div>
-      </div>
-      <button class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100">
-        <i class="fas fa-plus"></i>
-      </button>
-    </div>
-  `).join('');
+      `).join('');
+  }
+
+  // 4. 페이지네이션 컨트롤 렌더링
+  if (pagContainer) {
+    if (totalPages > 1) {
+      let buttons = '';
+
+      // 이전 버튼
+      if (outboundProdPage > 1) {
+        buttons += `<button onclick="changeOutboundProdPage(${outboundProdPage - 1})" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"><i class="fas fa-chevron-left"></i></button>`;
+      }
+
+      // 페이지 번호 (최대 5개 표시)
+      let startPage = Math.max(1, outboundProdPage - 2);
+      let endPage = Math.min(totalPages, startPage + 4);
+      if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
+
+      for (let i = startPage; i <= endPage; i++) {
+        buttons += `<button onclick="changeOutboundProdPage(${i})" class="w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold transition-colors ${i === outboundProdPage ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">${i}</button>`;
+      }
+
+      // 다음 버튼
+      if (outboundProdPage < totalPages) {
+        buttons += `<button onclick="changeOutboundProdPage(${outboundProdPage + 1})" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"><i class="fas fa-chevron-right"></i></button>`;
+      }
+
+      pagContainer.innerHTML = `<div class="flex justify-center items-center gap-1">${buttons}</div>`;
+      pagContainer.classList.remove('hidden');
+    } else {
+      pagContainer.innerHTML = '';
+      pagContainer.classList.add('hidden');
+    }
+  }
+}
+
+function changeOutboundProdPage(page) {
+  outboundProdPage = page;
+  renderOutboundProducts(document.getElementById('outboundSearch').value);
 }
 
 function filterOutboundProducts() {
   const text = document.getElementById('outboundSearch').value;
+  outboundProdPage = 1; // 검색 시 페이지 초기화
   renderOutboundProducts(text);
 }
 
@@ -737,6 +798,7 @@ window.renderOutboundHistoryTab = renderOutboundHistoryTab;
 window.filterOutboundHistory = filterOutboundHistory;
 window.renderOutboundPagination = renderOutboundPagination;
 window.changeOutboundPage = changeOutboundPage;
+window.changeOutboundProdPage = changeOutboundProdPage;
 window.renderOutboundProducts = renderOutboundProducts;
 window.filterOutboundProducts = filterOutboundProducts;
 window.addToOutboundCart = addToOutboundCart;
