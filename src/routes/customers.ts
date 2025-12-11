@@ -33,8 +33,16 @@ app.get('/', async (c) => {
     .first<{ total: number }>()
   const total = countResult?.total || 0
 
-  // 데이터 조회
-  const query = `SELECT * FROM customers ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+  // 데이터 조회 (sales 테이블 기반으로 총 구매액과 구매 횟수 계산)
+  const query = `
+    SELECT c.*,
+      (SELECT COUNT(*) FROM sales s WHERE s.customer_id = c.id AND s.status = 'completed' AND s.tenant_id = c.tenant_id) as purchase_count,
+      (SELECT COALESCE(SUM(s.final_amount), 0) FROM sales s WHERE s.customer_id = c.id AND s.status = 'completed' AND s.tenant_id = c.tenant_id) as total_purchase_amount
+    FROM customers c
+    ${whereClause} 
+    ORDER BY created_at DESC 
+    LIMIT ? OFFSET ?
+  `
   const { results } = await DB.prepare(query)
     .bind(...params, limit, offset)
     .all<Customer>()
@@ -57,7 +65,13 @@ app.get('/:id', async (c) => {
   const tenantId = c.get('tenantId')
   const id = c.req.param('id')
 
-  const customer = await DB.prepare('SELECT * FROM customers WHERE id = ? AND tenant_id = ?')
+  const customer = await DB.prepare(`
+    SELECT c.*,
+      (SELECT COUNT(*) FROM sales s WHERE s.customer_id = c.id AND s.status = 'completed' AND s.tenant_id = c.tenant_id) as purchase_count,
+      (SELECT COALESCE(SUM(s.final_amount), 0) FROM sales s WHERE s.customer_id = c.id AND s.status = 'completed' AND s.tenant_id = c.tenant_id) as total_purchase_amount
+    FROM customers c
+    WHERE c.id = ? AND c.tenant_id = ?
+  `)
     .bind(id, tenantId)
     .first<Customer>()
 

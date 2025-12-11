@@ -269,17 +269,7 @@ async function loadPage(page) {
 }
 
 
-// 고객 관리 페이지 로드
-async function loadCustomers(content) {
-  content.innerHTML = `
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">고객 관리</h1>
-    </div>
-    <div class="bg-white rounded-xl shadow-lg p-6">
-      <p class="text-slate-500 text-center py-10">고객 관리 기능 준비 중입니다.</p>
-    </div>
-  `;
-}
+
 
 // 출고 관리 페이지 로드 (탭 구조 복구)
 async function renderOutboundPage() {
@@ -336,6 +326,10 @@ async function switchOutboundTab(tabName) {
   }
 }
 
+
+let outboundProdPage = 1;
+const outboundProdLimit = 6;
+
 async function renderOutboundRegistrationTab(container) {
   // 상품 목록 로드
   if (!window.products) {
@@ -365,6 +359,9 @@ async function renderOutboundRegistrationTab(container) {
         </div>
         <div class="flex-1 overflow-y-auto p-2" id="outboundProductList">
           <!-- 상품 목록 렌더링 -->
+        </div>
+        <div id="outboundProductPagination" class="p-2 border-t border-slate-100 bg-white flex justify-center hidden">
+           <!-- 페이지네이션 버튼 -->
         </div>
       </div>
 
@@ -450,16 +447,31 @@ async function renderOutboundRegistrationTab(container) {
   renderOutboundCart();
 }
 
-function renderOutboundProducts(filterText = '') {
+function renderOutboundProducts() {
   const container = document.getElementById('outboundProductList');
+  const filterText = document.getElementById('outboundSearch').value.toLowerCase();
+  const pagContainer = document.getElementById('outboundProductPagination');
+
   if (!container) return;
 
   const filtered = window.products.filter(p =>
-    p.name.toLowerCase().includes(filterText.toLowerCase()) ||
-    p.sku.toLowerCase().includes(filterText.toLowerCase())
+    p.name.toLowerCase().includes(filterText) ||
+    p.sku.toLowerCase().includes(filterText)
   );
 
-  container.innerHTML = filtered.map(p => `
+  // 페이지네이션 계산
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / outboundProdLimit);
+
+  // 현재 페이지가 범위 밖이면 조정
+  if (outboundProdPage > totalPages && totalPages > 0) outboundProdPage = 1;
+  if (outboundProdPage < 1) outboundProdPage = 1;
+
+  const start = (outboundProdPage - 1) * outboundProdLimit;
+  const end = start + outboundProdLimit;
+  const pageItems = filtered.slice(start, end);
+
+  container.innerHTML = pageItems.map(p => `
     <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" onclick="addToOutboundCart(${p.id})">
       <div>
         <div class="font-medium text-slate-800">${p.name}</div>
@@ -474,11 +486,46 @@ function renderOutboundProducts(filterText = '') {
       </button>
     </div>
   `).join('');
+
+  if (pageItems.length === 0) {
+    container.innerHTML = '<div class="p-8 text-center text-slate-400">검색 결과가 없습니다.</div>';
+  }
+
+  // 페이지네이션 렌더링
+  if (pagContainer) {
+    if (totalPages > 1) {
+      let buttons = '';
+      // 이전
+      buttons += `<button onclick="changeOutboundProdPage(${outboundProdPage - 1})" ${outboundProdPage === 1 ? 'disabled' : ''} class="w-8 h-8 flex items-center justify-center rounded-lg border ${outboundProdPage === 1 ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm mr-1"><i class="fas fa-chevron-left"></i></button>`;
+
+      // 페이지 번호 (현재 페이지 주변 표시)
+      let startPage = Math.max(1, outboundProdPage - 2);
+      let endPage = Math.min(totalPages, outboundProdPage + 2);
+
+      for (let i = startPage; i <= endPage; i++) {
+        buttons += `<button onclick="changeOutboundProdPage(${i})" class="w-8 h-8 flex items-center justify-center rounded-lg border ${i === outboundProdPage ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm mx-0.5">${i}</button>`;
+      }
+
+      // 다음
+      buttons += `<button onclick="changeOutboundProdPage(${outboundProdPage + 1})" ${outboundProdPage === totalPages ? 'disabled' : ''} class="w-8 h-8 flex items-center justify-center rounded-lg border ${outboundProdPage === totalPages ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm ml-1"><i class="fas fa-chevron-right"></i></button>`;
+
+      pagContainer.innerHTML = `<div class="flex justify-center">${buttons}</div>`;
+      pagContainer.classList.remove('hidden');
+    } else {
+      pagContainer.innerHTML = '';
+      pagContainer.classList.add('hidden');
+    }
+  }
 }
 
 function filterOutboundProducts() {
-  const text = document.getElementById('outboundSearch').value;
-  renderOutboundProducts(text);
+  outboundProdPage = 1;
+  renderOutboundProducts();
+}
+
+function changeOutboundProdPage(page) {
+  outboundProdPage = page;
+  renderOutboundProducts();
 }
 
 function addToOutboundCart(productId) {
