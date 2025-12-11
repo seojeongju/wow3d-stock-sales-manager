@@ -424,6 +424,9 @@ async function renderOutboundHistoryTab(container) {
             <button onclick="filterOutboundHistory()" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 font-medium transition-colors">
               <i class="fas fa-search mr-2"></i>조회
             </button>
+            <button onclick="downloadOutboundExcel()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 font-medium transition-colors">
+              <i class="fas fa-file-excel mr-2"></i>엑셀 다운로드
+            </button>
           </div>
         </div>
       </div>
@@ -853,3 +856,61 @@ window.showOutboundDetail = showOutboundDetail;
 window.closeOutboundDetail = closeOutboundDetail;
 window.deleteOutbound = deleteOutbound;
 window.openEditOutboundModal = openEditOutboundModal;
+window.downloadOutboundExcel = downloadOutboundExcel;
+
+async function downloadOutboundExcel() {
+  const search = document.getElementById('outHistorySearch')?.value || '';
+  const status = document.getElementById('outHistoryStatus')?.value || '';
+
+  try {
+    const params = { search, status, limit: 1000 }; // Fetch up to 1000 for export
+    const res = await axios.get(`${API_BASE}/outbound`, { params });
+    const list = res.data.data;
+
+    if (!list || list.length === 0) {
+      showToast('다운로드할 데이터가 없습니다.', 'info');
+      return;
+    }
+
+    // CSV Data Generation
+    const headers = ['출고번호', '일시', '상태', '상품명', '수량', '수령인', '연락처', '주소', '구매경로', '택배사', '운송장번호', '담당자', '비고'];
+    const rows = list.map(o => {
+      const productName = o.first_product_name ? (o.first_product_name + (o.item_count > 1 ? ` 외 ${o.item_count - 1}건` : '')) : '-';
+      return [
+        o.order_number,
+        formatDateTimeKST(o.created_at),
+        o.status,
+        productName,
+        o.total_quantity || 0,
+        o.destination_name,
+        o.destination_phone,
+        o.destination_address,
+        o.purchase_path || '',
+        o.courier_name || '',
+        o.tracking_number ? `'${o.tracking_number}` : '',
+        o.created_by_name || '',
+        o.notes || ''
+      ].map(field => {
+        const str = String(field || '');
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      });
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `출고내역_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+  } catch (e) {
+    console.error(e);
+    showToast('엑셀 다운로드 실패', 'error');
+  }
+}
