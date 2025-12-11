@@ -3,6 +3,7 @@
 // 전역 상태
 let outboundCurrentPage = 1;
 const outboundPerPage = 10;
+let outboundInputMode = 'auto'; // 'auto' | 'manual'
 if (!window.outboundCart) window.outboundCart = [];
 
 async function renderOutboundPage() {
@@ -74,6 +75,18 @@ async function renderOutboundRegistrationTab(container) {
       <div class="w-1/2 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
         <div class="p-4 border-b border-slate-200 bg-slate-50">
           <h3 class="font-bold text-slate-800 mb-3">1. 출고 상품 선택</h3>
+          
+          <div class="flex gap-4 mb-3">
+            <label class="flex items-center cursor-pointer group">
+              <input type="radio" name="outMode" value="auto" checked onchange="setOutboundMode('auto')" class="form-radio text-teal-600 focus:ring-teal-500 w-4 h-4">
+              <span class="ml-2 text-sm text-slate-700 group-hover:text-teal-700 font-medium">스캔 (자동 +1)</span>
+            </label>
+            <label class="flex items-center cursor-pointer group">
+              <input type="radio" name="outMode" value="manual" onchange="setOutboundMode('manual')" class="form-radio text-teal-600 focus:ring-teal-500 w-4 h-4">
+              <span class="ml-2 text-sm text-slate-700 group-hover:text-teal-700 font-medium">수량 수동 입력</span>
+            </label>
+          </div>
+
           <div class="relative">
             <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
             <input type="text" id="outboundSearch" placeholder="상품명 또는 SKU 검색..." 
@@ -189,50 +202,88 @@ function filterOutboundProducts() {
 function addToOutboundCart(productId) {
   const product = window.products.find(p => p.id === productId);
   if (!product) return;
+
   if (product.current_stock <= 0) {
     showToast('재고가 없는 상품입니다.', 'error');
     return;
   }
+
   const existing = window.outboundCart.find(item => item.product.id === productId);
-  if (existing) {
-    if (existing.quantity >= product.current_stock) {
-      showToast('재고 수량을 초과할 수 없습니다.', 'error');
-      return;
+
+  if (outboundInputMode === 'manual') {
+    // 수동 모드: 없으면 추가하고 포커스, 있으면 포커스만
+    if (!existing) {
+      window.outboundCart.push({ product, quantity: 1 });
+      renderOutboundCart();
     }
-    existing.quantity++;
+    // 포커스 이동 (렌더링 후 실행)
+    setTimeout(() => {
+      const input = document.querySelector(`input[data-qty-id="${productId}"]`);
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }, 50);
   } else {
-    window.outboundCart.push({ product, quantity: 1 });
+    // 자동 모드: 기존 로직 (+1)
+    if (existing) {
+      if (existing.quantity >= product.current_stock) {
+        showToast('재고 수량을 초과할 수 없습니다.', 'error');
+        return;
+      }
+      existing.quantity++;
+    } else {
+      window.outboundCart.push({ product, quantity: 1 });
+    }
+    renderOutboundCart();
   }
-  renderOutboundCart();
 }
 
 function renderOutboundCart() {
   const container = document.getElementById('outboundCartItems');
   const totalEl = document.getElementById('outboundTotalQty');
+
   if (window.outboundCart.length === 0) {
     container.innerHTML = '<p class="text-center text-slate-400 py-8">상품을 선택해주세요.</p>';
     totalEl.textContent = '0개';
     return;
   }
+
   let totalQty = 0;
   container.innerHTML = window.outboundCart.map(item => {
     totalQty += item.quantity;
     return `
-      <div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
-        <div class="flex-1 min-w-0">
-          <div class="font-medium text-slate-800 text-sm">${item.product.name}</div>
+      <div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100 hover:border-teal-200 transition-colors">
+        <div class="flex-1 min-w-0 mr-4">
+          <div class="font-medium text-slate-800 text-sm truncate">${item.product.name}</div>
+          <div class="text-xs text-slate-500 font-mono">${item.product.sku}</div>
         </div>
         <div class="flex items-center gap-3">
-          <div class="flex items-center bg-white rounded border border-slate-200">
-            <button onclick="updateOutboundQty(${item.product.id}, -1)" class="w-6 h-6 flex items-center justify-center hover:bg-slate-100 text-slate-500"><i class="fas fa-minus text-xs"></i></button>
-            <span class="w-8 text-center text-sm font-bold">${item.quantity}</span>
-            <button onclick="updateOutboundQty(${item.product.id}, 1)" class="w-6 h-6 flex items-center justify-center hover:bg-slate-100 text-slate-500"><i class="fas fa-plus text-xs"></i></button>
+          <div class="flex items-center bg-white rounded border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-teal-500">
+            <button onclick="updateOutboundQty(${item.product.id}, -1)" tabindex="-1" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-slate-500 border-r border-slate-100 active:bg-slate-200 transition-colors">
+              <i class="fas fa-minus text-xs"></i>
+            </button>
+            <input type="number" 
+                   value="${item.quantity}" 
+                   min="1" 
+                   max="${item.product.current_stock}"
+                   data-qty-id="${item.product.id}"
+                   onchange="updateOutboundQtyFromInput(${item.product.id}, this.value)"
+                   class="w-16 h-8 text-center text-sm font-bold border-none focus:ring-0 p-0 appearance-none mx-0"
+                   onclick="this.select()"
+            >
+            <button onclick="updateOutboundQty(${item.product.id}, 1)" tabindex="-1" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-slate-500 border-l border-slate-100 active:bg-slate-200 transition-colors">
+              <i class="fas fa-plus text-xs"></i>
+            </button>
           </div>
-          <button onclick="removeOutboundItem(${item.product.id})" class="text-slate-400 hover:text-rose-500"><i class="fas fa-times"></i></button>
+          <button onclick="removeOutboundItem(${item.product.id})" tabindex="-1" class="text-slate-400 hover:text-red-500 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 transition-colors">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
       </div>
     `;
   }).join('');
+
   totalEl.textContent = totalQty + '개';
 }
 
@@ -598,6 +649,49 @@ window.addToOutboundCart = addToOutboundCart;
 window.renderOutboundCart = renderOutboundCart;
 window.updateOutboundQty = updateOutboundQty;
 window.removeOutboundItem = removeOutboundItem;
+
+// New Helper Functions
+function setOutboundMode(mode) {
+  outboundInputMode = mode;
+  // UI 상태 업데이트는 필요시 여기서 수행 (현재는 renderCart에서 처리하거나, 검색창 포커스 등)
+  const searchInput = document.getElementById('outboundSearch');
+  if (searchInput && mode === 'auto') {
+    searchInput.focus();
+  }
+}
+window.setOutboundMode = setOutboundMode;
+
+function updateOutboundQtyFromInput(productId, value) {
+  const qty = parseInt(value);
+  if (isNaN(qty) || qty <= 0) {
+    // 1 미만 입력 시 삭제 또는 1로 복귀? 여기서는 1로 복귀하고 토스트 경고
+    // 사용자 경험상 삭제보다 1이 나음
+    showToast('수량은 1 이상이어야 합니다.', 'error');
+    renderOutboundCart(); // 값 리셋
+    return;
+  }
+
+  const item = window.outboundCart.find(i => i.product.id === productId);
+  if (!item) return;
+
+  if (qty > item.product.current_stock) {
+    showToast(`재고 부족 (최대 ${item.product.current_stock}개)`, 'error');
+    item.quantity = item.product.current_stock; // 최대치로 보정
+  } else {
+    item.quantity = qty;
+  }
+  renderOutboundCart();
+
+  // 입력 후 포커스 유지 (renderCart 호출로 DOM이 재생성되면 포커스 잃음. 재설정 필요)
+  setTimeout(() => {
+    const input = document.querySelector(`input[data-qty-id="${productId}"]`);
+    if (input) {
+      input.focus();
+      // 커서를 끝으로? or Select all? 여기서 선택할 필요는 없을듯.
+    }
+  }, 0);
+}
+window.updateOutboundQtyFromInput = updateOutboundQtyFromInput;
 window.submitDirectOutbound = submitDirectOutbound;
 window.showOutboundDetail = showOutboundDetail;
 window.closeOutboundDetail = closeOutboundDetail;
