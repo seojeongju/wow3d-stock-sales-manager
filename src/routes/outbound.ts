@@ -310,7 +310,7 @@ app.delete('/:id', async (c) => {
             for (const item of items) {
                 const qtyToRestore = item.quantity_ordered
                 if (qtyToRestore > 0) {
-                    await DB.prepare('UPDATE products SET stock_level = stock_level + ? WHERE id = ?')
+                    await DB.prepare('UPDATE products SET current_stock = current_stock + ? WHERE id = ?')
                         .bind(qtyToRestore, item.product_id).run()
                 }
             }
