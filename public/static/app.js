@@ -5532,9 +5532,18 @@ async function showOutboundDetail(id) {
               </h3>
               <p class="text-sm text-slate-500 mt-1 font-mono">${data.order_number}</p>
             </div>
-            <button onclick="closeOutboundDetail()" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
-              <i class="fas fa-times text-lg"></i>
-            </button>
+            <div class="flex items-center gap-1">
+                <button onclick="openEditOutboundModal(${data.id})" class="text-slate-400 hover:text-teal-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors" title="수정">
+                  <i class="fas fa-pen text-sm"></i>
+                </button>
+                <button onclick="deleteOutbound(${data.id})" class="text-slate-400 hover:text-red-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors" title="삭제">
+                  <i class="fas fa-trash text-sm"></i>
+                </button>
+                <div class="w-px h-4 bg-slate-200 mx-2"></div>
+                <button onclick="closeOutboundDetail()" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
+                  <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
           </div>
           
           <div class="flex-1 overflow-y-auto p-6 space-y-6">
@@ -8131,3 +8140,134 @@ window.impersonateTenant = impersonateTenant;
 window.exitImpersonation = exitImpersonation;
 window.approvePlanRequest = approvePlanRequest;
 window.rejectPlanRequest = rejectPlanRequest;
+
+// --- Outbound Edit/Delete Functions ---
+
+async function deleteOutbound(id) {
+  if (!confirm('정말로 이 출고 내역을 삭제하시겠습니까?\n삭제 시 차감된 재고는 복구됩니다.')) return;
+
+  try {
+    const res = await axios.delete(`${API_BASE}/outbound/${id}`);
+    if (res.data.success) {
+      showToast('출고 내역이 삭제되었습니다.');
+      closeOutboundDetail();
+      filterOutboundHistory();
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('삭제 실패: ' + (e.response?.data?.error || e.message), 'error');
+  }
+}
+
+async function openEditOutboundModal(id) {
+  closeOutboundDetail();
+
+  try {
+    const res = await axios.get(`${API_BASE}/outbound/${id}`);
+    const data = res.data.data;
+    const { packages } = data;
+    const pkg = packages[0] || {};
+
+    const modalHtml = `
+      <div id="outEditModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[70] transition-opacity duration-300 opacity-0">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col transform scale-95 transition-transform duration-300">
+          <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+            <h3 class="text-lg font-bold text-slate-800">출고 정보 수정</h3>
+            <button onclick="closeEditOutboundModal()" class="text-slate-400 hover:text-slate-600">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          
+          <div class="p-6 space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">수령인</label>
+              <input type="text" id="editDestName" value="${data.destination_name || ''}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">전화번호</label>
+              <input type="text" id="editDestPhone" value="${data.destination_phone || ''}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">주소</label>
+              <input type="text" id="editDestAddr" value="${data.destination_address || ''}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">택배사</label>
+                  <select id="editCourier" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    <option value="">선택</option>
+                    <option value="CJ대한통운" ${pkg.courier === 'CJ대한통운' ? 'selected' : ''}>CJ대한통운</option>
+                    <option value="우체국택배" ${pkg.courier === '우체국택배' ? 'selected' : ''}>우체국택배</option>
+                    <option value="한진택배" ${pkg.courier === '한진택배' ? 'selected' : ''}>한진택배</option>
+                    <option value="롯데택배" ${pkg.courier === '롯데택배' ? 'selected' : ''}>롯데택배</option>
+                    <option value="로젠택배" ${pkg.courier === '로젠택배' ? 'selected' : ''}>로젠택배</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">운송장번호</label>
+                  <input type="text" id="editTrackingNum" value="${pkg.tracking_number || ''}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">비고</label>
+              <textarea id="editNotes" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500" rows="3">${data.notes || ''}</textarea>
+            </div>
+          </div>
+
+          <div class="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 rounded-b-2xl">
+            <button onclick="closeEditOutboundModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">취소</button>
+            <button onclick="updateOutbound(${id})" class="px-4 py-2 bg-teal-600 text-white hover:bg-teal-700 rounded-lg transition-colors">저장</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    requestAnimationFrame(() => {
+      const modal = document.getElementById('outEditModal');
+      modal.classList.remove('opacity-0');
+      modal.querySelector('div').classList.remove('scale-95');
+    });
+
+  } catch (e) {
+    console.error(e);
+    showToast('정보 로드 실패', 'error');
+  }
+}
+
+function closeEditOutboundModal() {
+  const modal = document.getElementById('outEditModal');
+  if (modal) {
+    modal.classList.add('opacity-0');
+    modal.querySelector('div').classList.add('scale-95');
+    setTimeout(() => modal.remove(), 300);
+  }
+}
+
+async function updateOutbound(id) {
+  const payload = {
+    destination_name: document.getElementById('editDestName').value,
+    destination_phone: document.getElementById('editDestPhone').value,
+    destination_address: document.getElementById('editDestAddr').value,
+    courier: document.getElementById('editCourier').value,
+    tracking_number: document.getElementById('editTrackingNum').value,
+    notes: document.getElementById('editNotes').value
+  };
+
+  try {
+    const res = await axios.put(`${API_BASE}/outbound/${id}`, payload);
+    if (res.data.success) {
+      showToast('수정되었습니다.');
+      closeEditOutboundModal();
+      filterOutboundHistory();
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('수정 실패: ' + (e.response?.data?.error || e.message), 'error');
+  }
+}
+
+window.deleteOutbound = deleteOutbound;
+window.openEditOutboundModal = openEditOutboundModal;
+window.closeEditOutboundModal = closeEditOutboundModal;
+window.updateOutbound = updateOutbound;

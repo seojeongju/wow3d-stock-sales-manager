@@ -581,7 +581,7 @@ app.get('/', (c: Context) => {
                                     updateTime();
                                     setInterval(updateTime, 1000);
                                 </script>
-                                <script src="/static/app.js?v=7"></script>
+                                <script src="/static/app.js?v=8"></script>
                             </body>
                         </html>
                         `)

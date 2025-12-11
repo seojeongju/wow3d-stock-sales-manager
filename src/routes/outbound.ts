@@ -98,449 +98,236 @@ app.get('/', async (c) => {
     })
 })
 
-// 간편 출고 등록 (직접 출고)
-app.post('/direct', async (c) => {
-    const { DB } = c.env
-    const tenantId = c.get('tenantId')
-    const userId = c.get('userId')
-    const body = await c.req.json<{
-        items: { product_id: number; quantity: number }[];
-        destination: { name: string; phone?: string; address: string };
-        package?: { courier?: string; tracking_number?: string; box_type?: string };
-        notes?: string;
-    }>()
-
-    if (!body.items || body.items.length === 0) {
-        return c.json({ success: false, error: '출고할 상품을 선택해주세요.' }, 400)
-    }
-
-    if (!body.destination?.name || !body.destination?.address) {
-        return c.json({ success: false, error: '수령인과 주소를 입력해주세요.' }, 400)
-    }
-
-    // 동일 상품 수량 합산 (중복 제거)
-    const mergedItems: { [key: number]: number } = {}
-    for (const item of body.items) {
-        if (mergedItems[item.product_id]) {
-            mergedItems[item.product_id] += item.quantity
-        } else {
-            mergedItems[item.product_id] = item.quantity
-        }
-    }
-
-    const orderNumber = `DO-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
-
-    try {
-        // 1. 출고 지시서 생성
-        const orderResult = await DB.prepare(`
-            INSERT INTO outbound_orders (order_number, destination_name, destination_address, destination_phone, status, notes, created_by, tenant_id)
-            VALUES (?, ?, ?, ?, 'SHIPPED', ?, ?, ?)
-        `).bind(
-            orderNumber,
-            body.destination.name,
-            body.destination.address,
-            body.destination.phone || '',
-            body.notes || null,
-            userId,
-            tenantId
-        ).run()
-
-        const orderId = orderResult.meta.last_row_id
-
-        // 2. 출고 상품 추가 (합산된 수량으로)
-        for (const [productIdStr, quantity] of Object.entries(mergedItems)) {
-            const productId = parseInt(productIdStr)
-
-            // 재고 확인
-            const product = await DB.prepare('SELECT current_stock FROM products WHERE id = ? AND tenant_id = ?')
-                .bind(productId, tenantId).first<{ current_stock: number }>()
-
-            if (!product || product.current_stock < quantity) {
-                // 롤백은 D1에서 복잡하므로 여기서는 에러만 반환
-                return c.json({ success: false, error: `상품 ID ${productId}의 재고가 부족합니다.` }, 400)
-            }
-
-            // 출고 상품 추가
-            await DB.prepare(`
-                INSERT INTO outbound_items (outbound_order_id, product_id, quantity_ordered, quantity_picked, quantity_packed, status)
-                VALUES (?, ?, ?, ?, ?, 'PACKED')
-            `).bind(orderId, productId, quantity, quantity, quantity).run()
-
-            // 재고 차감
-            await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
-                .bind(quantity, productId).run()
-
-            // 재고 이동 기록
-            await DB.prepare(`
-                INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes, created_by, tenant_id)
-                VALUES (?, 'OUT', ?, 'outbound', ?, ?, ?, ?)
-            `).bind(productId, quantity, orderId, `출고: ${orderNumber}`, userId, tenantId).run()
-        }
-
-        // 3. 패키지 정보 추가 (있는 경우)
-        if (body.package?.tracking_number) {
-            await DB.prepare(`
-                INSERT INTO outbound_packages (outbound_order_id, courier, tracking_number, box_type, status)
-                VALUES (?, ?, ?, ?, 'SHIPPED')
-            `).bind(
-                orderId,
-                body.package.courier || 'CJ대한통운',
-                body.package.tracking_number,
-                body.package.box_type || 'BOX'
-            ).run()
-        }
-
-        return c.json({ success: true, message: '출고가 완료되었습니다.', data: { id: orderId, order_number: orderNumber } })
-
-    } catch (e: any) {
-        console.error(e)
-        return c.json({ success: false, error: '출고 처리 중 오류가 발생했습니다: ' + e.message }, 500)
-    }
-})
-
 // 출고 상세 조회
 app.get('/:id', async (c) => {
     const { DB } = c.env
     const tenantId = c.get('tenantId')
     const id = c.req.param('id')
 
-    const order = await DB.prepare('SELECT * FROM outbound_orders WHERE id = ? AND tenant_id = ?').bind(id, tenantId).first<OutboundOrder>()
+    const order = await DB.prepare(`
+    SELECT o.*, u.name as created_by_name
+    FROM outbound_orders o
+    LEFT JOIN users u ON o.created_by = u.id
+    WHERE o.id = ? AND o.tenant_id = ?
+  `).bind(id, tenantId).first<OutboundOrder>()
 
     if (!order) {
-        return c.json({ success: false, error: '출고 지시서를 찾을 수 없습니다.' }, 404)
+        return c.json({ success: false, error: 'Order not found' }, 404)
     }
 
-    const items = await DB.prepare(`
-    SELECT oi.*, p.name as product_name, p.sku 
+    const { results: items } = await DB.prepare(`
+    SELECT oi.*, p.name as product_name, p.sku, p.location
     FROM outbound_items oi
     JOIN products p ON oi.product_id = p.id
     WHERE oi.outbound_order_id = ?
   `).bind(id).all()
 
-    const packages = await DB.prepare('SELECT * FROM outbound_packages WHERE outbound_order_id = ?').bind(id).all()
-
-    const sales = await DB.prepare(`
-    SELECT s.id, s.created_at, c.name as customer_name
-    FROM outbound_order_mappings om
-    JOIN sales s ON om.sale_id = s.id
-    LEFT JOIN customers c ON s.customer_id = c.id
-    WHERE om.outbound_order_id = ?
+    const { results: packages } = await DB.prepare(`
+    SELECT * FROM outbound_packages WHERE outbound_order_id = ?
   `).bind(id).all()
 
     return c.json({
         success: true,
         data: {
             ...order,
-            items: items.results,
-            packages: packages.results,
-            sales: sales.results
+            items,
+            packages
         }
     })
 })
 
-// 1. 출고 지시 생성 (주문 -> 출고)
-app.post('/create', async (c) => {
-    const { DB } = c.env
-    const body = await c.req.json<CreateOutboundRequest>()
+// 간편 출고 등록 (단일 상품 + 즉시 출고 완료)
+app.post('/direct', async (c) => {
+    const { DB } = c.env;
+    const tenantId = c.get('tenantId');
+    const userId = c.get('userId'); // tenant middleware에서 설정됨
+    const body = await c.req.json();
 
-    if (!body.sale_ids || body.sale_ids.length === 0) {
-        return c.json({ success: false, error: '선택된 주문이 없습니다.' }, 400)
+    // 입력값 검증
+    if (!body.items || body.items.length === 0) {
+        return c.json({ success: false, error: 'At least one item is required' }, 400);
     }
 
-    // 첫 번째 주문의 배송지 정보를 기준으로 출고 지시서 생성 (합포장 가정)
-    const firstSale = await DB.prepare(`
-    SELECT s.*, c.name as customer_name, c.phone as customer_phone
-    FROM sales s
-    LEFT JOIN customers c ON s.customer_id = c.id
-    WHERE s.id = ?
-  `).bind(body.sale_ids[0]).first<any>()
-
-    if (!firstSale) {
-        return c.json({ success: false, error: '주문 정보를 찾을 수 없습니다.' }, 404)
-    }
-
-    const orderNumber = `DO-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
+    const orderDate = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const orderNumber = `DO-${orderDate}-${randomSuffix}`;
 
     try {
-        // 트랜잭션 시작 (D1은 batch로 처리)
-        const statements = []
-
-        // 1. 출고 지시서 생성
-        const insertOrder = DB.prepare(`
-      INSERT INTO outbound_orders (order_number, destination_name, destination_address, destination_phone, status, notes, created_by)
-      VALUES (?, ?, ?, ?, 'PENDING', ?, ?)
+        // 트랜잭션 대신 순차 처리 (D1은 트랜잭션 지원이 제한적일 수 있음, batch 사용 가능하나 복잡)
+        // 1. outbound_orders 생성 (SHIPPED 상태)
+        const orderResult = await DB.prepare(`
+      INSERT INTO outbound_orders (
+        tenant_id, order_number, destination_name, destination_address, destination_phone, 
+        status, created_by, notes, purchase_path
+      ) VALUES (?, ?, ?, ?, ?, 'SHIPPED', ?, ?, ?)
     `).bind(
-            orderNumber,
-            firstSale.customer_name || '비회원',
-            firstSale.shipping_address || '주소 미입력',
-            firstSale.customer_phone || '',
-            body.notes || null,
-            c.get('userId')
-        )
+            tenantId, orderNumber, body.recipient, body.address, body.phone,
+            userId, body.memo, body.purchasePath
+        ).run();
 
-        // 실행하여 ID 획득 필요 -> D1은 last_row_id를 반환하지만 batch에서는 까다로움.
-        // 여기서는 순차 실행으로 처리 (D1의 한계로 인해 엄격한 트랜잭션은 어려울 수 있음)
-        const orderResult = await insertOrder.run()
-        const orderId = orderResult.meta.last_row_id
+        const orderId = orderResult.meta.last_row_id;
 
-        // 2. 주문 매핑 및 상품 집계
-        for (const saleId of body.sale_ids) {
-            // 매핑 추가
-            await DB.prepare('INSERT INTO outbound_order_mappings (outbound_order_id, sale_id) VALUES (?, ?)').bind(orderId, saleId).run()
+        // 2. outbound_items 등록 및 재고 차감
+        // 중복 상품 ID 합치기
+        const mergedItems = new Map<number, number>();
+        for (const item of body.items) {
+            const currentQty = mergedItems.get(item.productId) || 0;
+            mergedItems.set(item.productId, currentQty + item.quantity);
+        }
 
-            // 주문 상태 변경 (배송 준비중)
-            await DB.prepare("UPDATE sales SET status = 'pending_shipment' WHERE id = ?").bind(saleId).run()
+        for (const [productId, quantity] of mergedItems.entries()) {
+            // 재고 확인
+            const product = await DB.prepare('SELECT stock_level FROM products WHERE id = ? AND tenant_id = ?')
+                .bind(productId, tenantId)
+                .first<{ stock_level: number }>();
 
-            // 주문 상품 조회
-            const { results: saleItems } = await DB.prepare('SELECT * FROM sale_items WHERE sale_id = ?').bind(saleId).all<any>()
+            if (!product) {
+                throw new Error(`Product ${productId} not found`);
+            }
+            if (product.stock_level < quantity) {
+                throw new Error(`Insufficient stock for product ${productId}`);
+            }
 
-            for (const item of saleItems) {
-                // 이미 같은 상품이 있는지 확인 (합포장 시 수량 합산)
-                const existingItem = await DB.prepare('SELECT id, quantity_ordered FROM outbound_items WHERE outbound_order_id = ? AND product_id = ?')
-                    .bind(orderId, item.product_id).first<any>()
+            // 아이템 등록
+            await DB.prepare(`
+        INSERT INTO outbound_items (
+            outbound_order_id, product_id, quantity_ordered, quantity_fulfilled
+        ) VALUES (?, ?, ?, ?)
+         `).bind(orderId, productId, quantity, quantity).run();
 
-                if (existingItem) {
-                    await DB.prepare('UPDATE outbound_items SET quantity_ordered = quantity_ordered + ? WHERE id = ?')
-                        .bind(item.quantity, existingItem.id).run()
-                } else {
-                    await DB.prepare('INSERT INTO outbound_items (outbound_order_id, product_id, quantity_ordered) VALUES (?, ?, ?)')
-                        .bind(orderId, item.product_id, item.quantity).run()
+            // 재고 차감
+            await DB.prepare('UPDATE products SET stock_level = stock_level - ? WHERE id = ?')
+                .bind(quantity, productId).run();
+        }
+
+        // 3. outbound_packages 등록 (운송장 번호가 있는 경우)
+        if (body.courier && body.trackingNumber) {
+            await DB.prepare(`
+        INSERT INTO outbound_packages (
+          outbound_order_id, courier, tracking_number
+        ) VALUES (?, ?, ?)
+      `).bind(orderId, body.courier, body.trackingNumber).run();
+        }
+
+        return c.json({ success: true, orderId });
+
+    } catch (e: any) {
+        console.error('Direct outbound error:', e);
+        return c.json({ success: false, error: e.message }, 500);
+    }
+});
+
+// 출고 수정 (배송 정보 등)
+app.put('/:id', async (c) => {
+    const { DB } = c.env
+    const tenantId = c.get('tenantId')
+    const id = c.req.param('id')
+    const body = await c.req.json()
+
+    // 존재 여부 확인
+    const exists = await DB.prepare('SELECT id FROM outbound_orders WHERE id = ? AND tenant_id = ?')
+        .bind(id, tenantId).first()
+
+    if (!exists) {
+        return c.json({ success: false, error: 'Order not found' }, 404)
+    }
+
+    try {
+        // 기본 정보 업데이트
+        await DB.prepare(`
+            UPDATE outbound_orders 
+            SET destination_name = COALESCE(?, destination_name),
+                destination_phone = COALESCE(?, destination_phone),
+                destination_address = COALESCE(?, destination_address),
+                notes = COALESCE(?, notes),
+                purchase_path = COALESCE(?, purchase_path)
+            WHERE id = ?
+        `).bind(
+            body.destination_name,
+            body.destination_phone,
+            body.destination_address,
+            body.notes,
+            body.purchase_path,
+            id
+        ).run()
+
+        // 운송장 정보 업데이트 (패키지가 있으면 업데이트, 없으면 생성)
+        if (body.courier || body.tracking_number) {
+            const pkg = await DB.prepare('SELECT id FROM outbound_packages WHERE outbound_order_id = ?').bind(id).first()
+
+            if (pkg) {
+                await DB.prepare(`
+                    UPDATE outbound_packages 
+                    SET courier = COALESCE(?, courier), 
+                        tracking_number = COALESCE(?, tracking_number)
+                    WHERE id = ?
+                `).bind(body.courier, body.tracking_number, pkg.id).run()
+            } else if (body.courier && body.tracking_number) {
+                await DB.prepare(`
+                    INSERT INTO outbound_packages (outbound_order_id, courier, tracking_number)
+                    VALUES (?, ?, ?)
+                `).bind(id, body.courier, body.tracking_number).run()
+            }
+        }
+
+        return c.json({ success: true })
+    } catch (e: any) {
+        console.error('Update error:', e)
+        return c.json({ success: false, error: e.message }, 500)
+    }
+})
+
+// 출고 삭제 (재고 복구 포함)
+app.delete('/:id', async (c) => {
+    const { DB } = c.env
+    const tenantId = c.get('tenantId')
+    const id = c.req.param('id')
+
+    // 존재 여부 확인
+    const order = await DB.prepare('SELECT id, status FROM outbound_orders WHERE id = ? AND tenant_id = ?')
+        .bind(id, tenantId).first<{ id: number, status: string }>()
+
+    if (!order) {
+        return c.json({ success: false, error: 'Order not found' }, 404)
+    }
+
+    try {
+        // 1. 재고 복구 (SHIPPED, PACKING, PICKING 등 재고가 차감된 상태라면 복구)
+        // 안심 출고의 경우 등록(Direct) 시 바로 차감되므로 무조건 복구해야 함.
+        // 만약 PENDING 상태에서 차감되지 않았다면 복구하지 말아야 함.
+        // 현재 로직상 PENDING은 할당을 안하므로 차감이 안됨. Direct는 바로 SHIPPED.
+
+        // 아이템 조회
+        const { results: items } = await DB.prepare(`
+            SELECT product_id, quantity_fulfilled, quantity_ordered 
+            FROM outbound_items 
+            WHERE outbound_order_id = ?
+        `).bind(id).all<{ product_id: number, quantity_fulfilled: number, quantity_ordered: number }>()
+
+        if (items && items.length > 0) {
+            // SHIPPED나 완료된 주문은 fulfilled 기준으로, 그 외엔 상황에 따라 다름.
+            // Direct 출고는 quantity_fulfilled = quantity_ordered임.
+            for (const item of items) {
+                const qtyToRestore = item.quantity_fulfilled || item.quantity_ordered
+                if (qtyToRestore > 0) {
+                    await DB.prepare('UPDATE products SET stock_level = stock_level + ? WHERE id = ?')
+                        .bind(qtyToRestore, item.product_id).run()
                 }
             }
         }
 
-        return c.json({ success: true, message: '출고 지시가 생성되었습니다.', data: { id: orderId } })
+        // 2. 관련 데이터 삭제
+        await DB.prepare('DELETE FROM outbound_items WHERE outbound_order_id = ?').bind(id).run()
+        await DB.prepare('DELETE FROM outbound_packages WHERE outbound_order_id = ?').bind(id).run()
+        await DB.prepare('DELETE FROM outbound_status_history WHERE outbound_order_id = ?').bind(id).run()
 
+        // 3. 주문 삭제
+        await DB.prepare('DELETE FROM outbound_orders WHERE id = ?').bind(id).run()
+
+        return c.json({ success: true })
     } catch (e: any) {
-        return c.json({ success: false, error: '출고 지시 생성 중 오류가 발생했습니다: ' + e.message }, 500)
-    }
-})
-
-// 2. 피킹 처리 (검수)
-app.post('/:id/picking', async (c) => {
-    const { DB } = c.env
-    const id = c.req.param('id')
-    const body = await c.req.json<PickingRequest>()
-
-    // 피킹 수량 업데이트
-    for (const item of body.items) {
-        await DB.prepare(`
-      UPDATE outbound_items 
-      SET quantity_picked = quantity_picked + ?, 
-          status = CASE WHEN quantity_picked + ? >= quantity_ordered THEN 'PICKED' ELSE 'PENDING' END
-      WHERE outbound_order_id = ? AND product_id = ?
-    `).bind(item.quantity, item.quantity, id, item.product_id).run()
-    }
-
-    // 모든 아이템이 피킹되었는지 확인
-    const unpickedItems = await DB.prepare(`
-    SELECT COUNT(*) as count FROM outbound_items 
-    WHERE outbound_order_id = ? AND quantity_picked < quantity_ordered
-  `).bind(id).first<any>()
-
-    let orderStatus = 'PICKING'
-    if (unpickedItems.count === 0) {
-        orderStatus = 'PACKING' // 피킹 완료 시 패킹 단계로 이동
-    }
-
-    await DB.prepare('UPDATE outbound_orders SET status = ? WHERE id = ?').bind(orderStatus, id).run()
-
-    return c.json({ success: true, message: '피킹 정보가 업데이트되었습니다.' })
-})
-
-// 3. 패킹 및 송장 입력
-app.post('/:id/packing', async (c) => {
-    const { DB } = c.env
-    const id = c.req.param('id')
-    const body = await c.req.json<PackingRequest>()
-
-    // 패키지 정보 저장
-    await DB.prepare(`
-    INSERT INTO outbound_packages (outbound_order_id, tracking_number, courier, box_type, box_count, weight)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).bind(id, body.tracking_number, body.courier, body.box_type, body.box_count, body.weight).run()
-
-    // 모든 아이템 패킹 처리 (간소화를 위해 일괄 처리)
-    await DB.prepare('UPDATE outbound_items SET quantity_packed = quantity_picked, status = "PACKED" WHERE outbound_order_id = ?').bind(id).run()
-
-    await DB.prepare('UPDATE outbound_orders SET status = "PACKING" WHERE id = ?').bind(id).run()
-
-    return c.json({ success: true, message: '패킹 정보가 저장되었습니다.' })
-})
-
-// 4. 출고 확정 (재고 차감)
-app.post('/:id/confirm', async (c) => {
-    const { DB } = c.env
-    const id = c.req.param('id')
-
-    const order = await DB.prepare('SELECT * FROM outbound_orders WHERE id = ?').bind(id).first<OutboundOrder>()
-    if (!order) return c.json({ success: false, error: '주문을 찾을 수 없습니다.' }, 404)
-
-    if (order.status === 'SHIPPED') {
-        return c.json({ success: false, error: '이미 출고 완료된 주문입니다.' }, 400)
-    }
-
-    // 출고 아이템 조회
-    const { results: items } = await DB.prepare('SELECT * FROM outbound_items WHERE outbound_order_id = ?').bind(id).all<any>()
-
-    // 재고 차감 (FIFO 로직 적용)
-    for (const item of items) {
-        let remainingToDeduct = item.quantity_packed
-
-        // 1. stock_lots에서 오래된 순으로 차감
-        const { results: lots } = await DB.prepare(`
-      SELECT * FROM stock_lots 
-      WHERE product_id = ? AND remaining_quantity > 0 
-      ORDER BY created_at ASC
-    `).bind(item.product_id).all<any>()
-
-        for (const lot of lots) {
-            if (remainingToDeduct <= 0) break
-
-            const deductAmount = Math.min(lot.remaining_quantity, remainingToDeduct)
-
-            await DB.prepare('UPDATE stock_lots SET remaining_quantity = remaining_quantity - ? WHERE id = ?')
-                .bind(deductAmount, lot.id).run()
-
-            remainingToDeduct -= deductAmount
-        }
-
-        // 2. products 테이블 총 재고 차감
-        await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
-            .bind(item.quantity_packed, item.product_id).run()
-
-        // 3. 재고 이동 기록 (OUT)
-        await DB.prepare(`
-      INSERT INTO stock_movements (product_id, movement_type, quantity, reason, reference_id, created_by)
-      VALUES (?, '출고', ?, '출고 확정', ?, ?)
-    `).bind(item.product_id, item.quantity_packed, id, c.get('userId')).run()
-    }
-
-    // 상태 업데이트
-    await DB.prepare('UPDATE outbound_orders SET status = "SHIPPED", updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(id).run()
-
-    // 연결된 판매 주문 상태 업데이트
-    const { results: mappings } = await DB.prepare('SELECT sale_id FROM outbound_order_mappings WHERE outbound_order_id = ?').bind(id).all<any>()
-    for (const map of mappings) {
-        // 송장 번호 업데이트 (첫 번째 패키지 기준)
-        const pkg = await DB.prepare('SELECT * FROM outbound_packages WHERE outbound_order_id = ?').bind(id).first<any>()
-
-        let updateQuery = "UPDATE sales SET status = 'shipped'"
-        const params = []
-        if (pkg) {
-            updateQuery += ", tracking_number = ?, courier = ?"
-            params.push(pkg.tracking_number, pkg.courier)
-        }
-        updateQuery += " WHERE id = ?"
-        params.push(map.sale_id)
-
-        await DB.prepare(updateQuery).bind(...params).run()
-    }
-
-    return c.json({ success: true, message: '출고가 확정되었습니다.' })
-})
-
-// 5. 간편 출고 등록 (Direct Outbound)
-app.post('/direct', async (c) => {
-    const { DB } = c.env
-    const body = await c.req.json<{
-        items: { product_id: number; quantity: number }[];
-        destination: {
-            name: string;
-            address: string;
-            phone: string;
-        };
-        package: {
-            courier: string;
-            tracking_number: string;
-            box_type?: string;
-        };
-        notes?: string;
-        warehouse_id?: number;
-        purchase_path?: string;
-    }>()
-
-    if (!body.items || body.items.length === 0) {
-        return c.json({ success: false, error: '상품이 선택되지 않았습니다.' }, 400)
-    }
-
-    const warehouseId = body.warehouse_id;
-    if (!warehouseId) {
-        return c.json({ success: false, error: '출고 창고가 선택되지 않았습니다.' }, 400)
-    }
-
-    const orderNumber = `DO-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
-
-    try {
-        // 1. 출고 지시서 생성 (바로 SHIPPED 상태로)
-        const insertOrder = DB.prepare(`
-            INSERT INTO outbound_orders (order_number, destination_name, destination_address, destination_phone, status, notes, created_at, updated_at, created_by, purchase_path, tenant_id)
-            VALUES (?, ?, ?, ?, 'SHIPPED', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
-        `).bind(
-            orderNumber,
-            body.destination.name,
-            body.destination.address,
-            body.destination.phone,
-            body.notes || null,
-            c.get('userId'),
-            body.purchase_path || null,
-            c.get('tenantId')
-        )
-
-        const orderResult = await insertOrder.run()
-        const orderId = orderResult.meta.last_row_id
-
-        // 2. 아이템 등록 및 재고 차감
-        // 2. 아이템 등록 및 재고 차감
-        // 중복된 상품 ID가 있을 경우 수량을 합산하여 처리
-        const mergedItems = new Map<number, number>();
-        for (const item of body.items) {
-            const currentQty = mergedItems.get(item.product_id) || 0;
-            mergedItems.set(item.product_id, currentQty + item.quantity);
-        }
-
-        for (const [productId, quantity] of mergedItems) {
-            // 아이템 등록 (주문=피킹=패킹 수량 동일)
-            await DB.prepare(`
-                INSERT INTO outbound_items (outbound_order_id, product_id, quantity_ordered, quantity_picked, quantity_packed, status)
-                VALUES (?, ?, ?, ?, ?, 'PACKED')
-            `).bind(orderId, productId, quantity, quantity, quantity).run()
-
-            // 창고 재고 확인
-            const whStock = await DB.prepare('SELECT quantity FROM product_warehouse_stocks WHERE product_id = ? AND warehouse_id = ?')
-                .bind(productId, warehouseId).first<{ quantity: number }>()
-
-            if (!whStock || whStock.quantity < quantity) {
-                throw new Error(`상품 ID ${productId}의 창고 재고가 부족합니다.`);
-            }
-
-            // 창고 재고 차감
-            await DB.prepare('UPDATE product_warehouse_stocks SET quantity = quantity - ? WHERE product_id = ? AND warehouse_id = ?')
-                .bind(quantity, productId, warehouseId).run()
-
-            // 총 재고 차감 (FIFO 무시하고 총 재고에서 단순 차감 - 간편 모드이므로)
-            await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
-                .bind(quantity, productId).run()
-
-            // 재고 이동 기록
-            await DB.prepare(`
-                INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, reason, reference_id, created_by)
-                VALUES (?, ?, '출고', ?, '간편 출고', ?, ?)
-            `).bind(productId, warehouseId, quantity, orderId, c.get('userId')).run()
-        }
-
-        // 3. 패키지(송장) 정보 등록
-        if (body.package && body.package.tracking_number) {
-            await DB.prepare(`
-                INSERT INTO outbound_packages (outbound_order_id, tracking_number, courier, box_type, box_count)
-                VALUES (?, ?, ?, ?, 1)
-            `).bind(orderId, body.package.tracking_number, body.package.courier, body.package.box_type || 'A형').run()
-        }
-
-        return c.json({ success: true, message: '출고가 완료되었습니다.', data: { id: orderId } })
-
-    } catch (e: any) {
-        return c.json({ success: false, error: '출고 처리 중 오류가 발생했습니다: ' + e.message }, 500)
+        console.error('Delete error:', e)
+        return c.json({ success: false, error: e.message }, 500)
     }
 })
 
