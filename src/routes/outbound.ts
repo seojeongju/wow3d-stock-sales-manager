@@ -1,4 +1,4 @@
-﻿import { Hono } from 'hono'
+import { Hono } from 'hono'
 import type { Bindings, Variables, OutboundOrder, CreateOutboundRequest, PickingRequest, PackingRequest } from '../types'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
@@ -191,9 +191,9 @@ app.post('/direct', async (c) => {
             // 아이템 등록
             await DB.prepare(`
         INSERT INTO outbound_items (
-            outbound_order_id, product_id, quantity_ordered, quantity_fulfilled
-        ) VALUES (?, ?, ?, ?)
-         `).bind(orderId, productId, quantity, quantity).run();
+            outbound_order_id, product_id, quantity_ordered
+        ) VALUES (?, ?, ?)
+         `).bind(orderId, productId, quantity).run();
 
             // 재고 차감
             await DB.prepare('UPDATE products SET stock_level = stock_level - ? WHERE id = ?')
@@ -299,16 +299,16 @@ app.delete('/:id', async (c) => {
 
         // 아이템 조회
         const { results: items } = await DB.prepare(`
-            SELECT product_id, quantity_fulfilled, quantity_ordered 
+            SELECT product_id, quantity_ordered 
             FROM outbound_items 
             WHERE outbound_order_id = ?
-        `).bind(id).all<{ product_id: number, quantity_fulfilled: number, quantity_ordered: number }>()
+        `).bind(id).all<{ product_id: number, quantity_ordered: number }>()
 
         if (items && items.length > 0) {
             // SHIPPED나 완료된 주문은 fulfilled 기준으로, 그 외엔 상황에 따라 다름.
             // Direct 출고는 quantity_fulfilled = quantity_ordered임.
             for (const item of items) {
-                const qtyToRestore = item.quantity_fulfilled || item.quantity_ordered
+                const qtyToRestore = item.quantity_ordered
                 if (qtyToRestore > 0) {
                     await DB.prepare('UPDATE products SET stock_level = stock_level + ? WHERE id = ?')
                         .bind(qtyToRestore, item.product_id).run()
