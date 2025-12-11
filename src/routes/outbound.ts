@@ -116,7 +116,7 @@ app.get('/:id', async (c) => {
     }
 
     const { results: items } = await DB.prepare(`
-    SELECT oi.*, p.name as product_name, p.sku, p.location
+    SELECT oi.*, p.name as product_name, p.sku
     FROM outbound_items oi
     JOIN products p ON oi.product_id = p.id
     WHERE oi.outbound_order_id = ?
