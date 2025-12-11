@@ -584,8 +584,8 @@ app.get('/', (c: Context) => {
                                 <script src="/static/js/config.js?v=1"></script>
                                 <script src="/static/js/utils.js?v=2"></script>
                                 <script src="/static/js/auth.js?v=1"></script>
-                                <script src="/static/app.js?v=16"></script>
-                                <script src="/static/js/outbound.js?v=5"></script>
+                                <script src="/static/app.js?v=17"></script>
+                                <script src="/static/js/outbound.js?v=6"></script>
                                 <script src="/static/js/products.js?v=1"></script>
                             </body>
                         </html>

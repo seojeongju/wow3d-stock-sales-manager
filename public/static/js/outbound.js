@@ -456,47 +456,141 @@ async function showOutboundDetail(id) {
     const res = await axios.get(`${API_BASE}/outbound/${id}`);
     const data = res.data.data;
     const items = data.items || [];
+    const packages = data.packages || [];
 
     const modalHtml = `
-      <div id="outDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[60]">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl m-4 max-h-[90vh] flex flex-col">
-          <div class="p-6 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
-            <h3 class="font-bold text-lg">출고 상세 정보</h3>
-            <div class="flex gap-2">
-              <button onclick="openEditOutboundModal(${data.id})" class="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-500"><i class="fas fa-pen"></i></button>
-              <button onclick="deleteOutbound(${data.id})" class="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-red-500"><i class="fas fa-trash"></i></button>
-              <button onclick="closeOutboundDetail()" class="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center"><i class="fas fa-times"></i></button>
+      <div id="outDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[60] transition-opacity duration-300 opacity-0">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300">
+          <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+            <div>
+              <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-file-invoice-dollar text-teal-600"></i> 출고 상세 정보
+              </h3>
+              <p class="text-sm text-slate-500 mt-1 font-mono">${data.order_number}</p>
+            </div>
+            <div class="flex items-center gap-1">
+                <button onclick="openEditOutboundModal(${data.id})" class="text-slate-400 hover:text-teal-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors" title="수정">
+                  <i class="fas fa-pen text-sm"></i>
+                </button>
+                <button onclick="deleteOutbound(${data.id})" class="text-slate-400 hover:text-red-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors" title="삭제">
+                  <i class="fas fa-trash text-sm"></i>
+                </button>
+                <div class="w-px h-4 bg-slate-200 mx-2"></div>
+                <button onclick="closeOutboundDetail()" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
+                  <i class="fas fa-times text-lg"></i>
+                </button>
             </div>
           </div>
-          <div class="p-6 overflow-y-auto">
-            <div class="grid grid-cols-2 gap-4 mb-6">
-              <div class="p-4 bg-slate-50 rounded-lg">
-                <h4 class="font-bold mb-2 text-sm text-slate-500">받는 분</h4>
-                <div>${data.destination_name}</div>
-                <div class="text-sm text-slate-500">${formatPhoneNumber(data.destination_phone)}</div>
-                <div class="text-sm text-slate-500">${data.destination_address}</div>
+          
+          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <!-- 상태 및 기본 정보 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <h4 class="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">받는 분 정보</h4>
+                <div class="space-y-2 text-sm">
+                  <div class="flex"><span class="w-20 text-slate-500">이름</span> <span class="font-medium text-slate-900">${data.destination_name}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">연락처</span> <span class="font-medium text-slate-900">${data.destination_phone ? formatPhoneNumber(data.destination_phone) : '-'}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">주소</span> <span class="font-medium text-slate-900 break-all">${data.destination_address}</span></div>
+                </div>
               </div>
-              <div class="p-4 bg-slate-50 rounded-lg">
-                <h4 class="font-bold mb-2 text-sm text-slate-500">상태</h4>
-                <div class="font-bold text-teal-600">${data.status}</div>
-                <div class="text-sm text-slate-500">${formatDateTimeKST(data.created_at)}</div>
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <h4 class="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">출고 상태</h4>
+                <div class="space-y-2 text-sm">
+                  <div class="flex"><span class="w-20 text-slate-500">구매 경로</span> <span class="font-medium text-slate-900">${data.purchase_path || '-'}</span></div>
+                  <div class="flex items-center"><span class="w-20 text-slate-500">상태</span> 
+                    <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-bold text-teal-600 shadow-sm">${data.status}</span>
+                  </div>
+                  <div class="flex"><span class="w-20 text-slate-500">담당자</span> <span class="text-slate-700">${data.created_by_name || '-'}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">등록일</span> <span class="text-slate-700">${formatDateTimeKST(data.created_at)}</span></div>
+                  <div class="flex"><span class="w-20 text-slate-500">비고</span> <span class="text-slate-700">${data.notes || '-'}</span></div>
+                </div>
               </div>
             </div>
-            <h4 class="font-bold mb-2">상품 목록</h4>
-            <table class="w-full text-sm text-left border rounded hidden md:table">
-              <thead class="bg-slate-50"><tr><th class="p-2">상품명</th><th class="p-2">수량</th></tr></thead>
-              <tbody>
-                ${items.map(i => `<tr><td class="p-2 border-t">${i.product_name} <span class="text-xs text-slate-400">${i.sku}</span></td><td class="p-2 border-t">${i.quantity_ordered}</td></tr>`).join('')}
-              </tbody>
-            </table>
+
+            <!-- 상품 목록 -->
+            <div>
+              <h4 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <i class="fas fa-box-open text-slate-400"></i> 출고 상품 목록
+              </h4>
+              <div class="border border-slate-200 rounded-lg overflow-hidden">
+                <table class="min-w-full text-sm text-left divide-y divide-slate-200">
+                  <thead class="bg-slate-50 font-semibold text-slate-500">
+                    <tr>
+                      <th class="px-4 py-3">상품명 / SKU</th>
+                      <th class="px-4 py-3 text-center">수량</th>
+                      <th class="px-4 py-3 text-center">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 bg-white">
+                    ${items.map(i => `
+                      <tr>
+                        <td class="px-4 py-3">
+                          <div class="font-medium text-slate-900">${i.product_name}</div>
+                          <div class="text-xs text-slate-500 font-mono">${i.sku}</div>
+                        </td>
+                        <td class="px-4 py-3 text-center font-bold text-slate-700">${i.quantity_ordered}</td>
+                        <td class="px-4 py-3 text-center">
+                          <span class="text-xs px-2 py-1 rounded bg-slate-100 text-slate-600">${i.status}</span>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 배송 정보 (패키지) -->
+            <div>
+              <h4 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <i class="fas fa-truck text-slate-400"></i> 배송 및 운송장 정보
+              </h4>
+              <div class="grid grid-cols-1 gap-3">
+                ${packages.length > 0 ? packages.map(p => `
+                  <div class="flex items-center justify-between p-4 bg-teal-50 border border-indigo-100 rounded-lg">
+                    <div class="flex items-center gap-4">
+                      <div class="bg-white p-2 rounded-full shadow-sm text-teal-600">
+                        <i class="fas fa-shipping-fast"></i>
+                      </div>
+                      <div>
+                        <div class="font-bold text-teal-900">${p.courier || '-'}</div>
+                        <div class="text-sm text-teal-700 font-mono tracking-wide">${p.tracking_number || '-'}</div>
+                      </div>
+                    </div>
+                    <div class="text-right text-sm">
+                      <div class="font-medium text-slate-600">${p.box_type || '박스정보 없음'}</div>
+                      <div class="text-slate-500">수량: ${p.box_count || 1}</div>
+                    </div>
+                  </div>
+                `).join('') : '<div class="text-slate-500 text-sm p-4 bg-slate-50 rounded-lg text-center">등록된 운송장 정보가 없습니다.</div>'}
+              </div>
+            </div>
+          </div>
+          
+          <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end">
+            <button onclick="closeOutboundDetail()" class="px-6 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium transition-colors shadow-lg shadow-slate-200">
+              닫기
+            </button>
           </div>
         </div>
       </div>
     `;
+
     document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // 애니메이션
+    requestAnimationFrame(() => {
+      const modal = document.getElementById('outDetailModal');
+      const content = modal.querySelector('div');
+      if (modal && content) {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+        content.classList.add('scale-100');
+      }
+    });
+
   } catch (e) {
     console.error(e);
-    showToast('상세 정보 로드 실패', 'error');
+    alert('상세 정보를 불러오는데 실패했습니다.');
   }
 }
 
