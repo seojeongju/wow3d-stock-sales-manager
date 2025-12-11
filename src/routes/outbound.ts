@@ -328,7 +328,13 @@ app.delete('/:id', async (c) => {
         return c.json({ success: true })
     } catch (e: any) {
         console.error('Delete error:', e)
-        return c.json({ success: false, error: e.message }, 500)
+        return c.json({
+            success: false,
+            error: e.message,
+            details: String(e),
+            // 디버깅 차원에서 에러 객체 내부 속성도 반환
+            debug: JSON.stringify(e, Object.getOwnPropertyNames(e))
+        }, 500)
     }
 })
 

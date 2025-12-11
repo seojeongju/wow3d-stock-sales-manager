@@ -6,8 +6,8 @@ const outboundPerPage = 10;
 if (!window.outboundCart) window.outboundCart = [];
 
 async function renderOutboundPage() {
-    const content = document.getElementById('content');
-    content.innerHTML = `
+  const content = document.getElementById('content');
+  content.innerHTML = `
     <div class="flex flex-col h-full">
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-slate-800">
@@ -32,43 +32,43 @@ async function renderOutboundPage() {
     </div>
   `;
 
-    // 기본 탭 로드
-    switchOutboundTab('reg');
+  // 기본 탭 로드
+  switchOutboundTab('reg');
 }
 
 async function switchOutboundTab(tabName) {
-    const tabs = ['reg', 'hist'];
-    tabs.forEach(t => {
-        const btn = document.getElementById(`tab-out-${t}`);
-        if (t === tabName) {
-            btn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-            btn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
-        } else {
-            btn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
-            btn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
-        }
-    });
-
-    const container = document.getElementById('outboundTabContent');
-    if (tabName === 'reg') {
-        await renderOutboundRegistrationTab(container);
+  const tabs = ['reg', 'hist'];
+  tabs.forEach(t => {
+    const btn = document.getElementById(`tab-out-${t}`);
+    if (t === tabName) {
+      btn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
+      btn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
     } else {
-        await renderOutboundHistoryTab(container);
+      btn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+      btn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
     }
+  });
+
+  const container = document.getElementById('outboundTabContent');
+  if (tabName === 'reg') {
+    await renderOutboundRegistrationTab(container);
+  } else {
+    await renderOutboundHistoryTab(container);
+  }
 }
 
 async function renderOutboundRegistrationTab(container) {
-    // 상품 목록 로드
-    if (!window.products) {
-        try {
-            const res = await axios.get(`${API_BASE}/products`);
-            window.products = res.data.data;
-        } catch (e) {
-            console.error('상품 로드 실패', e);
-        }
+  // 상품 목록 로드
+  if (!window.products) {
+    try {
+      const res = await axios.get(`${API_BASE}/products`);
+      window.products = res.data.data;
+    } catch (e) {
+      console.error('상품 로드 실패', e);
     }
+  }
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="flex flex-1 gap-6 overflow-hidden h-full pb-4">
       <!-- 좌측: 상품 선택 -->
       <div class="w-1/2 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
@@ -152,20 +152,20 @@ async function renderOutboundRegistrationTab(container) {
     </div>
   `;
 
-    renderOutboundProducts();
-    renderOutboundCart();
+  renderOutboundProducts();
+  renderOutboundCart();
 }
 
 function renderOutboundProducts(filterText = '') {
-    const container = document.getElementById('outboundProductList');
-    if (!container || !window.products) return;
+  const container = document.getElementById('outboundProductList');
+  if (!container || !window.products) return;
 
-    const filtered = window.products.filter(p =>
-        p.name.toLowerCase().includes(filterText.toLowerCase()) ||
-        p.sku.toLowerCase().includes(filterText.toLowerCase())
-    );
+  const filtered = window.products.filter(p =>
+    p.name.toLowerCase().includes(filterText.toLowerCase()) ||
+    p.sku.toLowerCase().includes(filterText.toLowerCase())
+  );
 
-    container.innerHTML = filtered.map(p => `
+  container.innerHTML = filtered.map(p => `
     <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" onclick="addToOutboundCart(${p.id})">
       <div>
         <div class="font-medium text-slate-800">${p.name}</div>
@@ -182,42 +182,42 @@ function renderOutboundProducts(filterText = '') {
 }
 
 function filterOutboundProducts() {
-    const text = document.getElementById('outboundSearch').value;
-    renderOutboundProducts(text);
+  const text = document.getElementById('outboundSearch').value;
+  renderOutboundProducts(text);
 }
 
 function addToOutboundCart(productId) {
-    const product = window.products.find(p => p.id === productId);
-    if (!product) return;
-    if (product.current_stock <= 0) {
-        showToast('재고가 없는 상품입니다.', 'error');
-        return;
+  const product = window.products.find(p => p.id === productId);
+  if (!product) return;
+  if (product.current_stock <= 0) {
+    showToast('재고가 없는 상품입니다.', 'error');
+    return;
+  }
+  const existing = window.outboundCart.find(item => item.product.id === productId);
+  if (existing) {
+    if (existing.quantity >= product.current_stock) {
+      showToast('재고 수량을 초과할 수 없습니다.', 'error');
+      return;
     }
-    const existing = window.outboundCart.find(item => item.product.id === productId);
-    if (existing) {
-        if (existing.quantity >= product.current_stock) {
-            showToast('재고 수량을 초과할 수 없습니다.', 'error');
-            return;
-        }
-        existing.quantity++;
-    } else {
-        window.outboundCart.push({ product, quantity: 1 });
-    }
-    renderOutboundCart();
+    existing.quantity++;
+  } else {
+    window.outboundCart.push({ product, quantity: 1 });
+  }
+  renderOutboundCart();
 }
 
 function renderOutboundCart() {
-    const container = document.getElementById('outboundCartItems');
-    const totalEl = document.getElementById('outboundTotalQty');
-    if (window.outboundCart.length === 0) {
-        container.innerHTML = '<p class="text-center text-slate-400 py-8">상품을 선택해주세요.</p>';
-        totalEl.textContent = '0개';
-        return;
-    }
-    let totalQty = 0;
-    container.innerHTML = window.outboundCart.map(item => {
-        totalQty += item.quantity;
-        return `
+  const container = document.getElementById('outboundCartItems');
+  const totalEl = document.getElementById('outboundTotalQty');
+  if (window.outboundCart.length === 0) {
+    container.innerHTML = '<p class="text-center text-slate-400 py-8">상품을 선택해주세요.</p>';
+    totalEl.textContent = '0개';
+    return;
+  }
+  let totalQty = 0;
+  container.innerHTML = window.outboundCart.map(item => {
+    totalQty += item.quantity;
+    return `
       <div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
         <div class="flex-1 min-w-0">
           <div class="font-medium text-slate-800 text-sm">${item.product.name}</div>
@@ -232,69 +232,69 @@ function renderOutboundCart() {
         </div>
       </div>
     `;
-    }).join('');
-    totalEl.textContent = totalQty + '개';
+  }).join('');
+  totalEl.textContent = totalQty + '개';
 }
 
 function updateOutboundQty(productId, delta) {
-    const item = window.outboundCart.find(i => i.product.id === productId);
-    if (!item) return;
-    const newQty = item.quantity + delta;
-    if (newQty <= 0) {
-        removeOutboundItem(productId);
-        return;
-    }
-    if (newQty > item.product.current_stock) {
-        showToast('재고 부족', 'error');
-        return;
-    }
-    item.quantity = newQty;
-    renderOutboundCart();
+  const item = window.outboundCart.find(i => i.product.id === productId);
+  if (!item) return;
+  const newQty = item.quantity + delta;
+  if (newQty <= 0) {
+    removeOutboundItem(productId);
+    return;
+  }
+  if (newQty > item.product.current_stock) {
+    showToast('재고 부족', 'error');
+    return;
+  }
+  item.quantity = newQty;
+  renderOutboundCart();
 }
 
 function removeOutboundItem(productId) {
-    window.outboundCart = window.outboundCart.filter(i => i.product.id !== productId);
-    renderOutboundCart();
+  window.outboundCart = window.outboundCart.filter(i => i.product.id !== productId);
+  renderOutboundCart();
 }
 
 async function submitDirectOutbound() {
-    if (window.outboundCart.length === 0) {
-        showToast('출고할 상품을 선택해주세요.', 'error');
-        return;
-    }
-    const destName = document.getElementById('outDestName').value;
-    const destAddress = document.getElementById('outDestAddress').value;
+  if (window.outboundCart.length === 0) {
+    showToast('출고할 상품을 선택해주세요.', 'error');
+    return;
+  }
+  const destName = document.getElementById('outDestName').value;
+  const destAddress = document.getElementById('outDestAddress').value;
 
-    if (!destName || !destAddress) {
-        showToast('수령인과 주소를 입력해주세요.', 'error');
-        return;
-    }
+  if (!destName || !destAddress) {
+    showToast('수령인과 주소를 입력해주세요.', 'error');
+    return;
+  }
 
-    const payload = {
-        items: window.outboundCart.map(i => ({ productId: i.product.id, quantity: i.quantity })),
-        recipient: destName,
-        phone: document.getElementById('outDestPhone').value,
-        address: destAddress,
-        courier: document.getElementById('outCourier').value,
-        trackingNumber: document.getElementById('outTracking').value,
-        memo: document.getElementById('outNotes').value,
-        purchasePath: ''
-    };
+  const payload = {
+    items: window.outboundCart.map(i => ({ productId: i.product.id, quantity: i.quantity })),
+    recipient: destName,
+    phone: document.getElementById('outDestPhone').value,
+    address: destAddress,
+    courier: document.getElementById('outCourier').value,
+    trackingNumber: document.getElementById('outTracking').value,
+    memo: document.getElementById('outNotes').value,
+    purchasePath: ''
+  };
 
-    try {
-        await axios.post(`${API_BASE}/outbound/direct`, payload);
-        showToast('출고가 완료되었습니다.');
-        window.outboundCart = [];
-        renderOutboundRegistrationTab(document.getElementById('outboundTabContent'));
-    } catch (e) {
-        console.error(e);
-        showToast('출고 등록 실패: ' + (e.response?.data?.error || e.message), 'error');
-    }
+  try {
+    await axios.post(`${API_BASE}/outbound/direct`, payload);
+    showToast('출고가 완료되었습니다.');
+    window.outboundCart = [];
+    renderOutboundRegistrationTab(document.getElementById('outboundTabContent'));
+  } catch (e) {
+    console.error(e);
+    showToast('출고 등록 실패: ' + (e.response?.data?.error || e.message), 'error');
+  }
 }
 
 // History Tab
 async function renderOutboundHistoryTab(container) {
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="flex flex-col h-full">
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6">
         <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
@@ -319,29 +319,29 @@ async function renderOutboundHistoryTab(container) {
       <div id="outboundPaginationContainer" class="shrink-0 pb-6 mt-4"></div>
     </div>
   `;
-    await filterOutboundHistory();
+  await filterOutboundHistory();
 }
 
 async function filterOutboundHistory() {
-    const container = document.getElementById('outboundHistoryList');
-    container.innerHTML = `<div class="flex items-center justify-center p-10"><i class="fas fa-spinner fa-spin mr-2"></i>로딩 중...</div>`;
+  const container = document.getElementById('outboundHistoryList');
+  container.innerHTML = `<div class="flex items-center justify-center p-10"><i class="fas fa-spinner fa-spin mr-2"></i>로딩 중...</div>`;
 
-    const search = document.getElementById('outHistorySearch')?.value || '';
-    const status = document.getElementById('outHistoryStatus')?.value || '';
+  const search = document.getElementById('outHistorySearch')?.value || '';
+  const status = document.getElementById('outHistoryStatus')?.value || '';
 
-    try {
-        const params = {
-            limit: outboundPerPage,
-            offset: (outboundCurrentPage - 1) * outboundPerPage,
-            search,
-            status
-        };
+  try {
+    const params = {
+      limit: outboundPerPage,
+      offset: (outboundCurrentPage - 1) * outboundPerPage,
+      search,
+      status
+    };
 
-        const res = await axios.get(`${API_BASE}/outbound`, { params });
-        const list = res.data.data;
-        const pagination = res.data.pagination || { total: list.length };
+    const res = await axios.get(`${API_BASE}/outbound`, { params });
+    const list = res.data.data;
+    const pagination = res.data.pagination || { total: list.length };
 
-        container.innerHTML = `
+    container.innerHTML = `
       <table class="min-w-full text-sm text-left">
         <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0 z-10">
           <tr>
@@ -374,39 +374,39 @@ async function filterOutboundHistory() {
         </tbody>
       </table>
     `;
-        renderOutboundPagination(pagination);
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = `<div class="p-8 text-center text-red-500">조회 실패</div>`;
-    }
+    renderOutboundPagination(pagination);
+  } catch (e) {
+    console.error(e);
+    container.innerHTML = `<div class="p-8 text-center text-red-500">조회 실패</div>`;
+  }
 }
 
 function renderOutboundPagination(pagination) {
-    const container = document.getElementById('outboundPaginationContainer');
-    if (!container) return;
-    const totalPages = Math.ceil((pagination.total || 0) / outboundPerPage);
-    if (totalPages <= 0) { container.innerHTML = ''; return; }
+  const container = document.getElementById('outboundPaginationContainer');
+  if (!container) return;
+  const totalPages = Math.ceil((pagination.total || 0) / outboundPerPage);
+  if (totalPages <= 0) { container.innerHTML = ''; return; }
 
-    let buttons = '';
-    // Simple pagination logic
-    for (let i = 1; i <= totalPages; i++) {
-        buttons += `<button onclick="changeOutboundPage(${i})" class="px-3 py-1 border rounded ${i === outboundCurrentPage ? 'bg-teal-600 text-white' : 'bg-white'}">${i}</button>`;
-    }
-    container.innerHTML = `<div class="flex justify-center gap-2">${buttons}</div>`;
+  let buttons = '';
+  // Simple pagination logic
+  for (let i = 1; i <= totalPages; i++) {
+    buttons += `<button onclick="changeOutboundPage(${i})" class="px-3 py-1 border rounded ${i === outboundCurrentPage ? 'bg-teal-600 text-white' : 'bg-white'}">${i}</button>`;
+  }
+  container.innerHTML = `<div class="flex justify-center gap-2">${buttons}</div>`;
 }
 
 function changeOutboundPage(page) {
-    outboundCurrentPage = page;
-    filterOutboundHistory();
+  outboundCurrentPage = page;
+  filterOutboundHistory();
 }
 
 async function showOutboundDetail(id) {
-    try {
-        const res = await axios.get(`${API_BASE}/outbound/${id}`);
-        const data = res.data.data;
-        const items = data.items || [];
+  try {
+    const res = await axios.get(`${API_BASE}/outbound/${id}`);
+    const data = res.data.data;
+    const items = data.items || [];
 
-        const modalHtml = `
+    const modalHtml = `
       <div id="outDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[60]">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl m-4 max-h-[90vh] flex flex-col">
           <div class="p-6 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
@@ -442,41 +442,45 @@ async function showOutboundDetail(id) {
         </div>
       </div>
     `;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    } catch (e) {
-        console.error(e);
-        showToast('상세 정보 로드 실패', 'error');
-    }
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  } catch (e) {
+    console.error(e);
+    showToast('상세 정보 로드 실패', 'error');
+  }
 }
 
 function closeOutboundDetail() {
-    const modal = document.getElementById('outDetailModal');
-    if (modal) modal.remove();
+  const modal = document.getElementById('outDetailModal');
+  if (modal) modal.remove();
 }
 
 async function deleteOutbound(id) {
-    if (!confirm('정말 삭제하시겠습니까? 재고가 복구됩니다.')) return;
-    try {
-        await axios.delete(`${API_BASE}/outbound/${id}`);
-        showToast('삭제되었습니다.');
-        closeOutboundDetail();
-        filterOutboundHistory();
-    } catch (e) {
-        console.error(e);
-        showToast('삭제 실패', 'error');
-    }
+  if (!confirm('정말 삭제하시겠습니까? 재고가 복구됩니다.')) return;
+  try {
+    await axios.delete(`${API_BASE}/outbound/${id}`);
+    showToast('삭제되었습니다.');
+    closeOutboundDetail();
+    filterOutboundHistory();
+  } catch (e) {
+    console.error(e);
+    const errMsg = e.response?.data?.error || e.message;
+    const details = e.response?.data?.details || '';
+    const debug = e.response?.data?.debug || '';
+
+    alert(`삭제 실패:\n${errMsg}\n\n[상세 정보]\n${details}\n${debug}`);
+  }
 }
 
 async function openEditOutboundModal(id) {
-    closeOutboundDetail();
+  closeOutboundDetail();
 
-    try {
-        const res = await axios.get(`${API_BASE}/outbound/${id}`);
-        const data = res.data.data;
-        const { packages } = data;
-        const pkg = packages && packages.length > 0 ? packages[0] : {};
+  try {
+    const res = await axios.get(`${API_BASE}/outbound/${id}`);
+    const data = res.data.data;
+    const { packages } = data;
+    const pkg = packages && packages.length > 0 ? packages[0] : {};
 
-        const modalHtml = `
+    const modalHtml = `
       <div id="outEditModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[70] transition-opacity duration-300 opacity-0">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col transform scale-95 transition-transform duration-300">
           <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
@@ -530,51 +534,51 @@ async function openEditOutboundModal(id) {
       </div>
     `;
 
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        requestAnimationFrame(() => {
-            const modal = document.getElementById('outEditModal');
-            if (modal) {
-                modal.classList.remove('opacity-0');
-                modal.querySelector('div').classList.remove('scale-95');
-            }
-        });
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    requestAnimationFrame(() => {
+      const modal = document.getElementById('outEditModal');
+      if (modal) {
+        modal.classList.remove('opacity-0');
+        modal.querySelector('div').classList.remove('scale-95');
+      }
+    });
 
-    } catch (e) {
-        console.error(e);
-        showToast('정보 로드 실패', 'error');
-    }
+  } catch (e) {
+    console.error(e);
+    showToast('정보 로드 실패', 'error');
+  }
 }
 
 function closeEditOutboundModal() {
-    const modal = document.getElementById('outEditModal');
-    if (modal) {
-        modal.classList.add('opacity-0');
-        modal.querySelector('div').classList.add('scale-95');
-        setTimeout(() => modal.remove(), 300);
-    }
+  const modal = document.getElementById('outEditModal');
+  if (modal) {
+    modal.classList.add('opacity-0');
+    modal.querySelector('div').classList.add('scale-95');
+    setTimeout(() => modal.remove(), 300);
+  }
 }
 
 async function updateOutbound(id) {
-    const payload = {
-        destination_name: document.getElementById('editDestName').value,
-        destination_phone: document.getElementById('editDestPhone').value,
-        destination_address: document.getElementById('editDestAddr').value,
-        courier: document.getElementById('editCourier').value,
-        tracking_number: document.getElementById('editTrackingNum').value,
-        notes: document.getElementById('editNotes').value
-    };
+  const payload = {
+    destination_name: document.getElementById('editDestName').value,
+    destination_phone: document.getElementById('editDestPhone').value,
+    destination_address: document.getElementById('editDestAddr').value,
+    courier: document.getElementById('editCourier').value,
+    tracking_number: document.getElementById('editTrackingNum').value,
+    notes: document.getElementById('editNotes').value
+  };
 
-    try {
-        const res = await axios.put(`${API_BASE}/outbound/${id}`, payload);
-        if (res.data.success) {
-            showToast('수정되었습니다.');
-            closeEditOutboundModal();
-            filterOutboundHistory();
-        }
-    } catch (e) {
-        console.error(e);
-        showToast('수정 실패: ' + (e.response?.data?.error || e.message), 'error');
+  try {
+    const res = await axios.put(`${API_BASE}/outbound/${id}`, payload);
+    if (res.data.success) {
+      showToast('수정되었습니다.');
+      closeEditOutboundModal();
+      filterOutboundHistory();
     }
+  } catch (e) {
+    console.error(e);
+    showToast('수정 실패: ' + (e.response?.data?.error || e.message), 'error');
+  }
 }
 
 window.updateOutbound = updateOutbound;
