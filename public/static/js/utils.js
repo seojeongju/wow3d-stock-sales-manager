@@ -49,3 +49,25 @@ window.showToast = showToast;
 window.showSuccess = showSuccess;
 window.showError = showError;
 window.formatDateTimeKST = formatDateTimeKST;
+
+function formatPhoneNumber(phoneNumber) {
+    if (!phoneNumber) return '-';
+    const cleaned = ('' + phoneNumber).replace(/\D/g, '');
+
+    if (cleaned.length === 11) {
+        return cleaned.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+    } else if (cleaned.length === 10) {
+        if (cleaned.startsWith('02')) {
+            return cleaned.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3');
+        }
+        return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+    } else if (cleaned.length === 9) {
+        if (cleaned.startsWith('02')) {
+            return cleaned.replace(/(\d{2})(\d{3})(\d{4})/, '$1-$2-$3');
+        }
+    } else if (cleaned.length === 8) {
+        return cleaned.replace(/(\d{4})(\d{4})/, '$1-$2');
+    }
+    return phoneNumber;
+}
+window.formatPhoneNumber = formatPhoneNumber;

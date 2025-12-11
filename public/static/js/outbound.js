@@ -473,7 +473,7 @@ async function showOutboundDetail(id) {
               <div class="p-4 bg-slate-50 rounded-lg">
                 <h4 class="font-bold mb-2 text-sm text-slate-500">받는 분</h4>
                 <div>${data.destination_name}</div>
-                <div class="text-sm text-slate-500">${data.destination_phone || '-'}</div>
+                <div class="text-sm text-slate-500">${formatPhoneNumber(data.destination_phone)}</div>
                 <div class="text-sm text-slate-500">${data.destination_address}</div>
               </div>
               <div class="p-4 bg-slate-50 rounded-lg">
@@ -548,7 +548,7 @@ async function openEditOutboundModal(id) {
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">전화번호</label>
-              <input type="text" id="editDestPhone" value="${data.destination_phone || ''}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50">
+              <input type="text" id="editDestPhone" value="${formatPhoneNumber(data.destination_phone) || ''}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50">
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">주소</label>

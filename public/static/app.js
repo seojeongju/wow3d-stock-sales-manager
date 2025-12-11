@@ -1501,7 +1501,7 @@ async function filterCustomersList() {
                 <div class="text-sm text-slate-600">${c.company || '-'}</div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-slate-600">${c.phone}</div>
+                <div class="text-sm text-slate-600">${formatPhoneNumber(c.phone)}</div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-600">
@@ -2599,7 +2599,7 @@ async function editCustomer(id) {
     document.getElementById('customerModalTitle').textContent = '고객 수정';
 
     document.getElementById('custName').value = customer.name;
-    document.getElementById('custPhone').value = customer.phone;
+    document.getElementById('custPhone').value = formatPhoneNumber(customer.phone);
     document.getElementById('custEmail').value = customer.email || '';
 
     // 구매 경로 설정
