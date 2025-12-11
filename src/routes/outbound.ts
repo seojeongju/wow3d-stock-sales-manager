@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+﻿import { Hono } from 'hono'
 import type { Bindings, Variables, OutboundOrder, CreateOutboundRequest, PickingRequest, PackingRequest } from '../types'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
@@ -319,7 +319,7 @@ app.delete('/:id', async (c) => {
         // 2. 관련 데이터 삭제
         await DB.prepare('DELETE FROM outbound_items WHERE outbound_order_id = ?').bind(id).run()
         await DB.prepare('DELETE FROM outbound_packages WHERE outbound_order_id = ?').bind(id).run()
-        await DB.prepare('DELETE FROM outbound_status_history WHERE outbound_order_id = ?').bind(id).run()
+        // outbound_status_history 테이블 없음 (생략)
 
         // 3. 주문 삭제
         await DB.prepare('DELETE FROM outbound_orders WHERE id = ?').bind(id).run()
