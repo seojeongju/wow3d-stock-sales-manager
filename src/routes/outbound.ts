@@ -153,7 +153,6 @@ app.post('/direct', async (c) => {
     const orderNumber = `DO-${orderDate}-${randomSuffix}`;
 
     try {
-        // 트랜잭션 대신 순차 처리 (D1은 트랜잭션 지원이 제한적일 수 있음, batch 사용 가능하나 복잡)
         // 1. outbound_orders 생성 (SHIPPED 상태)
         const orderResult = await DB.prepare(`
       INSERT INTO outbound_orders (
@@ -167,7 +166,6 @@ app.post('/direct', async (c) => {
 
         const orderId = orderResult.meta.last_row_id;
 
-        // 2. outbound_items 등록 및 재고 차감
         // 중복 상품 ID 합치기
         const mergedItems = new Map<number, number>();
         for (const item of body.items) {
@@ -175,11 +173,15 @@ app.post('/direct', async (c) => {
             mergedItems.set(item.productId, currentQty + item.quantity);
         }
 
+        let totalSaleAmount = 0;
+        const salesItems: any[] = [];
+
+        // 2. outbound_items 등록 및 재고 차감, 판매 데이터 준비
         for (const [productId, quantity] of mergedItems.entries()) {
-            // 재고 확인
-            const product = await DB.prepare('SELECT current_stock FROM products WHERE id = ? AND tenant_id = ?')
+            // 재고 및 가격 확인
+            const product = await DB.prepare('SELECT current_stock, selling_price FROM products WHERE id = ? AND tenant_id = ?')
                 .bind(productId, tenantId)
-                .first<{ current_stock: number }>();
+                .first<{ current_stock: number, selling_price: number }>();
 
             if (!product) {
                 throw new Error(`Product ${productId} not found`);
@@ -198,6 +200,12 @@ app.post('/direct', async (c) => {
             // 재고 차감
             await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
                 .bind(quantity, productId).run();
+
+            // 판매 데이터 수집
+            const unitPrice = product.selling_price || 0;
+            const subtotal = unitPrice * quantity;
+            totalSaleAmount += subtotal;
+            salesItems.push({ productId, quantity, unitPrice, subtotal });
         }
 
         // 3. outbound_packages 등록 (운송장 번호가 있는 경우)
@@ -207,6 +215,62 @@ app.post('/direct', async (c) => {
           outbound_order_id, courier, tracking_number
         ) VALUES (?, ?, ?)
       `).bind(orderId, body.courier, body.trackingNumber).run();
+        }
+
+        // 4. 고객 및 판매 정보 연동
+        // 전화번호가 있는 경우에만 고객/판매 연동 처리
+        if (body.phone) {
+            let customerId: number;
+
+            // 고객 조회
+            const existingCust = await DB.prepare('SELECT id FROM customers WHERE phone = ? AND tenant_id = ?')
+                .bind(body.phone, tenantId).first<{ id: number }>();
+
+            if (existingCust) {
+                customerId = existingCust.id;
+                // 기존 고객: 구매액/횟수 업데이트
+                await DB.prepare(`
+                    UPDATE customers 
+                    SET total_purchase_amount = total_purchase_amount + ?,
+                        purchase_count = purchase_count + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                `).bind(totalSaleAmount, customerId).run();
+            } else {
+                // 신규 고객 생성
+                const newCust = await DB.prepare(`
+                    INSERT INTO customers (
+                        name, phone, address, purchase_path, 
+                        total_purchase_amount, purchase_count, tenant_id
+                    ) VALUES (?, ?, ?, ?, ?, 1, ?)
+                `).bind(
+                    body.recipient || '미입력',
+                    body.phone,
+                    body.address,
+                    body.purchasePath || '기타',
+                    totalSaleAmount,
+                    tenantId
+                ).run();
+                customerId = newCust.meta.last_row_id;
+            }
+
+            // Sales 테이블 기록 (통계용)
+            // 출고 등록이 이미 재고를 차감했으므로, 여기서 생성하는 Sales는 재고 차감을 하지 않아야 함 (Sales API가 아니므로 직접 INSERT)
+            const saleResult = await DB.prepare(`
+               INSERT INTO sales (
+                   tenant_id, customer_id, total_amount, discount_amount, final_amount, 
+                   payment_method, notes, created_by, status
+               ) VALUES (?, ?, ?, 0, ?, '간편출고', ?, ?, 'completed')
+           `).bind(tenantId, customerId, totalSaleAmount, totalSaleAmount, body.memo, userId).run();
+
+            const saleId = saleResult.meta.last_row_id;
+
+            for (const item of salesItems) {
+                await DB.prepare(`
+                   INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal)
+                   VALUES (?, ?, ?, ?, ?)
+               `).bind(saleId, item.productId, item.quantity, item.unitPrice, item.subtotal).run();
+            }
         }
 
         return c.json({ success: true, orderId });
