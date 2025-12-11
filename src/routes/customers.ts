@@ -9,25 +9,46 @@ app.get('/', async (c) => {
   const tenantId = c.get('tenantId')
   const search = c.req.query('search') || ''
   const purchase_path = c.req.query('purchase_path') || ''
+  const page = parseInt(c.req.query('page') || '1')
+  const limit = parseInt(c.req.query('limit') || '10')
+  const offset = (page - 1) * limit
 
-  let query = 'SELECT * FROM customers WHERE tenant_id = ?'
+  // 조건절 구성
+  let whereClause = 'WHERE tenant_id = ?'
   const params: any[] = [tenantId]
 
   if (search) {
-    query += ' AND (name LIKE ? OR phone LIKE ?)'
+    whereClause += ' AND (name LIKE ? OR phone LIKE ?)'
     params.push(`%${search}%`, `%${search}%`)
   }
 
   if (purchase_path) {
-    query += ' AND purchase_path = ?'
+    whereClause += ' AND purchase_path = ?'
     params.push(purchase_path)
   }
 
-  query += ' ORDER BY created_at DESC'
+  // 전체 개수 조회
+  const countResult = await DB.prepare(`SELECT COUNT(*) as total FROM customers ${whereClause}`)
+    .bind(...params)
+    .first<{ total: number }>()
+  const total = countResult?.total || 0
 
-  const { results } = await DB.prepare(query).bind(...params).all<Customer>()
+  // 데이터 조회
+  const query = `SELECT * FROM customers ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+  const { results } = await DB.prepare(query)
+    .bind(...params, limit, offset)
+    .all<Customer>()
 
-  return c.json({ success: true, data: results })
+  return c.json({
+    success: true,
+    data: results,
+    pagination: {
+      total,
+      page,
+      limit,
+      total_pages: Math.ceil(total / limit)
+    }
+  })
 })
 
 // 고객 상세 조회

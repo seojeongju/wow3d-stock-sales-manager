@@ -1401,111 +1401,63 @@ function renderCharts(salesData, categoryData, profitData) {
  * Product Management Logic has been moved to /public/static/js/products.js 
  */
 
-// 고객 관리 로드 (간단 버전)
+// Pagination State
+let custCurrentPage = 1;
+const custPerPage = 10;
+
+// 고객 관리 로드
 async function loadCustomers(content) {
-  try {
-    const response = await axios.get(`${API_BASE}/customers`);
-    const customers = response.data.data;
-
-    content.innerHTML = `
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-slate-800">
-          <i class="fas fa-users mr-2 text-teal-600"></i>고객 관리
-        </h1>
-        <div class="flex gap-2">
-          <button onclick="downloadCustomers()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
-            <i class="fas fa-file-excel mr-2"></i>엑셀 다운로드
-          </button>
-          <button onclick="showCustomerModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
-            <i class="fas fa-plus mr-2"></i>고객 등록
-          </button>
-        </div>
+  content.innerHTML = `
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold text-slate-800">
+        <i class="fas fa-users mr-2 text-teal-600"></i>고객 관리
+      </h1>
+      <div class="flex gap-2">
+        <button onclick="downloadCustomers()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
+          <i class="fas fa-file-excel mr-2"></i>엑셀 다운로드
+        </button>
+        <button onclick="showCustomerModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center">
+          <i class="fas fa-plus mr-2"></i>고객 등록
+        </button>
       </div>
-      
-      <!-- 검색 및 필터 -->
-      <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-slate-100">
-        <div class="flex flex-wrap gap-4 items-center">
-          <div class="relative flex-1 min-w-[200px]">
-            <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
-            <input type="text" id="custSearch" placeholder="이름 또는 연락처 검색..." 
-                   class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
-                   onkeyup="if(event.key === 'Enter') filterCustomersList()">
-          </div>
-          <select id="custPathFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white min-w-[120px]"
-                  onchange="filterCustomersList()">
-            <option value="">전체 경로</option>
-            <option value="자사몰">자사몰</option>
-            <option value="스마트스토어">스마트스토어</option>
-            <option value="쿠팡">쿠팡</option>
-            <option value="오프라인">오프라인</option>
-            <option value="지인소개">지인소개</option>
-            <option value="기타">기타</option>
-          </select>
-          <button onclick="filterCustomersList()" class="bg-teal-600 text-white px-5 py-2.5 rounded-lg hover:bg-teal-700 font-medium transition-colors">
-            <i class="fas fa-search mr-2"></i>검색
-          </button>
+    </div>
+    
+    <!-- 검색 및 필터 -->
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-slate-100">
+      <div class="flex flex-wrap gap-4 items-center">
+        <div class="relative flex-1 min-w-[200px]">
+          <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+          <input type="text" id="custSearch" placeholder="이름 또는 연락처 검색..." 
+                 class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                 onkeyup="if(event.key === 'Enter') { custCurrentPage=1; filterCustomersList(); }">
         </div>
+        <select id="custPathFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white min-w-[120px]"
+                onchange="custCurrentPage=1; filterCustomersList()">
+          <option value="">전체 경로</option>
+          <option value="자사몰">자사몰</option>
+          <option value="스마트스토어">스마트스토어</option>
+          <option value="쿠팡">쿠팡</option>
+          <option value="오프라인">오프라인</option>
+          <option value="지인소개">지인소개</option>
+          <option value="기타">기타</option>
+        </select>
+        <button onclick="custCurrentPage=1; filterCustomersList()" class="bg-teal-600 text-white px-5 py-2.5 rounded-lg hover:bg-teal-700 font-medium transition-colors">
+          <i class="fas fa-search mr-2"></i>검색
+        </button>
       </div>
+    </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-        <div class="overflow-x-auto" id="customerListContainer">
-          <table class="min-w-full divide-y divide-slate-200">
-            <thead class="bg-slate-50">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">이름</th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">연락처</th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">구매 경로</th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">등록일</th>
-                <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">총 구매액</th>
-                <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">구매 횟수</th>
-                <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">관리</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-slate-200">
-              ${customers.map(c => `
-                <tr class="hover:bg-slate-50 transition-colors">
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-slate-900">${c.name}</div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-slate-600">${c.phone}</div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-600">
-                      ${c.purchase_path || '-'}
-                    </span>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-slate-500">${formatDateTimeKST(c.created_at)}</div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-right">
-                    <div class="text-sm font-bold text-slate-700">${formatCurrency(c.total_purchase_amount)}</div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-center">
-                    <div class="text-sm text-slate-600">${c.purchase_count}회</div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                    <button onclick="editCustomer(${c.id})" class="text-teal-600 hover:text-teal-900 mr-3 transition-colors">
-                      <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="deleteCustomerAction(${c.id})" class="text-red-500 hover:text-red-700 transition-colors">
-                      <i class="fas fa-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="overflow-x-auto" id="customerListContainer">
+         <div class="p-12 text-center text-slate-500">데이터 로딩 중...</div>
       </div>
-    `;
-    // 모달 주입
-    injectCustomerModal();
+    </div>
+    <div id="custPaginationContainer" class="shrink-0 pb-6 mt-4"></div>
+  `;
 
-  } catch (error) {
-    console.error('고객 목록 로드 실패:', error);
-    showError(content, '고객 목록을 불러오는데 실패했습니다.');
-  }
+  injectCustomerModal();
+  custCurrentPage = 1;
+  filterCustomersList();
 }
 
 async function filterCustomersList() {
@@ -1514,10 +1466,16 @@ async function filterCustomersList() {
   const container = document.getElementById('customerListContainer');
 
   try {
-    const response = await axios.get(`${API_BASE}/customers`, {
-      params: { search, purchase_path }
-    });
+    const params = {
+      search,
+      purchase_path,
+      page: custCurrentPage,
+      limit: custPerPage
+    };
+
+    const response = await axios.get(`${API_BASE}/customers`, { params });
     const customers = response.data.data;
+    const pagination = response.data.pagination || { total: customers.length, page: 1, limit: custPerPage, total_pages: 1 };
 
     container.innerHTML = `
       <table class="min-w-full divide-y divide-slate-200">
@@ -1526,6 +1484,7 @@ async function filterCustomersList() {
             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">이름</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">연락처</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">구매 경로</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">등록일</th>
             <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">총 구매액</th>
             <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">구매 횟수</th>
             <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">관리</th>
@@ -1545,6 +1504,9 @@ async function filterCustomersList() {
                   ${c.purchase_path || '-'}
                 </span>
               </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-slate-500">${formatDateTimeKST(c.created_at)}</div>
+              </td>
               <td class="px-6 py-4 whitespace-nowrap text-right">
                 <div class="text-sm font-bold text-slate-700">${formatCurrency(c.total_purchase_amount)}</div>
               </td>
@@ -1561,15 +1523,51 @@ async function filterCustomersList() {
               </td>
             </tr>
           `).join('')}
-          ${customers.length === 0 ? '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">검색 결과가 없습니다.</td></tr>' : ''}
+          ${customers.length === 0 ? '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500">검색 결과가 없습니다.</td></tr>' : ''}
         </tbody>
       </table>
     `;
+
+    renderCustomerPagination(pagination);
   } catch (e) {
     console.error(e);
-    alert('검색 실패');
+    container.innerHTML = '<div class="p-8 text-center text-red-500">목록을 불러오지 못했습니다.</div>';
   }
 }
+
+function renderCustomerPagination(pagination) {
+  const container = document.getElementById('custPaginationContainer');
+  if (!container) return;
+
+  const totalPages = pagination.total_pages || 1;
+  if (totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+
+  let buttons = '';
+  // 이전 페이지 버튼
+  if (pagination.page > 1) {
+    buttons += `<button onclick="changeCustomerPage(${pagination.page - 1})" class="w-8 h-8 flex items-center justify-center rounded-lg border bg-white text-slate-600 border-slate-200 hover:bg-slate-50 transition-colors font-medium text-sm mr-1"><i class="fas fa-chevron-left"></i></button>`;
+  }
+
+  for (let i = 1; i <= totalPages; i++) {
+    buttons += `<button onclick="changeCustomerPage(${i})" class="w-8 h-8 flex items-center justify-center rounded-lg border ${i === pagination.page ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm">${i}</button>`;
+  }
+
+  // 다음 페이지 버튼
+  if (pagination.page < totalPages) {
+    buttons += `<button onclick="changeCustomerPage(${pagination.page + 1})" class="w-8 h-8 flex items-center justify-center rounded-lg border bg-white text-slate-600 border-slate-200 hover:bg-slate-50 transition-colors font-medium text-sm ml-1"><i class="fas fa-chevron-right"></i></button>`;
+  }
+
+  container.innerHTML = `<div class="flex justify-center flex-wrap gap-2">${buttons}</div>`;
+}
+
+function changeCustomerPage(page) {
+  custCurrentPage = page;
+  filterCustomersList();
+}
+window.changeCustomerPage = changeCustomerPage;
 
 // 재고 관리 로드
 async function loadStock(content) {
