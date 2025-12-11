@@ -1,36 +1,6 @@
-﻿// API Base URL
-const API_BASE = '/api';
+﻿// API Base URL moved to config.js
+// Auth logic moved to config.js
 
-// 인증 체크
-const token = localStorage.getItem('token');
-if (!token) {
-  window.location.href = '/login';
-}
-
-// Axios 인터셉터 설정
-axios.interceptors.request.use(config => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  // Super Admin Impersonation
-  const impersonatedTenantId = localStorage.getItem('impersonatedTenantId');
-  if (impersonatedTenantId) {
-    config.headers['X-Tenant-ID'] = impersonatedTenantId;
-  }
-  return config;
-});
-
-axios.interceptors.response.use(response => {
-  return response;
-}, error => {
-  if (error.response && error.response.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-  }
-  return Promise.reject(error);
-});
 
 // 로그아웃
 function logout() {
@@ -724,9 +694,7 @@ async function renderOutboundHistoryTab(container) {
   await filterOutboundHistory();
 }
 
-// 출고 이력 페이지네이션 상태
-let outboundCurrentPage = 1;
-const outboundPerPage = 10;
+// outbound variables moved to outbound.js
 
 function toggleOutboundFilters() {
   const filters = document.getElementById('outboundDetailFilters');
