@@ -319,6 +319,7 @@ app.delete('/:id', async (c) => {
         // 2. 관련 데이터 삭제
         await DB.prepare('DELETE FROM outbound_items WHERE outbound_order_id = ?').bind(id).run()
         await DB.prepare('DELETE FROM outbound_packages WHERE outbound_order_id = ?').bind(id).run()
+        await DB.prepare('DELETE FROM outbound_order_mappings WHERE outbound_order_id = ?').bind(id).run()
         // outbound_status_history 테이블 없음 (생략)
 
         // 3. 주문 삭제
