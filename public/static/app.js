@@ -1482,6 +1482,7 @@ async function filterCustomersList() {
         <thead class="bg-slate-50">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">이름</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">회사명</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">연락처</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">구매 경로</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">등록일</th>
@@ -1495,6 +1496,9 @@ async function filterCustomersList() {
             <tr class="hover:bg-slate-50 transition-colors">
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-slate-900">${c.name}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-slate-600">${c.company || '-'}</div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm text-slate-600">${c.phone}</div>
@@ -1523,7 +1527,7 @@ async function filterCustomersList() {
               </td>
             </tr>
           `).join('')}
-          ${customers.length === 0 ? '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500">검색 결과가 없습니다.</td></tr>' : ''}
+          ${customers.length === 0 ? '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500">검색 결과가 없습니다.</td></tr>' : ''}
         </tbody>
       </table>
     `;
