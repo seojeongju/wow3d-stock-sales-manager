@@ -177,14 +177,14 @@ app.post('/direct', async (c) => {
 
         for (const [productId, quantity] of mergedItems.entries()) {
             // 재고 확인
-            const product = await DB.prepare('SELECT stock_level FROM products WHERE id = ? AND tenant_id = ?')
+            const product = await DB.prepare('SELECT current_stock FROM products WHERE id = ? AND tenant_id = ?')
                 .bind(productId, tenantId)
-                .first<{ stock_level: number }>();
+                .first<{ current_stock: number }>();
 
             if (!product) {
                 throw new Error(`Product ${productId} not found`);
             }
-            if (product.stock_level < quantity) {
+            if (product.current_stock < quantity) {
                 throw new Error(`Insufficient stock for product ${productId}`);
             }
 
@@ -196,7 +196,7 @@ app.post('/direct', async (c) => {
          `).bind(orderId, productId, quantity).run();
 
             // 재고 차감
-            await DB.prepare('UPDATE products SET stock_level = stock_level - ? WHERE id = ?')
+            await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
                 .bind(quantity, productId).run();
         }
 
