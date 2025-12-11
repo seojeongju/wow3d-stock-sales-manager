@@ -1162,6 +1162,11 @@ async function switchSalesTab(tabName) {
   }
 }
 
+
+// POS Pagination State
+let posCurrentPage = 1;
+const posPerPage = 10;
+
 // POS 탭 렌더링
 async function renderPosTab(container) {
   try {
@@ -1177,9 +1182,12 @@ async function renderPosTab(container) {
 
     if (!window.cart) window.cart = [];
 
+    // Reset pagination
+    posCurrentPage = 1;
+
     container.innerHTML = `
       <div class="flex flex-1 gap-6 overflow-hidden h-full pb-4">
-        <!-- 왼쪽: 상품 목록 -->
+        <!-- 왼쪽: 상품 목록 (리스트 뷰) -->
         <div class="w-2/3 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
           <div class="p-4 border-b border-slate-200 bg-slate-50">
             <div class="flex gap-4">
@@ -1196,9 +1204,14 @@ async function renderPosTab(container) {
             </div>
           </div>
           
-          <div id="posProductList" class="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start bg-slate-50/50">
-            <!-- 상품 카드 -->
+          <div class="flex-1 overflow-auto bg-white relative">
+             <div id="posProductList" class="min-w-full">
+               <!-- 리스트 테이블 -->
+             </div>
           </div>
+          
+          <!-- 페이지네이션 -->
+          <div id="posPagination" class="p-3 border-t border-slate-100 bg-white flex justify-center"></div>
         </div>
 
         <!-- 오른쪽: 장바구니 -->
@@ -1271,6 +1284,102 @@ async function renderPosTab(container) {
     console.error('POS 로드 실패:', error);
     showError(container, 'POS 시스템을 불러오는데 실패했습니다.');
   }
+}
+
+function renderPosProducts() {
+  const container = document.getElementById('posProductList');
+  const pagContainer = document.getElementById('posPagination');
+  if (!container) return;
+
+  const searchText = document.getElementById('posSearch').value.toLowerCase();
+  const category = document.getElementById('posCategory').value;
+
+  // Filter
+  let filtered = window.products.filter(p =>
+    (p.name.toLowerCase().includes(searchText) || p.sku.toLowerCase().includes(searchText)) &&
+    (category === '' || p.category === category)
+  );
+
+  // Pagination
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / posPerPage);
+
+  if (posCurrentPage > totalPages && totalPages > 0) posCurrentPage = 1;
+  if (posCurrentPage < 1) posCurrentPage = 1;
+
+  const start = (posCurrentPage - 1) * posPerPage;
+  const end = start + posPerPage;
+  const pageItems = filtered.slice(start, end);
+
+  // List View
+  container.innerHTML = `
+    <table class="min-w-full text-sm text-left">
+      <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0 z-10">
+        <tr>
+          <th class="px-4 py-3 border-b border-slate-200 pl-6">상품정보</th>
+          <th class="px-4 py-3 border-b border-slate-200">카테고리</th>
+          <th class="px-4 py-3 border-b border-slate-200 text-right">가격</th>
+          <th class="px-4 py-3 border-b border-slate-200 text-center">재고</th>
+          <th class="px-4 py-3 border-b border-slate-200 text-center">담기</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        ${pageItems.map(p => `
+          <tr class="hover:bg-slate-50 transition-colors ${p.current_stock <= 0 ? 'opacity-60 bg-slate-50' : ''}">
+            <td class="px-4 py-3 pl-6">
+              <div class="font-bold text-slate-800">${p.name}</div>
+              <div class="text-xs text-slate-400 font-mono">${p.sku}</div>
+            </td>
+            <td class="px-4 py-3 text-slate-600">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</td>
+            <td class="px-4 py-3 text-right font-bold text-teal-600">${formatCurrency(p.selling_price)}</td>
+            <td class="px-4 py-3 text-center">
+              <span class="${p.current_stock <= 0 ? 'text-rose-600 font-bold' : 'text-slate-600'}">${p.current_stock}</span>
+            </td>
+            <td class="px-4 py-3 text-center">
+               <button onclick="addToCart(${p.id})" ${p.current_stock <= 0 ? 'disabled' : ''} 
+                      class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <i class="fas fa-plus"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('')}
+        ${pageItems.length === 0 ? '<tr><td colspan="5" class="px-4 py-12 text-center text-slate-400">검색 결과가 없습니다.</td></tr>' : ''}
+      </tbody>
+    </table>
+  `;
+
+  // Pagination Controls
+  if (totalPages > 1) {
+    let buttons = '';
+    // Previous
+    buttons += `<button onclick="changePosPage(${posCurrentPage - 1})" ${posCurrentPage === 1 ? 'disabled' : ''} class="w-8 h-8 flex items-center justify-center rounded-lg border ${posCurrentPage === 1 ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm mr-1"><i class="fas fa-chevron-left"></i></button>`;
+
+    let startPage = Math.max(1, posCurrentPage - 2);
+    let endPage = Math.min(totalPages, posCurrentPage + 2);
+
+    for (let i = startPage; i <= endPage; i++) {
+      buttons += `<button onclick="changePosPage(${i})" class="w-8 h-8 flex items-center justify-center rounded-lg border ${i === posCurrentPage ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm mx-0.5">${i}</button>`;
+    }
+
+    // Next
+    buttons += `<button onclick="changePosPage(${posCurrentPage + 1})" ${posCurrentPage === totalPages ? 'disabled' : ''} class="w-8 h-8 flex items-center justify-center rounded-lg border ${posCurrentPage === totalPages ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm ml-1"><i class="fas fa-chevron-right"></i></button>`;
+
+    pagContainer.innerHTML = `<div class="flex items-center justify-center">${buttons}</div>`;
+    pagContainer.classList.remove('hidden');
+  } else {
+    pagContainer.innerHTML = '';
+    pagContainer.classList.add('hidden');
+  }
+}
+
+function filterPosProducts() {
+  posCurrentPage = 1;
+  renderPosProducts();
+}
+
+function changePosPage(page) {
+  posCurrentPage = page;
+  renderPosProducts();
 }
 
 // 주문/배송 관리 탭 렌더링
