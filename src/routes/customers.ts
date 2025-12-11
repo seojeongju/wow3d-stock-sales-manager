@@ -23,7 +23,7 @@ app.get('/', async (c) => {
     params.push(purchase_path)
   }
 
-  query += ' ORDER BY total_purchase_amount DESC'
+  query += ' ORDER BY created_at DESC'
 
   const { results } = await DB.prepare(query).bind(...params).all<Customer>()
 

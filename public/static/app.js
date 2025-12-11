@@ -1455,6 +1455,7 @@ async function loadCustomers(content) {
                 <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">이름</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">연락처</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">구매 경로</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">등록일</th>
                 <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">총 구매액</th>
                 <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">구매 횟수</th>
                 <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">관리</th>
@@ -1473,6 +1474,9 @@ async function loadCustomers(content) {
                     <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-600">
                       ${c.purchase_path || '-'}
                     </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-slate-500">${formatDateTimeKST(c.created_at)}</div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-right">
                     <div class="text-sm font-bold text-slate-700">${formatCurrency(c.total_purchase_amount)}</div>
