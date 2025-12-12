@@ -74,13 +74,14 @@ async function renderOutboundRegistrationTab(container) {
     try {
       const res = await axios.get(`${API_BASE}/products`);
       window.products = res.data.data;
-      // Sort by stock descending (high to low)
-      if (Array.isArray(window.products)) {
-        window.products.sort((a, b) => b.current_stock - a.current_stock);
-      }
     } catch (e) {
       console.error('상품 로드 실패', e);
     }
+  }
+
+  // Ensure sorting is applied (Important: Do this outside the if block to ensure it's always sorted when rendering)
+  if (Array.isArray(window.products)) {
+    window.products.sort((a, b) => b.current_stock - a.current_stock);
   }
 
   // 창고 목록 로드
