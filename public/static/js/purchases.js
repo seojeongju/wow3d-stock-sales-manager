@@ -540,7 +540,13 @@ window.showEditPurchaseModal = async function (id) {
             </td>
           `;
       tbody.appendChild(tr);
+      tbody.appendChild(tr);
     });
+
+    // 만약 품목이 하나도 없다면 빈 줄 하나 추가 (사용자 편의)
+    if (po.items.length === 0) {
+      addPoItemRow();
+    }
 
     updatePoTotal();
 
