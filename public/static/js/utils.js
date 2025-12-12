@@ -1,3 +1,4 @@
+
 // 유틸리티: 토스트 메시지
 function showToast(message, type = 'success') {
     const el = document.createElement('div');
@@ -44,12 +45,6 @@ function formatDateTimeKST(utcDateString) {
     });
 }
 
-// 전역 할당
-window.showToast = showToast;
-window.showSuccess = showSuccess;
-window.showError = showError;
-window.formatDateTimeKST = formatDateTimeKST;
-
 function formatPhoneNumber(phoneNumber) {
     if (!phoneNumber) return '-';
     const cleaned = ('' + phoneNumber).replace(/\D/g, '');
@@ -70,4 +65,19 @@ function formatPhoneNumber(phoneNumber) {
     }
     return phoneNumber;
 }
+
+// 모달 닫기 공통 함수
+window.closeModal = function (modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('opacity-0');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// 전역 할당
+window.showToast = showToast;
+window.showSuccess = showSuccess;
+window.showError = showError;
+window.formatDateTimeKST = formatDateTimeKST;
 window.formatPhoneNumber = formatPhoneNumber;
