@@ -170,6 +170,32 @@ app.put('/:id', async (c) => {
     }
 })
 
+// 발주 삭제
+app.delete('/:id', async (c) => {
+    const { DB } = c.env
+    const tenantId = c.get('tenantId')
+    const id = c.req.param('id')
+
+    const po = await DB.prepare('SELECT status FROM purchase_orders WHERE id = ? AND tenant_id = ?').bind(id, tenantId).first()
+    if (!po) return c.json({ success: false, error: 'Purchase Order not found' }, 404)
+
+    // 입고가 시작된 경우 삭제 불가
+    if (po.status !== 'ORDERED') {
+        return c.json({ success: false, error: '발주완료(ORDERED) 상태인 경우에만 삭제할 수 있습니다.' }, 400)
+    }
+
+    try {
+        await DB.prepare('DELETE FROM purchase_orders WHERE id = ? AND tenant_id = ?')
+            .bind(id, tenantId)
+            .run()
+
+        return c.json({ success: true, message: '발주서가 삭제되었습니다.' })
+    } catch (e: any) {
+        console.error('Purchase delete failed:', e)
+        return c.json({ success: false, error: e.message || '발주 삭제 중 오류가 발생했습니다.' }, 500)
+    }
+})
+
 // 발주 상태 변경 (예: 취소)
 app.put('/:id/status', async (c) => {
     const { DB } = c.env

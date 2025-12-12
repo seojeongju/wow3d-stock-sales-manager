@@ -245,7 +245,7 @@ async function loadPurchasesList() {
                   <td class="px-6 py-4 text-xs text-slate-400">${new Date(o.created_at).toLocaleDateString()}</td>
                   <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
                     <button onclick="showPurchaseDetailModal(${o.id})" class="text-indigo-600 hover:text-indigo-800 text-xs border border-indigo-200 px-2 py-1 rounded hover:bg-indigo-50">상세/입고</button>
-                    ${o.status === 'ORDERED' ? `<button onclick="showEditPurchaseModal(${o.id})" class="text-slate-500 hover:text-slate-700 text-xs border border-slate-200 px-2 py-1 rounded hover:bg-slate-50 ml-1">수정</button>` : ''}
+                    ${o.status === 'ORDERED' ? `<button onclick="showEditPurchaseModal(${o.id})" class="text-slate-500 hover:text-slate-700 text-xs border border-slate-200 px-2 py-1 rounded hover:bg-slate-50 ml-1">수정</button><button onclick="deletePurchaseOrder(${o.id})" class="text-red-500 hover:text-red-700 text-xs border border-red-200 px-2 py-1 rounded hover:bg-red-50 ml-1">삭제</button>` : ''}
                   </td>
                 </tr>
               `).join('')}
@@ -555,6 +555,18 @@ window.showEditPurchaseModal = async function (id) {
     alert('발주 정보 로드 오류: ' + e.message);
     // closeModal('createPurchaseModal'); // Keep modal open for debugging
     window.editingPoId = null;
+  }
+}
+
+window.deletePurchaseOrder = async function (id) {
+  if (!confirm('정말로 이 발주서를 삭제하시겠습니까?\n\n삭제된 발주서는 복구할 수 없습니다.')) return;
+
+  try {
+    await axios.delete(`${API_BASE}/purchases/${id}`);
+    alert('발주서가 삭제되었습니다.');
+    loadPurchasesList();
+  } catch (err) {
+    alert(err.response?.data?.error || '발주서 삭제에 실패했습니다.');
   }
 }
 
