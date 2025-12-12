@@ -104,13 +104,25 @@ app.get('/:id', async (c) => {
     const tenantId = c.get('tenantId')
     const id = c.req.param('id')
 
-    const order = await DB.prepare(`
-    SELECT o.*, u.name as created_by_name, w.name as warehouse_name, w.location as warehouse_location
-    FROM outbound_orders o
-    LEFT JOIN users u ON o.created_by = u.id
-    LEFT JOIN warehouses w ON o.warehouse_id = w.id
-    WHERE o.id = ? AND o.tenant_id = ?
-  `).bind(id, tenantId).first<OutboundOrder>()
+    let order;
+    try {
+        order = await DB.prepare(`
+        SELECT o.*, u.name as created_by_name, w.name as warehouse_name, w.location as warehouse_location
+        FROM outbound_orders o
+        LEFT JOIN users u ON o.created_by = u.id
+        LEFT JOIN warehouses w ON o.warehouse_id = w.id
+        WHERE o.id = ? AND o.tenant_id = ?
+      `).bind(id, tenantId).first<OutboundOrder>()
+    } catch (e) {
+        // Fallback if warehouse_id column is missing
+        console.warn('Warehouse join failed, falling back to basic query', e);
+        order = await DB.prepare(`
+        SELECT o.*, u.name as created_by_name
+        FROM outbound_orders o
+        LEFT JOIN users u ON o.created_by = u.id
+        WHERE o.id = ? AND o.tenant_id = ?
+      `).bind(id, tenantId).first<OutboundOrder>()
+    }
 
     if (!order) {
         return c.json({ success: false, error: 'Order not found' }, 404)
