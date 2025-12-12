@@ -118,6 +118,58 @@ app.post('/', async (c) => {
     }
 })
 
+// 발주 수정
+app.put('/:id', async (c) => {
+    const { DB } = c.env
+    const tenantId = c.get('tenantId')
+    const id = c.req.param('id')
+    const body = await c.req.json() // { supplier_id, expected_at, notes, items }
+
+    const po = await DB.prepare('SELECT status FROM purchase_orders WHERE id = ? AND tenant_id = ?').bind(id, tenantId).first()
+    if (!po) return c.json({ success: false, error: 'Purchase Order not found' }, 404)
+
+    if (po.status !== 'ORDERED') {
+        return c.json({ success: false, error: '발주 완료(ORDERED) 상태인 경우에만 수정할 수 있습니다.' }, 400)
+    }
+
+    if (!body.supplier_id || !body.items || body.items.length === 0) {
+        return c.json({ success: false, error: '필수 정보가 누락되었습니다.' }, 400)
+    }
+
+    const totalAmount = body.items.reduce((sum: number, item: any) => sum + (item.quantity * item.unit_price), 0)
+
+    try {
+        const statements = []
+
+        // 1. PO 정보 업데이트
+        statements.push(DB.prepare(`
+        UPDATE purchase_orders 
+        SET supplier_id = ?, expected_at = ?, notes = ?, total_amount = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND tenant_id = ?
+      `).bind(body.supplier_id, body.expected_at || null, body.notes || null, totalAmount, id, tenantId))
+
+        // 2. 기존 상품 삭제
+        statements.push(DB.prepare('DELETE FROM purchase_items WHERE purchase_order_id = ?').bind(id))
+
+        // 3. 새 상품 추가
+        const stmt = DB.prepare(`
+        INSERT INTO purchase_items (purchase_order_id, product_id, quantity, unit_price, status)
+        VALUES (?, ?, ?, ?, 'PENDING')
+      `)
+
+        for (const item of body.items) {
+            statements.push(stmt.bind(id, item.product_id, item.quantity, item.unit_price))
+        }
+
+        await DB.batch(statements)
+
+        return c.json({ success: true, message: '발주 정보가 수정되었습니다.' })
+    } catch (e: any) {
+        console.error('Purchase update failed:', e)
+        return c.json({ success: false, error: e.message || '발주 수정 중 오류가 발생했습니다.' }, 500)
+    }
+})
+
 // 발주 상태 변경 (예: 취소)
 app.put('/:id/status', async (c) => {
     const { DB } = c.env

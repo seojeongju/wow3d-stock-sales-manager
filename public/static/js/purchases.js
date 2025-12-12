@@ -213,6 +213,7 @@ async function loadPurchasesList() {
                   <td class="px-6 py-4 text-xs text-slate-400">${new Date(o.created_at).toLocaleDateString()}</td>
                   <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
                     <button onclick="showPurchaseDetailModal(${o.id})" class="text-indigo-600 hover:text-indigo-800 text-xs border border-indigo-200 px-2 py-1 rounded hover:bg-indigo-50">상세/입고</button>
+                    ${o.status === 'ORDERED' ? `<button onclick="showEditPurchaseModal(${o.id})" class="text-slate-500 hover:text-slate-700 text-xs border border-slate-200 px-2 py-1 rounded hover:bg-slate-50 ml-1">수정</button>` : ''}
                   </td>
                 </tr>
               `).join('')}
@@ -248,6 +249,7 @@ function getStatusLabel(status) {
 
 // 발주서 작성 모달
 window.showCreatePurchaseModal = async function () {
+  window.editingPoId = null; // Reset editing state
   // 공급사 및 상품 목록 조회
   try {
     const [suppliersRes, productsRes] = await Promise.all([
@@ -264,8 +266,8 @@ window.showCreatePurchaseModal = async function () {
       <div id="createPurchaseModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center animate-fade-in">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col max-h-[90vh]">
           <div class="bg-indigo-600 px-6 py-4 flex justify-between items-center shrink-0">
-            <h3 class="text-lg font-bold text-white">발주서 작성</h3>
-            <button onclick="closeModal('createPurchaseModal')" class="text-white hover:text-indigo-200"><i class="fas fa-times"></i></button>
+            <h3 class="text-lg font-bold text-white" id="po-modal-title">발주서 작성</h3>
+            <button onclick="closeModal('createPurchaseModal'); window.editingPoId = null;" class="text-white hover:text-indigo-200"><i class="fas fa-times"></i></button>
           </div>
           
           <div class="p-6 overflow-y-auto flex-1">
@@ -320,8 +322,8 @@ window.showCreatePurchaseModal = async function () {
           </div>
 
           <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end shrink-0">
-            <button onclick="closeModal('createPurchaseModal')" class="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg mr-2">취소</button>
-            <button onclick="submitPurchaseOrder()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm">발주서 발행</button>
+            <button onclick="closeModal('createPurchaseModal'); window.editingPoId = null;" class="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg mr-2">취소</button>
+            <button onclick="submitPurchaseOrder()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm" id="po-submit-btn">발주서 발행</button>
           </div>
         </div>
       </div>
@@ -427,16 +429,89 @@ window.submitPurchaseOrder = async function () {
   if (items.length === 0) return alert('발주할 상품을 입력해주세요.');
 
   try {
-    await axios.post(`${API_BASE}/purchases`, {
-      supplier_id: supplierId,
-      expected_at: expectedAt,
-      notes: notes,
-      items: items
-    });
+    if (window.editingPoId) {
+      await axios.put(`${API_BASE}/purchases/${window.editingPoId}`, {
+        supplier_id: supplierId,
+        expected_at: expectedAt,
+        notes: notes,
+        items: items
+      });
+      alert('발주 정보가 수정되었습니다.');
+    } else {
+      await axios.post(`${API_BASE}/purchases`, {
+        supplier_id: supplierId,
+        expected_at: expectedAt,
+        notes: notes,
+        items: items
+      });
+    }
+
     closeModal('createPurchaseModal');
+    window.editingPoId = null; // Clear editing state after submission
     loadPurchasesList();
   } catch (err) {
     alert(err.response?.data?.error || '발주 실패');
+  }
+}
+
+window.showEditPurchaseModal = async function (id) {
+  try {
+    window.editingPoId = id;
+
+    // 1. Load Modal (Base)
+    await showCreatePurchaseModal();
+
+    // 2. Change Title & Button
+    document.getElementById('po-modal-title').textContent = '발주서 수정';
+    document.getElementById('po-submit-btn').textContent = '수정 완료';
+
+    // 3. Fetch PO Details
+    const res = await axios.get(`${API_BASE}/purchases/${id}`);
+    const po = res.data.data;
+
+    // 4. Fill Data
+    document.getElementById('po-supplier').value = po.supplier_id;
+    if (po.expected_at) document.getElementById('po-date').value = po.expected_at.split('T')[0];
+    document.getElementById('po-notes').value = po.notes || '';
+
+    // 5. Fill Items
+    const tbody = document.getElementById('po-items-list');
+    tbody.innerHTML = ''; // Clear empty row added by showCreatePurchaseModal
+
+    po.items.forEach(item => {
+      const rowId = Date.now() + Math.random();
+      const options = window.purchaseProducts.map(p => `<option value="${p.id}" data-price="${p.purchase_price}" ${p.id === item.product_id ? 'selected' : ''}>${p.name} (${p.sku})</option>`).join('');
+
+      const tr = document.createElement('tr');
+      tr.id = `po-row-${rowId}`;
+      tr.innerHTML = `
+            <td class="py-1">
+              <select class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" onchange="updatePoRow(${rowId}, true)">
+                <option value="">상품 선택</option>
+                ${options}
+              </select>
+            </td>
+            <td class="py-1">
+              <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" value="${item.quantity}" min="1" onchange="updatePoRow(${rowId})">
+            </td>
+            <td class="py-1">
+              <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" value="${item.unit_price}" onchange="updatePoRow(${rowId})">
+            </td>
+            <td class="py-1 font-medium text-slate-700 row-total">${formatCurrency(item.quantity * item.unit_price)}</td>
+            <td class="py-1 text-center">
+              <button onclick="removePoRow(${rowId})" class="text-slate-400 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </td>
+          `;
+      tbody.appendChild(tr);
+    });
+
+    updatePoTotal();
+
+  } catch (e) {
+    console.error(e);
+    alert('발주 정보를 불러오는데 실패했습니다.');
+    closeModal('createPurchaseModal');
+    window.editingPoId = null; // Clear editing state on error
   }
 }
 
