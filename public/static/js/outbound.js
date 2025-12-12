@@ -465,6 +465,11 @@ async function renderOutboundHistoryTab(container) {
               <option value="SHIPPED">출고 완료</option>
               <option value="CANCELLED">취소됨</option>
             </select>
+            <div class="flex items-center gap-2">
+              <input type="date" id="outHistoryStartDate" class="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+              <span class="text-slate-400">~</span>
+              <input type="date" id="outHistoryEndDate" class="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+            </div>
             <button onclick="filterOutboundHistory()" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 font-medium transition-colors">
               <i class="fas fa-search mr-2"></i>조회
             </button>
@@ -487,13 +492,17 @@ async function filterOutboundHistory() {
 
   const search = document.getElementById('outHistorySearch')?.value || '';
   const status = document.getElementById('outHistoryStatus')?.value || '';
+  const startDate = document.getElementById('outHistoryStartDate')?.value || '';
+  const endDate = document.getElementById('outHistoryEndDate')?.value || '';
 
   try {
     const params = {
       limit: outboundPerPage,
       offset: (outboundCurrentPage - 1) * outboundPerPage,
       search,
-      status
+      status,
+      start_date: startDate,
+      end_date: endDate
     };
 
     const res = await axios.get(`${API_BASE}/outbound`, { params });
@@ -1087,9 +1096,11 @@ window.downloadOutboundExcel = downloadOutboundExcel;
 async function downloadOutboundExcel() {
   const search = document.getElementById('outHistorySearch')?.value || '';
   const status = document.getElementById('outHistoryStatus')?.value || '';
+  const startDate = document.getElementById('outHistoryStartDate')?.value || '';
+  const endDate = document.getElementById('outHistoryEndDate')?.value || '';
 
   try {
-    const params = { search, status, limit: 1000 }; // Fetch up to 1000 for export
+    const params = { search, status, start_date: startDate, end_date: endDate, limit: 1000 }; // Fetch up to 1000 for export
     const res = await axios.get(`${API_BASE}/outbound`, { params });
     const list = res.data.data;
 
