@@ -57,7 +57,7 @@ app.get('/:id', async (c) => {
     const { results: items } = await DB.prepare(`
     SELECT pi.*, p.name as product_name, p.sku, p.image_url
     FROM purchase_items pi
-    JOIN products p ON pi.product_id = p.id
+    LEFT JOIN products p ON pi.product_id = p.id
     WHERE pi.purchase_order_id = ?
   `).bind(id).all()
 

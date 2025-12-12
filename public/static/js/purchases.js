@@ -596,15 +596,16 @@ window.showPurchaseDetailModal = async function (id) {
                      <th class="px-4 py-2 text-right bg-indigo-50 w-32">금회 입고</th>
                    </tr>
                  </thead>
-                 <tbody class="divide-y divide-slate-100" id="receive-list">
-                   ${po.items.map(item => {
-      const remaining = item.quantity - item.received_quantity;
-      const isDone = remaining <= 0;
-      return `
+                  <tbody class="divide-y divide-slate-100" id="receive-list">
+                    ${po.items.length === 0 ? `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">발주 품목이 없습니다.</td></tr>` :
+        po.items.map(item => {
+          const remaining = item.quantity - item.received_quantity;
+          const isDone = remaining <= 0;
+          return `
                        <tr class="${isDone ? 'bg-slate-50 text-slate-400' : ''}">
                          <td class="px-4 py-3">
-                           <div class="font-medium">${item.product_name}</div>
-                           <div class="text-xs text-slate-400">${item.sku}</div>
+                           <div class="font-medium">${item.product_name || '<span class="text-red-400">(삭제된 상품)</span>'}</div>
+                           <div class="text-xs text-slate-400">${item.sku || '-'}</div>
                          </td>
                          <td class="px-4 py-3 text-right">${item.quantity}</td>
                          <td class="px-4 py-3 text-right">${item.received_quantity}</td>
@@ -616,8 +617,8 @@ window.showPurchaseDetailModal = async function (id) {
                          </td>
                        </tr>
                      `;
-    }).join('')}
-                 </tbody>
+        }).join('')}
+                  </tbody>
                </table>
             </div>
 
