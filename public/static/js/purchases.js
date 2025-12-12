@@ -513,6 +513,8 @@ window.showEditPurchaseModal = async function (id) {
     const tbody = document.getElementById('po-items-list');
     tbody.innerHTML = ''; // Clear empty row added by showCreatePurchaseModal
 
+    if (!po.items) po.items = [];
+
     po.items.forEach(item => {
       const rowId = 'row-' + Math.random().toString(36).substr(2, 9);
       const options = window.purchaseProducts.map(p => `<option value="${p.id}" data-price="${p.purchase_price}" ${p.id === item.product_id ? 'selected' : ''}>${p.name} (${p.sku})</option>`).join('');
@@ -544,9 +546,9 @@ window.showEditPurchaseModal = async function (id) {
 
   } catch (e) {
     console.error(e);
-    alert('발주 정보를 불러오는데 실패했습니다.');
-    closeModal('createPurchaseModal');
-    window.editingPoId = null; // Clear editing state on error
+    alert('발주 정보 로드 오류: ' + e.message);
+    // closeModal('createPurchaseModal'); // Keep modal open for debugging
+    window.editingPoId = null;
   }
 }
 
