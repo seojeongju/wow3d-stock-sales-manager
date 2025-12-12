@@ -85,6 +85,7 @@ async function loadSuppliersList() {
                   <td class="px-6 py-4">${s.phone || '-'}</td>
                   <td class="px-6 py-4">${s.email || '-'}</td>
                   <td class="px-6 py-4 text-right">
+                    <button onclick="showSupplierModal(${s.id})" class="text-teal-600 hover:text-teal-800 mr-2"><i class="fas fa-edit"></i></button>
                     <button onclick="deleteSupplier(${s.id})" class="text-red-500 hover:text-red-700 ml-2"><i class="fas fa-trash"></i></button>
                   </td>
                 </tr>
@@ -99,46 +100,71 @@ async function loadSuppliersList() {
   }
 }
 
-window.showSupplierModal = function () {
+window.showSupplierModal = async function (id = null) {
+  window.editingSupplierId = id;
+  const isEdit = !!id;
+
   const modalHtml = `
     <div id="supplierModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center animate-fade-in">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
         <div class="bg-teal-600 px-6 py-4 flex justify-between items-center">
-          <h3 class="text-lg font-bold text-white">공급사 등록</h3>
-          <button onclick="closeModal('supplierModal')" class="text-white hover:text-teal-200"><i class="fas fa-times"></i></button>
+          <h3 class="text-lg font-bold text-white">${isEdit ? '공급사 수정' : '공급사 등록'}</h3>
+          <button onclick="closeModal('supplierModal'); window.editingSupplierId = null;" class="text-white hover:text-teal-200"><i class="fas fa-times"></i></button>
         </div>
         <form onsubmit="handleCreateSupplier(event)" class="p-6 space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">공급사명 <span class="text-red-500">*</span></label>
-            <input type="text" name="name" required class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
+            <input type="text" name="name" id="sup-name" required class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">담당자</label>
-              <input type="text" name="contact_person" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
+              <input type="text" name="contact_person" id="sup-contact" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">연락처</label>
-              <input type="text" name="phone" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
+              <input type="text" name="phone" id="sup-phone" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
             </div>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-            <input type="email" name="email" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
+            <input type="email" name="email" id="sup-email" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
+          </div>
+           <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">사업자번호</label>
+            <input type="text" name="business_number" id="sup-biznum" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">주소</label>
-            <input type="text" name="address" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
+            <input type="text" name="address" id="sup-address" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none">
           </div>
           <div class="flex justify-end pt-4">
-            <button type="button" onclick="closeModal('supplierModal')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg mr-2">취소</button>
-            <button type="submit" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">등록</button>
+            <button type="button" onclick="closeModal('supplierModal'); window.editingSupplierId = null;" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg mr-2">취소</button>
+            <button type="submit" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">${isEdit ? '수정' : '등록'}</button>
           </div>
         </form>
       </div>
     </div>
   `;
   document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  if (isEdit) {
+    try {
+      const res = await axios.get(`${API_BASE}/suppliers/${id}`);
+      const data = res.data.data;
+      document.getElementById('sup-name').value = data.name;
+      document.getElementById('sup-contact').value = data.contact_person || '';
+      document.getElementById('sup-phone').value = data.phone || '';
+      document.getElementById('sup-email').value = data.email || '';
+      document.getElementById('sup-biznum').value = data.business_number || '';
+      document.getElementById('sup-address').value = data.address || '';
+    } catch (e) {
+      console.error(e);
+      alert('공급사 정보를 불러오는데 실패했습니다.');
+      closeModal('supplierModal');
+      window.editingSupplierId = null; // Reset on error
+    }
+  }
 }
 
 window.handleCreateSupplier = async function (e) {
@@ -147,11 +173,17 @@ window.handleCreateSupplier = async function (e) {
   const data = Object.fromEntries(formData);
 
   try {
-    await axios.post(`${API_BASE}/suppliers`, data);
+    if (window.editingSupplierId) {
+      await axios.put(`${API_BASE}/suppliers/${window.editingSupplierId}`, data);
+      alert('공급사 정보가 수정되었습니다.');
+    } else {
+      await axios.post(`${API_BASE}/suppliers`, data);
+    }
     closeModal('supplierModal');
+    window.editingSupplierId = null; // Reset after successful operation
     loadSuppliersList();
   } catch (err) {
-    alert(err.response?.data?.error || '등록 실패');
+    alert(err.response?.data?.error || (window.editingSupplierId ? '수정 실패' : '등록 실패'));
   }
 }
 
