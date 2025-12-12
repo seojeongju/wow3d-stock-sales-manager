@@ -104,8 +104,8 @@ app.post('/', async (c) => {
 
         // 2. 발주 품목 생성 (Batch)
         const stmt = DB.prepare(`
-        INSERT INTO purchase_items (purchase_order_id, product_id, quantity, unit_price, status)
-        VALUES (?, ?, ?, ?, 'PENDING')
+        INSERT INTO purchase_items (purchase_order_id, product_id, quantity, unit_price)
+        VALUES (?, ?, ?, ?)
       `)
 
         const batch = body.items.map((item: any) => stmt.bind(poId, item.product_id, item.quantity, item.unit_price))
@@ -153,8 +153,8 @@ app.put('/:id', async (c) => {
 
         // 3. 새 상품 추가
         const stmt = DB.prepare(`
-        INSERT INTO purchase_items (purchase_order_id, product_id, quantity, unit_price, status)
-        VALUES (?, ?, ?, ?, 'PENDING')
+        INSERT INTO purchase_items (purchase_order_id, product_id, quantity, unit_price)
+        VALUES (?, ?, ?, ?)
       `)
 
         for (const item of body.items) {
