@@ -148,20 +148,34 @@ app.post('/direct', async (c) => {
         return c.json({ success: false, error: 'At least one item is required' }, 400);
     }
 
+    // 창고 ID 검증 (필수)
+    const warehouseId = body.warehouseId;
+    if (!warehouseId) {
+        return c.json({ success: false, error: '출고 창고를 선택해주세요.' }, 400);
+    }
+
+    // 창고 존재 확인
+    const warehouse = await DB.prepare('SELECT id, name FROM warehouses WHERE id = ? AND tenant_id = ?')
+        .bind(warehouseId, tenantId).first();
+    if (!warehouse) {
+        return c.json({ success: false, error: '선택한 창고가 존재하지 않습니다.' }, 400);
+    }
+
     const orderDate = new Date().toISOString().slice(2, 10).replace(/-/g, '');
     const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
     const orderNumber = `DO-${orderDate}-${randomSuffix}`;
 
     try {
         // 1. outbound_orders 생성 (SHIPPED 상태)
+        // warehouse_id 추가
         const orderResult = await DB.prepare(`
       INSERT INTO outbound_orders (
         tenant_id, order_number, destination_name, destination_address, destination_phone, 
-        status, created_by, notes, purchase_path
-      ) VALUES (?, ?, ?, ?, ?, 'SHIPPED', ?, ?, ?)
+        status, created_by, notes, purchase_path, warehouse_id
+      ) VALUES (?, ?, ?, ?, ?, 'SHIPPED', ?, ?, ?, ?)
     `).bind(
             tenantId, orderNumber, body.recipient, body.address, body.phone,
-            userId, body.memo, body.purchasePath
+            userId, body.memo, body.purchasePath, warehouseId
         ).run();
 
         const orderId = orderResult.meta.last_row_id;
@@ -178,28 +192,54 @@ app.post('/direct', async (c) => {
 
         // 2. outbound_items 등록 및 재고 차감, 판매 데이터 준비
         for (const [productId, quantity] of mergedItems.entries()) {
-            // 재고 및 가격 확인
-            const product = await DB.prepare('SELECT current_stock, selling_price FROM products WHERE id = ? AND tenant_id = ?')
+            // 재고 및 가격 확인 (Global Stock)
+            const product = await DB.prepare('SELECT current_stock, selling_price, name FROM products WHERE id = ? AND tenant_id = ?')
                 .bind(productId, tenantId)
-                .first<{ current_stock: number, selling_price: number }>();
+                .first<{ current_stock: number, selling_price: number, name: string }>();
 
             if (!product) {
                 throw new Error(`Product ${productId} not found`);
             }
+            // Global Check
             if (product.current_stock < quantity) {
-                throw new Error(`Insufficient stock for product ${productId}`);
+                throw new Error(`상품 '${product.name}'의 전체 재고가 부족합니다.`);
+            }
+
+            // Warehouse Stock Check
+            const whStock = await DB.prepare('SELECT quantity FROM product_warehouse_stocks WHERE product_id = ? AND warehouse_id = ?')
+                .bind(productId, warehouseId).first<{ quantity: number }>();
+            const currentWhStock = whStock?.quantity || 0;
+
+            if (currentWhStock < quantity) {
+                throw new Error(`상품 '${product.name}'의 선택된 창고(${warehouse.name}) 재고가 부족합니다. (현재: ${currentWhStock})`);
             }
 
             // 아이템 등록
             await DB.prepare(`
         INSERT INTO outbound_items (
-            outbound_order_id, product_id, quantity_ordered
-        ) VALUES (?, ?, ?)
-         `).bind(orderId, productId, quantity).run();
+            outbound_order_id, product_id, quantity_ordered, quantity_picked, quantity_packed, status
+        ) VALUES (?, ?, ?, ?, ?, 'SHIPPED')
+         `).bind(orderId, productId, quantity, quantity, quantity).run();
 
-            // 재고 차감
+            // 1) Global 재고 차감
             await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
                 .bind(quantity, productId).run();
+
+            // 2) Warehouse 재고 차감
+            await DB.prepare(`
+                UPDATE product_warehouse_stocks 
+                SET quantity = quantity - ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE product_id = ? AND warehouse_id = ?
+            `).bind(quantity, productId, warehouseId).run();
+
+            // 3) 이동 내역 기록
+            await DB.prepare(`
+              INSERT INTO stock_movements (tenant_id, product_id, warehouse_id, movement_type, quantity, reason, notes, created_by)
+              VALUES (?, ?, ?, '출고', ?, ?, ?, ?)
+            `).bind(
+                tenantId, productId, warehouseId, -quantity,
+                '간편출고', `Order: ${orderNumber}`, userId
+            ).run();
 
             // 판매 데이터 수집
             const unitPrice = product.selling_price || 0;
@@ -345,21 +385,20 @@ app.put('/:id', async (c) => {
 app.delete('/:id', async (c) => {
     const { DB } = c.env
     const tenantId = c.get('tenantId')
+    const userId = c.get('userId')
     const id = c.req.param('id')
 
     // 존재 여부 확인
-    const order = await DB.prepare('SELECT id, status FROM outbound_orders WHERE id = ? AND tenant_id = ?')
-        .bind(id, tenantId).first<{ id: number, status: string }>()
+    const order = await DB.prepare('SELECT id, status, order_number, warehouse_id FROM outbound_orders WHERE id = ? AND tenant_id = ?')
+        .bind(id, tenantId).first<{ id: number, status: string, order_number: string, warehouse_id: number }>()
 
     if (!order) {
         return c.json({ success: false, error: 'Order not found' }, 404)
     }
 
     try {
-        // 1. 재고 복구 (SHIPPED, PACKING, PICKING 등 재고가 차감된 상태라면 복구)
-        // 안심 출고의 경우 등록(Direct) 시 바로 차감되므로 무조건 복구해야 함.
-        // 만약 PENDING 상태에서 차감되지 않았다면 복구하지 말아야 함.
-        // 현재 로직상 PENDING은 할당을 안하므로 차감이 안됨. Direct는 바로 SHIPPED.
+        // 1. 재고 복구 (SHIPPED 상태라면 복구)
+        // 안심 출고의 경우 등록(Direct) 시 바로 SHIPPED.
 
         // 아이템 조회
         const { results: items } = await DB.prepare(`
@@ -369,13 +408,31 @@ app.delete('/:id', async (c) => {
         `).bind(id).all<{ product_id: number, quantity_ordered: number }>()
 
         if (items && items.length > 0) {
-            // SHIPPED나 완료된 주문은 fulfilled 기준으로, 그 외엔 상황에 따라 다름.
-            // Direct 출고는 quantity_fulfilled = quantity_ordered임.
             for (const item of items) {
-                const qtyToRestore = item.quantity_ordered
+                const qtyToRestore = item.quantity_ordered // Direct 출고는 ordered = fulfilled 가정
+
                 if (qtyToRestore > 0) {
+                    // 1) Global 재고 복구
                     await DB.prepare('UPDATE products SET current_stock = current_stock + ? WHERE id = ?')
                         .bind(qtyToRestore, item.product_id).run()
+
+                    // 2) Warehouse 재고 복구 (warehouse_id가 있는 경우)
+                    if (order.warehouse_id) {
+                        await DB.prepare(`
+                            UPDATE product_warehouse_stocks 
+                            SET quantity = quantity + ?, updated_at = CURRENT_TIMESTAMP 
+                            WHERE product_id = ? AND warehouse_id = ?
+                        `).bind(qtyToRestore, item.product_id, order.warehouse_id).run();
+
+                        // 3) 이동 내역 기록 (취소/복구)
+                        await DB.prepare(`
+                          INSERT INTO stock_movements (tenant_id, product_id, warehouse_id, movement_type, quantity, reason, notes, created_by)
+                          VALUES (?, ?, ?, '입고', ?, ?, ?, ?)
+                        `).bind(
+                            tenantId, item.product_id, order.warehouse_id, qtyToRestore,
+                            '출고취소', `Order Cancelled: ${order.order_number}`, userId
+                        ).run();
+                    }
                 }
             }
         }
@@ -384,7 +441,6 @@ app.delete('/:id', async (c) => {
         await DB.prepare('DELETE FROM outbound_items WHERE outbound_order_id = ?').bind(id).run()
         await DB.prepare('DELETE FROM outbound_packages WHERE outbound_order_id = ?').bind(id).run()
         await DB.prepare('DELETE FROM outbound_order_mappings WHERE outbound_order_id = ?').bind(id).run()
-        // outbound_status_history 테이블 없음 (생략)
 
         // 3. 주문 삭제
         await DB.prepare('DELETE FROM outbound_orders WHERE id = ?').bind(id).run()
@@ -396,7 +452,6 @@ app.delete('/:id', async (c) => {
             success: false,
             error: e.message,
             details: String(e),
-            // 디버깅 차원에서 에러 객체 내부 속성도 반환
             debug: JSON.stringify(e, Object.getOwnPropertyNames(e))
         }, 500)
     }

@@ -83,6 +83,16 @@ async function renderOutboundRegistrationTab(container) {
     }
   }
 
+  // 창고 목록 로드
+  if (!window.warehouses) {
+    try {
+      const res = await axios.get(`${API_BASE}/warehouses`);
+      window.warehouses = res.data.data;
+    } catch (e) {
+      console.error('창고 로드 실패', e);
+    }
+  }
+
   container.innerHTML = `
     <div class="flex flex-1 gap-6 overflow-hidden h-full pb-4">
       <!-- 좌측: 상품 선택 -->
@@ -129,8 +139,15 @@ async function renderOutboundRegistrationTab(container) {
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-          <h3 class="font-bold text-slate-800 mb-4">3. 배송 정보</h3>
+          <h3 class="font-bold text-slate-800 mb-4">3. 배송 및 출고 정보</h3>
           <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-500 mb-1">출고 창고 <span class="text-red-500">*</span></label>
+              <select id="outWarehouse" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-teal-500">
+                 <option value="">창고 선택...</option>
+                 ${(window.warehouses || []).map(w => `<option value="${w.id}" ${w.name.includes('기본') ? 'selected' : ''}>${w.name}</option>`).join('')}
+              </select>
+            </div>
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1">수령인</label>
@@ -395,6 +412,13 @@ async function submitDirectOutbound() {
     return;
   }
 
+  const warehouseId = document.getElementById('outWarehouse')?.value;
+  if (!warehouseId) {
+    showToast('출고할 창고를 선택해주세요.', 'error');
+    document.getElementById('outWarehouse')?.focus();
+    return;
+  }
+
   const payload = {
     items: window.outboundCart.map(i => ({ productId: i.product.id, quantity: i.quantity })),
     recipient: destName,
@@ -403,7 +427,8 @@ async function submitDirectOutbound() {
     courier: document.getElementById('outCourier').value,
     trackingNumber: document.getElementById('outTracking').value,
     memo: document.getElementById('outNotes').value,
-    purchasePath: ''
+    purchasePath: '',
+    warehouseId: warehouseId
   };
 
   try {
