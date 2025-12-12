@@ -1,8 +1,8 @@
 
 // 입고/발주 관리 페이지 로드
 window.loadPurchasesPage = function () {
-    const content = document.getElementById('content');
-    content.innerHTML = `
+  const content = document.getElementById('content');
+  content.innerHTML = `
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold text-slate-800">
         <i class="fas fa-truck-moving mr-2 text-teal-600"></i>입고/발주 관리
@@ -24,41 +24,41 @@ window.loadPurchasesPage = function () {
     <div id="purchase-modals"></div>
   `;
 
-    // 초기 탭 로드
-    switchPurchaseTab('purchases');
+  // 초기 탭 로드
+  switchPurchaseTab('purchases');
 }
 
 window.switchPurchaseTab = function (tabName) {
-    const purchasesBtn = document.getElementById('tab-purchases');
-    const suppliersBtn = document.getElementById('tab-suppliers');
+  const purchasesBtn = document.getElementById('tab-purchases');
+  const suppliersBtn = document.getElementById('tab-suppliers');
 
-    if (tabName === 'purchases') {
-        purchasesBtn.classList.add('border-teal-600', 'text-teal-600');
-        purchasesBtn.classList.remove('border-transparent', 'text-slate-500');
-        suppliersBtn.classList.remove('border-teal-600', 'text-teal-600');
-        suppliersBtn.classList.add('border-transparent', 'text-slate-500');
-        loadPurchasesList();
-    } else {
-        suppliersBtn.classList.add('border-teal-600', 'text-teal-600');
-        suppliersBtn.classList.remove('border-transparent', 'text-slate-500');
-        purchasesBtn.classList.remove('border-teal-600', 'text-teal-600');
-        purchasesBtn.classList.add('border-transparent', 'text-slate-500');
-        loadSuppliersList();
-    }
+  if (tabName === 'purchases') {
+    purchasesBtn.classList.add('border-teal-600', 'text-teal-600');
+    purchasesBtn.classList.remove('border-transparent', 'text-slate-500');
+    suppliersBtn.classList.remove('border-teal-600', 'text-teal-600');
+    suppliersBtn.classList.add('border-transparent', 'text-slate-500');
+    loadPurchasesList();
+  } else {
+    suppliersBtn.classList.add('border-teal-600', 'text-teal-600');
+    suppliersBtn.classList.remove('border-transparent', 'text-slate-500');
+    purchasesBtn.classList.remove('border-teal-600', 'text-teal-600');
+    purchasesBtn.classList.add('border-transparent', 'text-slate-500');
+    loadSuppliersList();
+  }
 }
 
 // ----------------------------------------------------
 // 공급사 관리 (Suppliers)
 // ----------------------------------------------------
 async function loadSuppliersList() {
-    const container = document.getElementById('purchase-tab-content');
-    container.innerHTML = '<div class="text-center py-10"><i class="fas fa-spinner fa-spin text-3xl text-teal-500"></i></div>';
+  const container = document.getElementById('purchase-tab-content');
+  container.innerHTML = '<div class="text-center py-10"><i class="fas fa-spinner fa-spin text-3xl text-teal-500"></i></div>';
 
-    try {
-        const res = await axios.get(`${API_BASE}/suppliers`);
-        const suppliers = res.data.data;
+  try {
+    const res = await axios.get(`${API_BASE}/suppliers`);
+    const suppliers = res.data.data;
 
-        container.innerHTML = `
+    container.innerHTML = `
       <div class="flex justify-end mb-4">
         <button onclick="showSupplierModal()" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition">
           <i class="fas fa-plus mr-2"></i>공급사 등록
@@ -78,7 +78,7 @@ async function loadSuppliersList() {
           </thead>
           <tbody class="divide-y divide-slate-200">
             ${suppliers.length === 0 ? `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-400">등록된 공급사가 없습니다.</td></tr>` :
-                suppliers.map(s => `
+        suppliers.map(s => `
                 <tr class="hover:bg-slate-50 transition">
                   <td class="px-6 py-4 font-medium text-slate-900">${s.name}</td>
                   <td class="px-6 py-4">${s.contact_person || '-'}</td>
@@ -93,14 +93,14 @@ async function loadSuppliersList() {
         </table>
       </div>
     `;
-    } catch (error) {
-        container.innerHTML = '<div class="text-red-500 text-center py-10">데이터를 불러오는데 실패했습니다.</div>';
-        console.error(error);
-    }
+  } catch (error) {
+    container.innerHTML = '<div class="text-red-500 text-center py-10">데이터를 불러오는데 실패했습니다.</div>';
+    console.error(error);
+  }
 }
 
 window.showSupplierModal = function () {
-    const modalHtml = `
+  const modalHtml = `
     <div id="supplierModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center animate-fade-in">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
         <div class="bg-teal-600 px-6 py-4 flex justify-between items-center">
@@ -138,45 +138,45 @@ window.showSupplierModal = function () {
       </div>
     </div>
   `;
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
 window.handleCreateSupplier = async function (e) {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData);
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData);
 
-    try {
-        await axios.post(`${API_BASE}/suppliers`, data);
-        closeModal('supplierModal');
-        loadSuppliersList();
-    } catch (err) {
-        alert(err.response?.data?.error || '등록 실패');
-    }
+  try {
+    await axios.post(`${API_BASE}/suppliers`, data);
+    closeModal('supplierModal');
+    loadSuppliersList();
+  } catch (err) {
+    alert(err.response?.data?.error || '등록 실패');
+  }
 }
 
 window.deleteSupplier = async function (id) {
-    if (!confirm('정말 삭제하시겠습니까?')) return;
-    try {
-        await axios.delete(`${API_BASE}/suppliers/${id}`);
-        loadSuppliersList();
-    } catch (err) {
-        alert(err.response?.data?.error || '삭제 실패');
-    }
+  if (!confirm('정말 삭제하시겠습니까?')) return;
+  try {
+    await axios.delete(`${API_BASE}/suppliers/${id}`);
+    loadSuppliersList();
+  } catch (err) {
+    alert(err.response?.data?.error || '삭제 실패');
+  }
 }
 
 // ----------------------------------------------------
 // 발주 관리 (Purchase Orders)
 // ----------------------------------------------------
 async function loadPurchasesList() {
-    const container = document.getElementById('purchase-tab-content');
-    container.innerHTML = '<div class="text-center py-10"><i class="fas fa-spinner fa-spin text-3xl text-teal-500"></i></div>';
+  const container = document.getElementById('purchase-tab-content');
+  container.innerHTML = '<div class="text-center py-10"><i class="fas fa-spinner fa-spin text-3xl text-teal-500"></i></div>';
 
-    try {
-        const res = await axios.get(`${API_BASE}/purchases`);
-        const orders = res.data.data;
+  try {
+    const res = await axios.get(`${API_BASE}/purchases`);
+    const orders = res.data.data;
 
-        container.innerHTML = `
+    container.innerHTML = `
       <div class="flex justify-between mb-4">
         <div class="flex gap-2">
            <!-- 필터 영역 (추구 구현) -->
@@ -201,7 +201,7 @@ async function loadPurchasesList() {
           </thead>
           <tbody class="divide-y divide-slate-200">
             ${orders.length === 0 ? `<tr><td colspan="7" class="px-6 py-8 text-center text-slate-400">발주 내역이 없습니다.</td></tr>` :
-                orders.map(o => `
+        orders.map(o => `
                 <tr class="hover:bg-slate-50 transition cursor-pointer" onclick="showPurchaseDetailModal(${o.id})">
                   <td class="px-6 py-4 font-mono font-medium text-slate-900">${o.code}</td>
                   <td class="px-6 py-4">${o.supplier_name}</td>
@@ -220,47 +220,47 @@ async function loadPurchasesList() {
         </table>
       </div>
     `;
-    } catch (error) {
-        container.innerHTML = '<div class="text-red-500 text-center py-10">데이터를 불러오는데 실패했습니다.</div>';
-        console.error(error);
-    }
+  } catch (error) {
+    container.innerHTML = '<div class="text-red-500 text-center py-10">데이터를 불러오는데 실패했습니다.</div>';
+    console.error(error);
+  }
 }
 
 function getStatusClass(status) {
-    switch (status) {
-        case 'ORDERED': return 'bg-yellow-100 text-yellow-800';
-        case 'PARTIAL_RECEIVED': return 'bg-blue-100 text-blue-800';
-        case 'COMPLETED': return 'bg-green-100 text-green-800';
-        case 'CANCELLED': return 'bg-gray-100 text-gray-800';
-        default: return 'bg-slate-100 text-slate-800';
-    }
+  switch (status) {
+    case 'ORDERED': return 'bg-yellow-100 text-yellow-800';
+    case 'PARTIAL_RECEIVED': return 'bg-blue-100 text-blue-800';
+    case 'COMPLETED': return 'bg-green-100 text-green-800';
+    case 'CANCELLED': return 'bg-gray-100 text-gray-800';
+    default: return 'bg-slate-100 text-slate-800';
+  }
 }
 
 function getStatusLabel(status) {
-    switch (status) {
-        case 'ORDERED': return '발주완료';
-        case 'PARTIAL_RECEIVED': return '부분입고';
-        case 'COMPLETED': return '입고완료';
-        case 'CANCELLED': return '취소됨';
-        default: return status;
-    }
+  switch (status) {
+    case 'ORDERED': return '발주완료';
+    case 'PARTIAL_RECEIVED': return '부분입고';
+    case 'COMPLETED': return '입고완료';
+    case 'CANCELLED': return '취소됨';
+    default: return status;
+  }
 }
 
 // 발주서 작성 모달
 window.showCreatePurchaseModal = async function () {
-    // 공급사 및 상품 목록 조회
-    try {
-        const [suppliersRes, productsRes] = await Promise.all([
-            axios.get(`${API_BASE}/suppliers`),
-            axios.get(`${API_BASE}/products?limit=1000`) // 모든 상품
-        ]);
-        const suppliers = suppliersRes.data.data;
-        const products = productsRes.data.data;
+  // 공급사 및 상품 목록 조회
+  try {
+    const [suppliersRes, productsRes] = await Promise.all([
+      axios.get(`${API_BASE}/suppliers`),
+      axios.get(`${API_BASE}/products?limit=1000`) // 모든 상품
+    ]);
+    const suppliers = suppliersRes.data.data;
+    const products = productsRes.data.data;
 
-        // 글로벌 변수에 저장 (상품 검색용)
-        window.purchaseProducts = products;
+    // 글로벌 변수에 저장 (상품 검색용)
+    window.purchaseProducts = products;
 
-        const modalHtml = `
+    const modalHtml = `
       <div id="createPurchaseModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center animate-fade-in">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col max-h-[90vh]">
           <div class="bg-indigo-600 px-6 py-4 flex justify-between items-center shrink-0">
@@ -326,24 +326,24 @@ window.showCreatePurchaseModal = async function () {
         </div>
       </div>
     `;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        addPoItemRow(); // Add first row
-    } catch (e) {
-        console.error(e);
-        alert('데이터 로드 실패');
-    }
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    addPoItemRow(); // Add first row
+  } catch (e) {
+    console.error(e);
+    alert('데이터 로드 실패');
+  }
 }
 
 window.addPoItemRow = function () {
-    const tbody = document.getElementById('po-items-list');
-    const rowId = Date.now();
-    const options = window.purchaseProducts.map(p => `<option value="${p.id}" data-price="${p.purchase_price}">${p.name} (${p.sku})</option>`).join('');
+  const tbody = document.getElementById('po-items-list');
+  const rowId = Date.now();
+  const options = window.purchaseProducts.map(p => `<option value="${p.id}" data-price="${p.purchase_price}">${p.name} (${p.sku})</option>`).join('');
 
-    const tr = document.createElement('tr');
-    tr.id = `po-row-${rowId}`;
-    tr.innerHTML = `
+  const tr = document.createElement('tr');
+  tr.id = `po-row-${rowId}`;
+  tr.innerHTML = `
     <td class="py-1">
-      <select class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" onchange="updatePoRow(${rowId})">
+      <select class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" onchange="updatePoRow(${rowId}, true)">
         <option value="">상품 선택</option>
         ${options}
       </select>
@@ -352,100 +352,103 @@ window.addPoItemRow = function () {
       <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" value="1" min="1" onchange="updatePoRow(${rowId})">
     </td>
     <td class="py-1">
-      <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500 bg-slate-50" readonly>
+      <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" onchange="updatePoRow(${rowId})">
     </td>
     <td class="py-1 font-medium text-slate-700 row-total">0원</td>
     <td class="py-1 text-center">
       <button onclick="removePoRow(${rowId})" class="text-slate-400 hover:text-red-500"><i class="fas fa-times"></i></button>
     </td>
   `;
-    tbody.appendChild(tr);
+  tbody.appendChild(tr);
 }
 
-window.updatePoRow = function (rowId) {
-    const row = document.getElementById(`po-row-${rowId}`);
-    const select = row.querySelector('select');
-    const qtyInput = row.querySelectorAll('input')[0];
-    const priceInput = row.querySelectorAll('input')[1];
-    const totalDisplay = row.querySelector('.row-total');
+window.updatePoRow = function (rowId, isProductChange = false) {
+  const row = document.getElementById(`po-row-${rowId}`);
+  const select = row.querySelector('select');
+  const qtyInput = row.querySelectorAll('input')[0];
+  const priceInput = row.querySelectorAll('input')[1];
+  const totalDisplay = row.querySelector('.row-total');
 
-    const selectedOption = select.options[select.selectedIndex];
-    if (!selectedOption.value) return;
+  const selectedOption = select.options[select.selectedIndex];
 
-    const price = parseInt(selectedOption.dataset.price || 0);
-    const qty = parseInt(qtyInput.value || 0);
+  // 상품 변경 시에만 기본 단가 세팅
+  if (isProductChange && selectedOption.dataset.price) {
+    priceInput.value = selectedOption.dataset.price;
+  }
 
-    priceInput.value = price; // Set default purchase price
-    const total = price * qty;
-    totalDisplay.textContent = formatCurrency(total);
+  const price = parseInt(priceInput.value || 0);
+  const qty = parseInt(qtyInput.value || 0);
 
-    updatePoTotal();
+  const total = price * qty;
+  totalDisplay.textContent = formatCurrency(total);
+
+  updatePoTotal();
 }
 
 window.removePoRow = function (rowId) {
-    document.getElementById(`po-row-${rowId}`).remove();
-    updatePoTotal();
+  document.getElementById(`po-row-${rowId}`).remove();
+  updatePoTotal();
 }
 
 window.updatePoTotal = function () {
-    const rows = document.querySelectorAll('#po-items-list tr');
-    let total = 0;
-    rows.forEach(row => {
-        const qty = parseInt(row.querySelectorAll('input')[0].value || 0);
-        const price = parseInt(row.querySelectorAll('input')[1].value || 0);
-        total += qty * price;
-    });
-    document.getElementById('po-total-amount').textContent = formatCurrency(total);
+  const rows = document.querySelectorAll('#po-items-list tr');
+  let total = 0;
+  rows.forEach(row => {
+    const qty = parseInt(row.querySelectorAll('input')[0].value || 0);
+    const price = parseInt(row.querySelectorAll('input')[1].value || 0);
+    total += qty * price;
+  });
+  document.getElementById('po-total-amount').textContent = formatCurrency(total);
 }
 
 window.submitPurchaseOrder = async function () {
-    const supplierId = document.getElementById('po-supplier').value;
-    const expectedAt = document.getElementById('po-date').value;
-    const notes = document.getElementById('po-notes').value;
+  const supplierId = document.getElementById('po-supplier').value;
+  const expectedAt = document.getElementById('po-date').value;
+  const notes = document.getElementById('po-notes').value;
 
-    if (!supplierId) return alert('공급사를 선택해주세요.');
+  if (!supplierId) return alert('공급사를 선택해주세요.');
 
-    const items = [];
-    const rows = document.querySelectorAll('#po-items-list tr');
-    for (let row of rows) {
-        const select = row.querySelector('select');
-        const qty = parseInt(row.querySelectorAll('input')[0].value || 0);
-        const price = parseInt(row.querySelectorAll('input')[1].value || 0);
+  const items = [];
+  const rows = document.querySelectorAll('#po-items-list tr');
+  for (let row of rows) {
+    const select = row.querySelector('select');
+    const qty = parseInt(row.querySelectorAll('input')[0].value || 0);
+    const price = parseInt(row.querySelectorAll('input')[1].value || 0);
 
-        if (select.value && qty > 0) {
-            items.push({
-                product_id: parseInt(select.value),
-                quantity: qty,
-                unit_price: price
-            });
-        }
+    if (select.value && qty > 0) {
+      items.push({
+        product_id: parseInt(select.value),
+        quantity: qty,
+        unit_price: price
+      });
     }
+  }
 
-    if (items.length === 0) return alert('발주할 상품을 입력해주세요.');
+  if (items.length === 0) return alert('발주할 상품을 입력해주세요.');
 
-    try {
-        await axios.post(`${API_BASE}/purchases`, {
-            supplier_id: supplierId,
-            expected_at: expectedAt,
-            notes: notes,
-            items: items
-        });
-        closeModal('createPurchaseModal');
-        loadPurchasesList();
-    } catch (err) {
-        alert(err.response?.data?.error || '발주 실패');
-    }
+  try {
+    await axios.post(`${API_BASE}/purchases`, {
+      supplier_id: supplierId,
+      expected_at: expectedAt,
+      notes: notes,
+      items: items
+    });
+    closeModal('createPurchaseModal');
+    loadPurchasesList();
+  } catch (err) {
+    alert(err.response?.data?.error || '발주 실패');
+  }
 }
 
 // ----------------------------------------------------
 // 발주 상세 및 입고 처리
 // ----------------------------------------------------
 window.showPurchaseDetailModal = async function (id) {
-    try {
-        const res = await axios.get(`${API_BASE}/purchases/${id}`);
-        const po = res.data.data;
+  try {
+    const res = await axios.get(`${API_BASE}/purchases/${id}`);
+    const po = res.data.data;
 
-        const modalHtml = `
+    const modalHtml = `
       <div id="poDetailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center animate-fade-in">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col max-h-[90vh]">
           <div class="bg-slate-800 px-6 py-4 flex justify-between items-center shrink-0">
@@ -485,9 +488,9 @@ window.showPurchaseDetailModal = async function (id) {
                  </thead>
                  <tbody class="divide-y divide-slate-100" id="receive-list">
                    ${po.items.map(item => {
-            const remaining = item.quantity - item.received_quantity;
-            const isDone = remaining <= 0;
-            return `
+      const remaining = item.quantity - item.received_quantity;
+      const isDone = remaining <= 0;
+      return `
                        <tr class="${isDone ? 'bg-slate-50 text-slate-400' : ''}">
                          <td class="px-4 py-3">
                            <div class="font-medium">${item.product_name}</div>
@@ -503,7 +506,7 @@ window.showPurchaseDetailModal = async function (id) {
                          </td>
                        </tr>
                      `;
-        }).join('')}
+    }).join('')}
                  </tbody>
                </table>
             </div>
@@ -525,41 +528,41 @@ window.showPurchaseDetailModal = async function (id) {
         </div>
       </div>
     `;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    } catch (e) {
-        console.error(e);
-        alert('상세 정보 로드 실패');
-    }
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  } catch (e) {
+    console.error(e);
+    alert('상세 정보 로드 실패');
+  }
 }
 
 window.submitReceive = async function (poId) {
-    const inputs = document.querySelectorAll('.receive-input');
-    const itemsToReceive = [];
+  const inputs = document.querySelectorAll('.receive-input');
+  const itemsToReceive = [];
 
-    inputs.forEach(input => {
-        const qty = parseInt(input.value || 0);
-        if (qty > 0) {
-            itemsToReceive.push({
-                id: parseInt(input.dataset.id),
-                quantity: qty
-            });
-        }
-    });
-
-    if (itemsToReceive.length === 0) {
-        return alert('입고할 수량을 입력해주세요.');
+  inputs.forEach(input => {
+    const qty = parseInt(input.value || 0);
+    if (qty > 0) {
+      itemsToReceive.push({
+        id: parseInt(input.dataset.id),
+        quantity: qty
+      });
     }
+  });
 
-    if (!confirm(`${itemsToReceive.length}개 품목에 대해 입고 처리를 진행하시겠습니까?\n처리가 완료되면 재고가 즉시 반영됩니다.`)) return;
+  if (itemsToReceive.length === 0) {
+    return alert('입고할 수량을 입력해주세요.');
+  }
 
-    try {
-        const res = await axios.post(`${API_BASE}/purchases/${poId}/receive`, { items: itemsToReceive });
-        alert(res.data.message);
-        closeModal('poDetailModal');
-        loadPurchasesList(); // Refresh list
-        // Optionally reopen detail to show updated state
-        showPurchaseDetailModal(poId);
-    } catch (err) {
-        alert(err.response?.data?.error || '입고 처리 실패');
-    }
+  if (!confirm(`${itemsToReceive.length}개 품목에 대해 입고 처리를 진행하시겠습니까?\n처리가 완료되면 재고가 즉시 반영됩니다.`)) return;
+
+  try {
+    const res = await axios.post(`${API_BASE}/purchases/${poId}/receive`, { items: itemsToReceive });
+    alert(res.data.message);
+    closeModal('poDetailModal');
+    loadPurchasesList(); // Refresh list
+    // Optionally reopen detail to show updated state
+    showPurchaseDetailModal(poId);
+  } catch (err) {
+    alert(err.response?.data?.error || '입고 처리 실패');
+  }
 }
