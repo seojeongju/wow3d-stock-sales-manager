@@ -247,6 +247,11 @@ async function loadPage(page) {
       updatePageTitle('판매 관리', '판매 등록 및 내역 조회');
       await loadSales(content);
       break;
+    case 'purchases':
+      updatePageTitle('입고/발주 관리', '발주서 작성 및 입고 처리');
+      if (window.loadPurchasesPage) await window.loadPurchasesPage();
+      else content.innerHTML = '<div class="text-center py-10">모듈 로딩 중...</div>';
+      break;
     case 'customers':
       updatePageTitle('고객 관리', '고객 정보 및 구매 이력');
       await loadCustomers(content);

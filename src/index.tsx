@@ -18,6 +18,8 @@ import subscriptionRouter from './routes/subscription'
 import importExportRouter from './routes/import-export'
 import settingsRouter from './routes/settings'
 import superAdminRouter from './routes/super-admin'
+import suppliersRouter from './routes/suppliers'
+import purchasesRouter from './routes/purchases'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -42,6 +44,8 @@ app.route('/api/outbound', outboundRouter)
 app.route('/api/warehouses', warehouseRouter)
 app.route('/api/settings', settingsRouter)
 app.route('/api/super-admin', superAdminRouter)
+app.route('/api/suppliers', suppliersRouter)
+app.route('/api/purchases', purchasesRouter)
 app.get('/login', (c: Context) => {
     return c.html(`<!DOCTYPE html>
 <html lang="ko">
@@ -484,6 +488,10 @@ app.get('/', (c: Context) => {
                                                 <i class="fas fa-truck-loading w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                                                 <span class="font-medium">출고 관리</span>
                                             </a>
+                                            <a href="#" data-page="purchases" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                <i class="fas fa-truck-moving w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
+                                                <span class="font-medium">입고/발주 관리</span>
+                                            </a>
                                             <a href="#" data-page="customers" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
                                                 <i class="fas fa-users w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
                                                 <span class="font-medium">고객 관리</span>
@@ -589,6 +597,7 @@ app.get('/', (c: Context) => {
                                 <script src="/static/js/auth.js?v=1"></script>
                                 <script src="/static/app.js?v=17"></script>
                                 <script src="/static/js/outbound.js?v=6"></script>
+                                <script src="/static/js/purchases.js?v=1"></script>
                                 <script src="/static/js/products.js?v=1"></script>
                             </body>
                         </html>
