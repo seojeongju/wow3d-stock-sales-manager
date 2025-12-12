@@ -213,7 +213,7 @@ async function loadPurchasesList() {
         <div class="flex gap-2">
            <!-- 필터 영역 (추구 구현) -->
         </div>
-        <button onclick="showCreatePurchaseModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+        <button onclick="window.editingPoId = null; showCreatePurchaseModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
           <i class="fas fa-plus mr-2"></i>발주서 작성
         </button>
       </div>
@@ -281,7 +281,10 @@ function getStatusLabel(status) {
 
 // 발주서 작성 모달
 window.showCreatePurchaseModal = async function () {
-  window.editingPoId = null; // Reset editing state
+  // 기존 모달이 있으면 즉시 삭제 (ID 중복 방지)
+  const existing = document.getElementById('createPurchaseModal');
+  if (existing) existing.remove();
+
   // 공급사 및 상품 목록 조회
   try {
     const [suppliersRes, productsRes] = await Promise.all([
@@ -370,27 +373,27 @@ window.showCreatePurchaseModal = async function () {
 
 window.addPoItemRow = function () {
   const tbody = document.getElementById('po-items-list');
-  const rowId = Date.now();
+  const rowId = 'row-' + Math.random().toString(36).substr(2, 9);
   const options = window.purchaseProducts.map(p => `<option value="${p.id}" data-price="${p.purchase_price}">${p.name} (${p.sku})</option>`).join('');
 
   const tr = document.createElement('tr');
   tr.id = `po-row-${rowId}`;
   tr.innerHTML = `
     <td class="py-1">
-      <select class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" onchange="updatePoRow(${rowId}, true)">
+      <select class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" onchange="updatePoRow('${rowId}', true)">
         <option value="">상품 선택</option>
         ${options}
       </select>
     </td>
     <td class="py-1">
-      <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" value="1" min="1" onchange="updatePoRow(${rowId})">
+      <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" value="1" min="1" onchange="updatePoRow('${rowId}')">
     </td>
     <td class="py-1">
-      <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" onchange="updatePoRow(${rowId})">
+      <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" onchange="updatePoRow('${rowId}')">
     </td>
     <td class="py-1 font-medium text-slate-700 row-total">0원</td>
     <td class="py-1 text-center">
-      <button onclick="removePoRow(${rowId})" class="text-slate-400 hover:text-red-500"><i class="fas fa-times"></i></button>
+      <button onclick="removePoRow('${rowId}')" class="text-slate-400 hover:text-red-500"><i class="fas fa-times"></i></button>
     </td>
   `;
   tbody.appendChild(tr);
@@ -511,27 +514,27 @@ window.showEditPurchaseModal = async function (id) {
     tbody.innerHTML = ''; // Clear empty row added by showCreatePurchaseModal
 
     po.items.forEach(item => {
-      const rowId = Date.now() + Math.random();
+      const rowId = 'row-' + Math.random().toString(36).substr(2, 9);
       const options = window.purchaseProducts.map(p => `<option value="${p.id}" data-price="${p.purchase_price}" ${p.id === item.product_id ? 'selected' : ''}>${p.name} (${p.sku})</option>`).join('');
 
       const tr = document.createElement('tr');
       tr.id = `po-row-${rowId}`;
       tr.innerHTML = `
             <td class="py-1">
-              <select class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" onchange="updatePoRow(${rowId}, true)">
+              <select class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" onchange="updatePoRow('${rowId}', true)">
                 <option value="">상품 선택</option>
                 ${options}
               </select>
             </td>
             <td class="py-1">
-              <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" value="${item.quantity}" min="1" onchange="updatePoRow(${rowId})">
+              <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" value="${item.quantity}" min="1" onchange="updatePoRow('${rowId}')">
             </td>
             <td class="py-1">
-              <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" value="${item.unit_price}" onchange="updatePoRow(${rowId})">
+              <input type="number" class="w-full border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500" value="${item.unit_price}" onchange="updatePoRow('${rowId}')">
             </td>
             <td class="py-1 font-medium text-slate-700 row-total">${formatCurrency(item.quantity * item.unit_price)}</td>
             <td class="py-1 text-center">
-              <button onclick="removePoRow(${rowId})" class="text-slate-400 hover:text-red-500"><i class="fas fa-times"></i></button>
+              <button onclick="removePoRow('${rowId}')" class="text-slate-400 hover:text-red-500"><i class="fas fa-times"></i></button>
             </td>
           `;
       tbody.appendChild(tr);
