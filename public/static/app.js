@@ -293,13 +293,14 @@ async function loadDashboard(content) {
     });
 
     // 병렬 데이터 로드
-    const [summaryRes, salesChartRes, categoryStatsRes, lowStockRes, productsRes, salesRes, actionRes, profitRes] = await Promise.all([
+    const [summaryRes, salesChartRes, categoryStatsRes, lowStockRes, productsRes, salesRes, inventoryRes, actionRes, profitRes] = await Promise.all([
       fetchWithFallback(`${API_BASE}/dashboard/summary`, {}),
       fetchWithFallback(`${API_BASE}/dashboard/sales-chart?days=30`, []),
       fetchWithFallback(`${API_BASE}/dashboard/category-stats`, []),
       fetchWithFallback(`${API_BASE}/dashboard/low-stock-alerts?limit=5&offset=0`, []),
       fetchWithFallback(`${API_BASE}/products?limit=5&offset=0`, []),
       fetchWithFallback(`${API_BASE}/sales?limit=5&offset=0`, []),
+      fetchWithFallback(`${API_BASE}/dashboard/inventory-health?days=30`, []),
       fetchWithFallback(`${API_BASE}/dashboard/action-items`, { pending_shipment: 0, shipping: 0, claims: 0, low_stock: 0 }),
       fetchWithFallback(`${API_BASE}/dashboard/profit-chart?days=30`, [])
     ]);
@@ -310,6 +311,7 @@ async function loadDashboard(content) {
     const lowStockAlerts = lowStockRes.data.data || [];
     const products = productsRes.data.data || [];
     const sales = salesRes.data.data || [];
+    const deadStocks = inventoryRes.data.data || [];
     const actionItems = actionRes.data.data || { pending_shipment: 0, shipping: 0, claims: 0, low_stock: 0 };
     const profitData = profitRes.data.data || [];
 
@@ -380,14 +382,16 @@ async function loadDashboard(content) {
       <!-- 차트 영역 -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <!-- 매출 추이 (2칸 차지) -->
-        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6 cursor-pointer hover:shadow-md transition-all group" onclick="openSalesAnalysisModal()">
-          <div class="flex items-center mb-6 justify-between">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center group-hover:text-teal-600 transition-colors">
-              <i class="fas fa-chart-line text-indigo-500 mr-2"></i>판매 분석 (클릭하여 상세보기)
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center">
+              <i class="fas fa-chart-line text-indigo-500 mr-2"></i>매출 및 순익 분석
             </h2>
-            <div class="flex gap-2 text-xs font-medium">
-              <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-teal-500 mr-1"></span>매출</span>
-              <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-emerald-500 mr-1"></span>순이익</span>
+            <div class="flex gap-2">
+               <div class="bg-slate-100 p-1 rounded-lg flex text-xs font-bold">
+                <button onclick="updateChartPeriod('daily')" id="btn-period-daily" class="px-3 py-1 rounded-md bg-white shadow-sm text-indigo-600 transition-all">일별</button>
+                <button onclick="updateChartPeriod('monthly')" id="btn-period-monthly" class="px-3 py-1 rounded-md text-slate-500 hover:text-slate-700 transition-all">월별</button>
+              </div>
             </div>
           </div>
           <div class="h-72">
@@ -428,6 +432,19 @@ async function loadDashboard(content) {
           </div>
         </div>
 
+        <!-- 장기 미판매 재고 (Dead Stock) -->
+        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full">
+          <div class="flex items-center mb-4">
+            <div class="bg-slate-100 rounded-lg p-2 mr-3">
+              <i class="fas fa-box-open text-slate-600"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-800">장기 미판매 재고</h2>
+          </div>
+          <div id="dashDeadStockList" class="space-y-3 flex-1 mb-4 overflow-y-auto max-h-60">
+            <!-- 렌더링 -->
+          </div>
+        </div>
+
         <!-- 최근 판매 현황 -->
         <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full">
           <div class="flex items-center mb-4">
@@ -454,13 +471,26 @@ async function loadDashboard(content) {
             </div>
             <h2 class="text-xl font-bold text-gray-800">재고 부족 알림</h2>
           </div>
-          <div id="dashLowStockList" class="space-y-3 flex-1 mb-4">
+          <div id="dashLowStockList" class="space-y-3 flex-1 mb-4 overflow-y-auto max-h-60">
             <!-- 렌더링 -->
           </div>
           <div class="flex justify-center items-center gap-4 mt-auto pt-3 border-t border-slate-100">
             <button onclick="loadDashboardLowStock(Math.max(0, window.dashLowStockPage - 1))" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-colors"><i class="fas fa-chevron-left"></i></button>
             <span id="dashLowStockPageDisplay" class="text-sm text-slate-500 font-medium">1 페이지</span>
             <button onclick="loadDashboardLowStock(window.dashLowStockPage + 1)" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-colors"><i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+        
+        <!-- 장기 미판매 재고 (Dead Stock) -->
+        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full">
+          <div class="flex items-center mb-4">
+            <div class="bg-slate-100 rounded-lg p-2 mr-3">
+              <i class="fas fa-box-open text-slate-600"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-800">장기 미판매 재고</h2>
+          </div>
+          <div id="dashDeadStockList" class="space-y-3 flex-1 mb-4 overflow-y-auto max-h-60">
+            <!-- 렌더링 -->
           </div>
         </div>
       </div>
@@ -477,6 +507,8 @@ async function loadDashboard(content) {
     renderDashboardProducts(products);
     renderDashboardSales(sales);
     renderDashboardLowStock(lowStockAlerts);
+    renderDashboardDeadStock(deadStocks);
+    renderDashboardDeadStock(deadStocks);
 
   } catch (error) {
     console.error('대시보드 로드 실패:', error);
@@ -571,7 +603,12 @@ function renderDashboardSales(sales) {
 function renderCharts(salesData, categoryData, profitData) {
   // Profit Insight 차트 (Line)
   const salesCtx = document.getElementById('salesChart').getContext('2d');
-  new Chart(salesCtx, {
+
+  if (window.salesChartInstance) {
+    window.salesChartInstance.destroy();
+  }
+
+  window.salesChartInstance = new Chart(salesCtx, {
     type: 'line',
     data: {
       labels: profitData.map(d => d.date),
@@ -635,7 +672,12 @@ function renderCharts(salesData, categoryData, profitData) {
 
   // 카테고리별 판매 비중 차트 (Doughnut)
   const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-  new Chart(categoryCtx, {
+
+  if (window.categoryChartInstance) {
+    window.categoryChartInstance.destroy();
+  }
+
+  window.categoryChartInstance = new Chart(categoryCtx, {
     type: 'doughnut',
     data: {
       labels: categoryData.map(d => d.category),
@@ -5768,3 +5810,63 @@ window.deleteOutbound = deleteOutbound;
 window.openEditOutboundModal = openEditOutboundModal;
 window.closeEditOutboundModal = closeEditOutboundModal;
 window.updateOutbound = updateOutbound;
+
+window.updateChartPeriod = async function (period) {
+  const dailyBtn = document.getElementById('btn-period-daily');
+  const monthlyBtn = document.getElementById('btn-period-monthly');
+
+  if (period === 'daily') {
+    dailyBtn.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+    dailyBtn.classList.remove('text-slate-500');
+    monthlyBtn.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+    monthlyBtn.classList.add('text-slate-500');
+  } else {
+    monthlyBtn.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+    monthlyBtn.classList.remove('text-slate-500');
+    dailyBtn.classList.add('text-slate-500');
+    dailyBtn.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+  }
+
+  try {
+    const [salesRes, profitRes, categoryRes] = await Promise.all([
+      axios.get(`${API_BASE}/dashboard/sales-chart?period=${period}&range=30`),
+      axios.get(`${API_BASE}/dashboard/profit-chart?period=${period}&range=30`),
+      axios.get(`${API_BASE}/dashboard/category-stats`)
+    ]);
+
+    renderCharts(salesRes.data.data, categoryRes.data.data, profitRes.data.data);
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+function renderDashboardDeadStock(deadStocks) {
+  const container = document.getElementById('dashDeadStockList');
+  if (!container) return;
+
+  if (deadStocks.length === 0) {
+    container.innerHTML = '<div class="text-center text-slate-400 py-4">장기 미판매 재고가 없습니다.</div>';
+    return;
+  }
+
+  container.innerHTML = deadStocks.map(p => `
+    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:shadow-md transition">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 flex-shrink-0 bg-white rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
+             ${p.image_url ?
+      `<img class="h-10 w-10 object-cover" src="${p.image_url}" alt="${p.name}">` :
+      `<i class="fas fa-box text-slate-300"></i>`
+    }
+        </div>
+        <div>
+          <p class="font-semibold text-gray-800 text-sm truncate max-w-[120px]">${p.name}</p>
+          <p class="text-xs text-red-500 font-medium">마지막 판매: ${p.last_sold_at ? new Date(p.last_sold_at).toLocaleDateString() : '없음'}</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <p class="font-bold text-slate-700 text-sm">${formatCurrency(p.stock_value)}</p>
+        <span class="text-xs px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">재고: ${p.current_stock}</span>
+      </div>
+    </div>
+  `).join('');
+}
