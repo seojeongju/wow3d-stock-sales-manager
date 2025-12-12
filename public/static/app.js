@@ -1909,6 +1909,11 @@ function injectCustomerModal() {
                   <div class="w-1/3">
                     <input type="text" id="custZipCode" placeholder="우편번호" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                   </div>
+                  <div class="flex-none">
+                     <button type="button" onclick="openAddressSearch('custAddress', 'custZipCode')" class="h-full px-4 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium transition-colors text-sm">
+                        <i class="fas fa-search"></i> 검색
+                     </button>
+                  </div>
                   <div class="flex-1">
                     <input type="text" id="custAddress" placeholder="기본 주소" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
                   </div>
@@ -2336,7 +2341,12 @@ function injectShippingModal() {
             </div>
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-2">배송지 주소</label>
-              <input type="text" id="shipAddress" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
+              <div class="flex gap-2">
+                 <input type="text" id="shipAddress" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow">
+                 <button type="button" onclick="openAddressSearch('shipAddress')" class="bg-teal-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-teal-700 font-medium whitespace-nowrap">
+                   <i class="fas fa-search"></i> 검색
+                 </button>
+              </div>
             </div>
           </div>
           <div class="bg-slate-50 px-6 py-4 flex justify-end space-x-3 rounded-b-2xl border-t border-slate-100">

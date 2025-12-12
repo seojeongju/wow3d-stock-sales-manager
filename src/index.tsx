@@ -53,6 +53,7 @@ app.get('/login', (c: Context) => {
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 </head>
 
 <body class="bg-slate-50 min-h-screen font-sans text-slate-900">
@@ -371,6 +372,7 @@ app.get('/', (c: Context) => {
                         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
                             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                             <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+                            <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
                             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
                                 <style>
                                     body {
@@ -583,6 +585,7 @@ app.get('/', (c: Context) => {
                                 </script>
                                 <script src="/static/js/config.js?v=1"></script>
                                 <script src="/static/js/utils.js?v=2"></script>
+                                <script src="/static/js/utils_address.js?v=1"></script>
                                 <script src="/static/js/auth.js?v=1"></script>
                                 <script src="/static/app.js?v=17"></script>
                                 <script src="/static/js/outbound.js?v=6"></script>

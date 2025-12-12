@@ -161,7 +161,12 @@ async function renderOutboundRegistrationTab(container) {
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">주소</label>
-              <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 mb-2" placeholder="주소">
+              <div class="flex gap-2">
+                 <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 mb-2" placeholder="주소">
+                 <button type="button" onclick="openAddressSearch('outDestAddress')" class="mb-2 bg-teal-600 text-white px-3 py-2 rounded text-sm hover:bg-teal-700 font-medium whitespace-nowrap">
+                   <i class="fas fa-search"></i> 검색
+                 </button>
+              </div>
             </div>
           </div>
         </div>
@@ -749,7 +754,12 @@ async function openEditOutboundModal(id) {
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">주소</label>
-              <input type="text" id="editDestAddr" value="${data.destination_address || ''}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50">
+              <div class="flex gap-2">
+                 <input type="text" id="editDestAddr" value="${data.destination_address || ''}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50">
+                 <button type="button" onclick="openAddressSearch('editDestAddr')" class="bg-teal-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-teal-700 font-medium whitespace-nowrap">
+                   <i class="fas fa-search"></i> 검색
+                 </button>
+              </div>
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
@@ -949,7 +959,12 @@ function openWarehouseModal(id = null, name = '', location = '', description = '
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">위치</label>
-              <input type="text" name="location" value="${location}" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:outline-none placeholder-slate-400" placeholder="예: 서울 구로구 ...">
+              <div class="flex gap-2">
+                  <input type="text" id="warehouseLocation" name="location" value="${location}" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:outline-none placeholder-slate-400" placeholder="예: 서울 구로구 ...">
+                  <button type="button" onclick="openAddressSearch('warehouseLocation')" class="bg-teal-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-teal-700 font-medium whitespace-nowrap">
+                   <i class="fas fa-search"></i> 검색
+                  </button>
+              </div>
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">설명</label>
