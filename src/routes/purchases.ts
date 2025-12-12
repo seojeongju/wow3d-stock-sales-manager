@@ -85,32 +85,37 @@ app.post('/', async (c) => {
     // 총 금액 계산
     const totalAmount = body.items.reduce((sum: number, item: any) => sum + (item.quantity * item.unit_price), 0)
 
-    // 1. 발주서 생성
-    const poRes = await DB.prepare(`
-    INSERT INTO purchase_orders (tenant_id, supplier_id, code, status, total_amount, expected_at, created_by, notes)
-    VALUES (?, ?, ?, 'ORDERED', ?, ?, ?, ?)
-  `).bind(
-        tenantId,
-        body.supplier_id,
-        code,
-        totalAmount,
-        body.expected_at || null,
-        userId,
-        body.notes || null
-    ).run()
+    try {
+        // 1. 발주서 생성
+        const poRes = await DB.prepare(`
+        INSERT INTO purchase_orders (tenant_id, supplier_id, code, status, total_amount, expected_at, created_by, notes)
+        VALUES (?, ?, ?, 'ORDERED', ?, ?, ?, ?)
+      `).bind(
+            tenantId,
+            body.supplier_id,
+            code,
+            totalAmount,
+            body.expected_at || null,
+            userId,
+            body.notes || null
+        ).run()
 
-    const poId = poRes.meta.last_row_id
+        const poId = poRes.meta.last_row_id
 
-    // 2. 발주 품목 생성 (Batch)
-    const stmt = DB.prepare(`
-    INSERT INTO purchase_items (purchase_order_id, product_id, quantity, unit_price, status)
-    VALUES (?, ?, ?, ?, 'PENDING')
-  `)
+        // 2. 발주 품목 생성 (Batch)
+        const stmt = DB.prepare(`
+        INSERT INTO purchase_items (purchase_order_id, product_id, quantity, unit_price, status)
+        VALUES (?, ?, ?, ?, 'PENDING')
+      `)
 
-    const batch = body.items.map((item: any) => stmt.bind(poId, item.product_id, item.quantity, item.unit_price))
-    await DB.batch(batch)
+        const batch = body.items.map((item: any) => stmt.bind(poId, item.product_id, item.quantity, item.unit_price))
+        await DB.batch(batch)
 
-    return c.json({ success: true, message: '발주가 등록되었습니다.', data: { id: poId, code } })
+        return c.json({ success: true, message: '발주가 등록되었습니다.', data: { id: poId, code } })
+    } catch (e: any) {
+        console.error('Purchase creation failed:', e)
+        return c.json({ success: false, error: e.message || '발주 생성 중 오류가 발생했습니다.' }, 500)
+    }
 })
 
 // 발주 상태 변경 (예: 취소)
