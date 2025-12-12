@@ -105,9 +105,10 @@ app.get('/:id', async (c) => {
     const id = c.req.param('id')
 
     const order = await DB.prepare(`
-    SELECT o.*, u.name as created_by_name
+    SELECT o.*, u.name as created_by_name, w.name as warehouse_name, w.location as warehouse_location
     FROM outbound_orders o
     LEFT JOIN users u ON o.created_by = u.id
+    LEFT JOIN warehouses w ON o.warehouse_id = w.id
     WHERE o.id = ? AND o.tenant_id = ?
   `).bind(id, tenantId).first<OutboundOrder>()
 

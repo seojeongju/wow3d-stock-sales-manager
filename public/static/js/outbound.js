@@ -613,6 +613,7 @@ async function showOutboundDetail(id) {
               <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                 <h4 class="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">출고 상태</h4>
                 <div class="space-y-2 text-sm">
+                  <div class="flex"><span class="w-20 text-slate-500">출고 창고</span> <span class="font-medium text-slate-900">${data.warehouse_name || '-'} <span class="text-xs text-slate-400 font-normal">(${data.warehouse_location || '위치 미지정'})</span></span></div>
                   <div class="flex"><span class="w-20 text-slate-500">구매 경로</span> <span class="font-medium text-slate-900">${data.purchase_path || '-'}</span></div>
                   <div class="flex items-center"><span class="w-20 text-slate-500">상태</span> 
                     <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-bold text-teal-600 shadow-sm">${data.status}</span>
