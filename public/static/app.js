@@ -432,19 +432,6 @@ async function loadDashboard(content) {
           </div>
         </div>
 
-        <!-- 장기 미판매 재고 (Dead Stock) -->
-        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full">
-          <div class="flex items-center mb-4">
-            <div class="bg-slate-100 rounded-lg p-2 mr-3">
-              <i class="fas fa-box-open text-slate-600"></i>
-            </div>
-            <h2 class="text-xl font-bold text-gray-800">장기 미판매 재고</h2>
-          </div>
-          <div id="dashDeadStockList" class="space-y-3 flex-1 mb-4 overflow-y-auto max-h-60">
-            <!-- 렌더링 -->
-          </div>
-        </div>
-
         <!-- 최근 판매 현황 -->
         <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full">
           <div class="flex items-center mb-4">
@@ -507,7 +494,6 @@ async function loadDashboard(content) {
     renderDashboardProducts(products);
     renderDashboardSales(sales);
     renderDashboardLowStock(lowStockAlerts);
-    renderDashboardDeadStock(deadStocks);
     renderDashboardDeadStock(deadStocks);
 
   } catch (error) {
