@@ -111,6 +111,82 @@ app.post('/', async (c) => {
     }
 })
 
+// 사용자 정보 수정
+app.put('/:id', async (c) => {
+    const { DB } = c.env
+    const tenantId = c.get('tenantId')
+    const myId = c.get('userId')
+    let myRole = c.get('userRole')
+    const targetId = c.req.param('id')
+
+    // Role 조회
+    if (!myRole) {
+        const user = await DB.prepare('SELECT role FROM users WHERE id = ?').bind(myId).first<{ role: string }>()
+        myRole = user?.role
+    }
+
+    // 권한 체크 (OWNER 또는 ADMIN) - 본인의 정보 수정은 별도 API(/me)에서 처리 권장하지만 여기서는 팀원 관리 목적
+    if (myRole !== 'OWNER' && myRole !== 'ADMIN') {
+        return c.json({ success: false, error: '권한이 없습니다.' }, 403)
+    }
+
+    const body = await c.req.json<{
+        name?: string;
+        role?: 'ADMIN' | 'USER' | 'OWNER'; // 타입 확장
+        password?: string;
+    }>()
+
+    // 대상 사용자 확인
+    const targetUser = await DB.prepare('SELECT role FROM users WHERE id = ? AND tenant_id = ?').bind(targetId, tenantId).first<{ role: string }>()
+    if (!targetUser) {
+        return c.json({ success: false, error: '사용자를 찾을 수 없습니다.' }, 404)
+    }
+
+    // OWNER의 등급은 변경 불가
+    if (targetUser.role === 'OWNER' && body.role && body.role !== 'OWNER') {
+        return c.json({ success: false, error: '소유자(OWNER)의 등급은 변경할 수 없습니다.' }, 403)
+    }
+
+    // OWNER가 아닌 관리자가 다른 관리자의 등급을 바꾸거나 할 때의 제약사항은 일단 생략 (요구사항에 맞게 유연하게)
+
+    const updates = []
+    const params = []
+
+    if (body.name) {
+        updates.push('name = ?')
+        params.push(body.name)
+    }
+
+    if (body.role) {
+        updates.push('role = ?')
+        params.push(body.role)
+    }
+
+    if (body.password) {
+        const passwordHash = await hashPassword(body.password)
+        updates.push('password_hash = ?')
+        params.push(passwordHash)
+    }
+
+    if (updates.length === 0) {
+        return c.json({ success: false, error: '변경할 내용이 없습니다.' }, 400)
+    }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP')
+
+    // 쿼리 실행
+    const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ? AND tenant_id = ?`
+    params.push(targetId, tenantId)
+
+    try {
+        await DB.prepare(query).bind(...params).run()
+        return c.json({ success: true, message: '사용자 정보가 수정되었습니다.' })
+    } catch (e) {
+        console.error(e)
+        return c.json({ success: false, error: '수정 중 오류가 발생했습니다.' }, 500)
+    }
+})
+
 // 사용자 삭제
 app.delete('/:id', async (c) => {
     const { DB } = c.env

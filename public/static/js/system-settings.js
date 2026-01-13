@@ -742,7 +742,10 @@ async function loadTeamMembers() {
               </td>
               <td class="px-6 py-4 text-sm text-slate-500">${formatDateTimeKST(u.created_at)}</td>
               <td class="px-6 py-4 text-center">
-                <button onclick="removeMember(${u.id})" class="text-red-600 hover:text-red-800 text-sm">
+                <button onclick="openEditMemberModal(${u.id}, '${u.name}', '${u.role}')" class="text-teal-600 hover:text-teal-800 text-sm mr-2" title="정보 수정">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="removeMember(${u.id})" class="text-red-600 hover:text-red-800 text-sm" title="삭제">
                   <i class="fas fa-trash"></i>
                 </button>
               </td>
@@ -760,6 +763,95 @@ async function loadTeamMembers() {
 // 팀원 초대 모달 (추후 구현)
 function openInviteMemberModal() {
   showToast('팀원 초대 기능은 추후 업데이트 예정입니다.', 'info');
+}
+
+// 팀원 수정 모달 열기
+function openEditMemberModal(userId, userName, currentRole) {
+  // Role normalization
+  const role = currentRole ? currentRole.toUpperCase() : 'USER';
+
+  const modalHtml = `
+    <div id="editMemberModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 border border-slate-100">
+        <div class="flex justify-between items-center p-6 border-b border-slate-100">
+          <h3 class="text-xl font-bold text-slate-800">팀원 정보 수정</h3>
+          <button onclick="document.getElementById('editMemberModal').remove()" class="text-slate-400 hover:text-slate-600 transition-colors">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <form onsubmit="handleUpdateMember(event, ${userId})" class="p-6">
+          <div class="mb-4">
+            <label class="block text-sm font-bold text-slate-700 mb-2">이름</label>
+            <input type="text" id="editMemberName" value="${userName}" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500" required>
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-sm font-bold text-slate-700 mb-2">등급 (권한)</label>
+            <select id="editMemberRole" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+              <option value="USER" ${role === 'USER' ? 'selected' : ''}>일반 멤버 (USER)</option>
+              <option value="ADMIN" ${role === 'ADMIN' ? 'selected' : ''}>관리자 (ADMIN)</option>
+              <option value="OWNER" ${role === 'OWNER' ? 'selected' : ''}>소유자 (OWNER)</option>
+            </select>
+            <p class="text-xs text-slate-500 mt-1">소유자는 모든 권한을 가집니다.</p>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-sm font-bold text-slate-700 mb-2">
+              비밀번호 변경 <span class="text-xs font-normal text-slate-400">(변경 시에만 입력)</span>
+            </label>
+            <input type="password" id="editMemberPassword" placeholder="새 비밀번호 (선택사항)" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+          </div>
+
+          <div class="flex gap-2">
+            <button type="button" onclick="document.getElementById('editMemberModal').remove()" class="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 font-medium">
+              취소
+            </button>
+            <button type="submit" class="flex-1 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-bold transition-colors">
+              수정 저장
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// 팀원 수정 처리
+async function handleUpdateMember(e, userId) {
+  e.preventDefault();
+
+  const name = document.getElementById('editMemberName').value.trim();
+  const role = document.getElementById('editMemberRole').value;
+  const password = document.getElementById('editMemberPassword').value;
+
+  if (!name) {
+    showToast('이름을 입력해주세요', 'error');
+    return;
+  }
+
+  const payload = {
+    name,
+    role
+  };
+
+  if (password) {
+    payload.password = password;
+  }
+
+  try {
+    const res = await axios.put(`${API_BASE}/users/${userId}`, payload);
+    if (res.data.success) {
+      showToast('팀원 정보가 수정되었습니다.');
+      document.getElementById('editMemberModal').remove();
+      loadTeamMembers();
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('수정 실패: ' + (e.response?.data?.error || e.message), 'error');
+  }
 }
 
 // 팀원 삭제
@@ -1057,6 +1149,8 @@ function autoFormatPhoneNumber(value) {
 
 window.autoFormatBizNo = autoFormatBizNo;
 window.autoFormatPhoneNumber = autoFormatPhoneNumber;
+window.openEditMemberModal = openEditMemberModal;
+window.handleUpdateMember = handleUpdateMember;
 
 
 
