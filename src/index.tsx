@@ -24,6 +24,7 @@ import trackingRouter from './routes/tracking'
 import diagnosticRouter from './routes/diagnostic'
 import productOptionsRouter from './routes/product-options'
 import pricesRouter from './routes/prices'
+import qrRouter from './routes/qr'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -54,6 +55,7 @@ app.route('/api/purchases', purchasesRouter)
 app.route('/api/tracking', trackingRouter)
 app.route('/api/diagnostic', diagnosticRouter)
 app.route('/api/prices', pricesRouter)
+app.route('/api/qr', qrRouter)
 app.get('/login', (c: Context) => {
     return c.html(`<!DOCTYPE html>
 <html lang="ko">
@@ -530,6 +532,7 @@ app.get('/', (c: Context) => {
                             <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
                             <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.min.js?v=2"></script>
                             <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+                            <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
                             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
                                 <style>
                                     body {

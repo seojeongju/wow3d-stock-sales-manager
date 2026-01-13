@@ -5,7 +5,7 @@
 // QR MES 대시보드
 // ================================================
 async function renderQRDashboardPage(container) {
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
       <!-- 헤더 -->
       <div class="flex items-center justify-between mb-8">
@@ -87,15 +87,15 @@ async function renderQRDashboardPage(container) {
     </div>
   `;
 
-    // 데이터 로드
-    await loadQRDashboardData();
+  // 데이터 로드
+  await loadQRDashboardData();
 }
 
 // ================================================
 // QR 입고 페이지
 // ================================================
 async function renderQRInboundPage(container) {
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
       <div class="mb-6">
         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
@@ -186,15 +186,15 @@ async function renderQRInboundPage(container) {
     </div>
   `;
 
-    // 창고 목록 로드
-    await loadWarehousesForQR('inbound-warehouse');
+  // 창고 목록 로드
+  await loadWarehousesForQR('inbound-warehouse');
 }
 
 // ================================================
 // QR 출고 페이지
 // ================================================
 async function renderQROutboundPage(container) {
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
       <div class="mb-6">
         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
@@ -248,14 +248,14 @@ async function renderQROutboundPage(container) {
     </div>
   `;
 
-    await loadWarehousesForQR('outbound-warehouse');
+  await loadWarehousesForQR('outbound-warehouse');
 }
 
 // ================================================
 // QR 판매 페이지
 // ================================================
 async function renderQRSalePage(container) {
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
       <div class="mb-6">
         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
@@ -278,7 +278,7 @@ async function renderQRSalePage(container) {
 // QR 관리 페이지
 // ================================================
 async function renderQRManagementPage(container) {
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
       <div class="mb-6">
         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
@@ -319,8 +319,8 @@ async function renderQRManagementPage(container) {
     </div>
   `;
 
-    // 제품 목록 로드
-    await loadProductsForQR();
+  // 제품 목록 로드
+  await loadProductsForQR();
 }
 
 // ================================================
@@ -329,114 +329,276 @@ async function renderQRManagementPage(container) {
 
 // QR 대시보드 데이터 로드
 async function loadQRDashboardData() {
-    try {
-        // API 호출 예정
-        console.log('QR 대시보드 데이터 로드 (개발 중)');
-        // 임시 데이터
-        document.getElementById('today-inbound-count').textContent = '0';
-        document.getElementById('today-outbound-count').textContent = '0';
-        document.getElementById('today-sale-count').textContent = '0';
-        document.getElementById('active-qr-count').textContent = '0';
-    } catch (error) {
-        console.error('QR 대시보드 데이터 로드 실패:', error);
-    }
+  try {
+    // API 호출 예정
+    console.log('QR 대시보드 데이터 로드 (개발 중)');
+    // 임시 데이터
+    document.getElementById('today-inbound-count').textContent = '0';
+    document.getElementById('today-outbound-count').textContent = '0';
+    document.getElementById('today-sale-count').textContent = '0';
+    document.getElementById('active-qr-count').textContent = '0';
+  } catch (error) {
+    console.error('QR 대시보드 데이터 로드 실패:', error);
+  }
 }
 
 // 창고 목록 로드
 async function loadWarehousesForQR(selectId) {
-    try {
-        const res = await fetch('/api/warehouses', {
-            headers: { 'Authorization': `Bearer ${window.authToken}` }
-        });
-        const warehouses = await res.json();
+  try {
+    const res = await fetch('/api/warehouses', {
+      headers: { 'Authorization': `Bearer ${window.authToken}` }
+    });
+    const warehouses = await res.json();
 
-        const select = document.getElementById(selectId);
-        if (select) {
-            warehouses.forEach(wh => {
-                const option = document.createElement('option');
-                option.value = wh.id;
-                option.textContent = wh.name;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('창고 목록 로드 실패:', error);
+    const select = document.getElementById(selectId);
+    if (select) {
+      warehouses.forEach(wh => {
+        const option = document.createElement('option');
+        option.value = wh.id;
+        option.textContent = wh.name;
+        select.appendChild(option);
+      });
     }
+  } catch (error) {
+    console.error('창고 목록 로드 실패:', error);
+  }
 }
 
 // 제품 목록 로드 (QR 관리용)
 async function loadProductsForQR() {
-    try {
-        const res = await fetch('/api/products', {
-            headers: { 'Authorization': `Bearer ${window.authToken}` }
-        });
-        const products = await res.json();
+  try {
+    const res = await fetch('/api/products', {
+      headers: { 'Authorization': `Bearer ${window.authToken}` }
+    });
 
-        const select = document.getElementById('qr-product-select');
-        if (select) {
-            products.forEach(product => {
-                const option = document.createElement('option');
-                option.value = product.id;
-                option.textContent = `${product.name} (${product.code})`;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('제품 목록 로드 실패:', error);
+    if (!res.ok) throw new Error('Failed to load products');
+
+    const products = await res.json();
+
+    const select = document.getElementById('qr-product-select');
+    if (select) {
+      select.innerHTML = '<option value="">제품을 선택하세요</option>';
+      products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.id;
+        option.textContent = `${product.name} (${product.code})`;
+        select.appendChild(option);
+      });
     }
+
+    // 기존 QR 코드 목록도 로드
+    await loadQRCodeList();
+  } catch (error) {
+    console.error('제품 목록 로드 실패:', error);
+    showToast('제품 목록 로드에 실패했습니다', 'error');
+  }
+}
+
+// QR 코드 목록 로드
+async function loadQRCodeList() {
+  try {
+    const res = await fetch('/api/qr/codes?limit=50', {
+      headers: { 'Authorization': `Bearer ${window.authToken}` }
+    });
+
+    if (!res.ok) throw new Error('Failed to load QR codes');
+
+    const data = await res.json();
+    renderQRCodeList(data.codes);
+  } catch (error) {
+    console.error('QR 코드 목록 로드 실패:', error);
+  }
+}
+
+// QR 코드 목록 렌더링
+function renderQRCodeList(codes) {
+  const container = document.getElementById('qr-code-list');
+  if (!container) return;
+
+  if (!codes || codes.length === 0) {
+    container.innerHTML = '<p class="text-center text-slate-400 py-8">생성된 QR 코드가 없습니다</p>';
+    return;
+  }
+
+  container.innerHTML = codes.map(code => `
+    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-purple-300 transition-colors">
+      <div class="flex items-center gap-4 flex-1">
+        <div class="w-16 h-16 bg-white rounded-lg flex items-center justify-center border-2 border-purple-200">
+          <canvas id="qr-canvas-${code.id}" class="w-full h-full"></canvas>
+        </div>
+        <div class="flex-1">
+          <h4 class="font-semibold text-slate-800">${code.product_name}</h4>
+          <p class="text-sm text-slate-500">코드: ${code.code}</p>
+          <p class="text-xs text-slate-400">생성일: ${new Date(code.created_at).toLocaleDateString('ko-KR')}</p>
+        </div>
+        <div class="text-right">
+          <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold ${code.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+    }">
+            ${code.status === 'active' ? '활성' : '비활성'}
+          </span>
+          <p class="text-xs text-slate-500 mt-1">배치: ${code.batch_number || 'N/A'}</p>
+        </div>
+      </div>
+      <div class="flex gap-2 ml-4">
+        <button onclick="downloadQRCode('${code.code}', '${code.product_name}')" 
+                class="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm">
+          <i class="fas fa-download mr-1"></i>다운로드
+        </button>
+        <button onclick="printQRLabel('${code.code}', '${code.product_name}')" 
+                class="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm">
+          <i class="fas fa-print mr-1"></i>출력
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  // QR 코드 이미지 생성 (qrcode 라이브러리 사용)
+  codes.forEach(code => {
+    const canvas = document.getElementById(`qr-canvas-${code.id}`);
+    if (canvas && window.QRCode) {
+      try {
+        window.QRCode.toCanvas(canvas, code.code, {
+          width: 64,
+          margin: 1,
+          color: {
+            dark: '#4c1d95',  // 보라색
+            light: '#ffffff'
+          }
+        });
+      } catch (error) {
+        console.error('QR 코드 생성 실패:', error);
+      }
+    }
+  });
 }
 
 // QR 스캔 시작
 function startQRScan(type) {
-    alert(`QR 스캔 기능 (${type})은 Phase 3에서 구현됩니다.`);
-    console.log(`QR 스캔 시작: ${type}`);
+  showToast('QR 스캔 기능은 Phase 3에서 구현됩니다', 'info');
+  console.log(`QR 스캔 시작: ${type}`);
 }
 
 // QR 스캔 중지
 function stopQRScan() {
-    console.log('QR 스캔 중지');
+  console.log('QR 스캔 중지');
 }
 
 // 수동 QR 입력
 function handleManualQRInput(type) {
-    const inputId = type === 'inbound' ? 'manual-qr-input' : 'manual-qr-input-outbound';
-    const input = document.getElementById(inputId);
-    const qrCode = input?.value?.trim();
+  const inputId = type === 'inbound' ? 'manual-qr-input' : 'manual-qr-input-outbound';
+  const input = document.getElementById(inputId);
+  const qrCode = input?.value?.trim();
 
-    if (qrCode) {
-        alert(`QR 코드 처리 (${type}): ${qrCode}\n(Phase 3에서 구현 예정)`);
-    } else {
-        alert('QR 코드를 입력하세요');
-    }
+  if (qrCode) {
+    showToast(`QR 코드 처리 (${type}): ${qrCode}\n(Phase 3에서 구현 예정)`, 'info');
+  } else {
+    showToast('QR 코드를 입력하세요', 'error');
+  }
 }
 
 // QR 입고 확정
 function confirmQRInbound() {
-    alert('QR 입고 확정 기능은 Phase 3에서 구현됩니다.');
+  showToast('QR 입고 확정 기능은 Phase 3에서 구현됩니다', 'info');
 }
 
 // QR 스캔 취소
 function cancelQRScan() {
-    document.getElementById('qr-scan-result')?.classList.add('hidden');
+  document.getElementById('qr-scan-result')?.classList.add('hidden');
 }
 
 // QR 코드 생성
-function generateQRCodes() {
-    const productId = document.getElementById('qr-product-select')?.value;
-    const quantity = document.getElementById('qr-generate-quantity')?.value;
+async function generateQRCodes() {
+  const productId = document.getElementById('qr-product-select')?.value;
+  const quantity = parseInt(document.getElementById('qr-generate-quantity')?.value || '1');
 
-    if (!productId) {
-        alert('제품을 선택하세요');
-        return;
+  if (!productId) {
+    showToast('제품을 선택하세요', 'error');
+    return;
+  }
+
+  if (quantity < 1 || quantity > 100) {
+    showToast('수량은 1-100 사이여야 합니다', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/qr/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${window.authToken}`
+      },
+      body: JSON.stringify({
+        product_id: parseInt(productId),
+        quantity: quantity,
+        type: 'product'
+      })
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'QR 코드 생성 실패');
     }
 
-    alert(`QR 코드 생성: 제품 ID ${productId}, 수량 ${quantity}\n(Phase 2에서 구현 예정)`);
+    const data = await res.json();
+
+    showToast(`✅ ${data.codes.length}개의 QR 코드가 생성되었습니다!`, 'success');
+
+    // 목록 새로고침
+    await loadQRCodeList();
+
+    // 폼 초기화
+    document.getElementById('qr-product-select').value = '';
+    document.getElementById('qr-generate-quantity').value = '1';
+
+  } catch (error) {
+    console.error('QR 코드 생성 실패:', error);
+    showToast(error.message || 'QR 코드 생성에 실패했습니다', 'error');
+  }
+}
+
+// QR 코드 다운로드
+async function downloadQRCode(qrCode, productName) {
+  try {
+    const canvas = document.createElement('canvas');
+
+    // 고해상도 QR 코드 생성
+    await window.QRCode.toCanvas(canvas, qrCode, {
+      width: 512,
+      margin: 2,
+      color: {
+        dark: '#4c1d95',
+        light: '#ffffff'
+      }
+    });
+
+    // 캔버스를 이미지로 변환하여 다운로드
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `QR-${productName.replace(/\s+/g, '_')}-${qrCode}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      showToast('QR 코드가 다운로드되었습니다', 'success');
+    });
+  } catch (error) {
+    console.error('QR 코드 다운로드 실패:', error);
+    showToast('다운로드에 실패했습니다', 'error');
+  }
+}
+
+// QR 라벨 출력
+async function printQRLabel(qrCode, productName) {
+  showToast('QR 라벨 출력 기능은 개발 중입니다', 'info');
+  // Phase 2 후반부에 jsPDF로 구현 예정
 }
 
 // QR 대시보드 새로고침
-function refreshQRDashboard() {
-    loadQRDashboardData();
-    showToast('대시보드를 새로고침했습니다', 'success');
+async function refreshQRDashboard() {
+  await loadQRDashboardData();
+  showToast('대시보드를 새로고침했습니다', 'success');
 }
 
 // 전역으로 내보내기
@@ -445,5 +607,14 @@ window.renderQRInboundPage = renderQRInboundPage;
 window.renderQROutboundPage = renderQROutboundPage;
 window.renderQRSalePage = renderQRSalePage;
 window.renderQRManagementPage = renderQRManagementPage;
+window.generateQRCodes = generateQRCodes;
+window.downloadQRCode = downloadQRCode;
+window.printQRLabel = printQRLabel;
+window.startQRScan = startQRScan;
+window.stopQRScan = stopQRScan;
+window.handleManualQRInput = handleManualQRInput;
+window.confirmQRInbound = confirmQRInbound;
+window.cancelQRScan = cancelQRScan;
+window.refreshQRDashboard = refreshQRDashboard;
 
 console.log('✅ QR MES 모듈 로드 완료');
