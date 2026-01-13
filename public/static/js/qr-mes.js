@@ -6,85 +6,177 @@
 // ================================================
 async function renderQRDashboardPage(container) {
   container.innerHTML = `
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-      <!-- 헤더 -->
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <i class="fas fa-chart-line text-teal-600"></i>
-            MES 대시보드
-          </h2>
-          <p class="text-slate-500 mt-1">실시간 QR 작업 현황 및 통계</p>
-        </div>
-        <div class="flex gap-2">
-          <button onclick="refreshQRDashboard()" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
-            <i class="fas fa-sync-alt mr-2"></i>새로고침
+    <div class="space-y-6">
+      <!-- 헤더 카드 -->
+      <div class="bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+              <i class="fas fa-chart-line text-3xl"></i>
+            </div>
+            <div>
+              <h2 class="text-3xl font-bold">MES 대시보드</h2>
+              <p class="text-purple-100 mt-1">실시간 QR 작업 현황 및 통계</p>
+            </div>
+          </div>
+          <button onclick="refreshQRDashboard()" 
+                  class="px-6 py-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-xl transition-all font-semibold flex items-center gap-2">
+            <i class="fas fa-sync-alt"></i>
+            <span>새로고침</span>
           </button>
         </div>
       </div>
 
       <!-- 통계 카드 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- 오늘의 입고 -->
-        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
-          <div class="flex items-center justify-between mb-3">
-            <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center">
-              <i class="fas fa-qrcode text-white text-xl"></i>
+        <div class="stat-card bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+          <div class="flex items-center justify-between mb-4">
+            <div class="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <i class="fas fa-qrcode text-2xl"></i>
             </div>
-            <span class="text-xs font-semibold text-blue-700 bg-blue-200 px-3 py-1 rounded-full">입고</span>
+            <span class="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold">입고</span>
           </div>
-          <h3 class="text-3xl font-bold text-blue-900" id="today-inbound-count">0</h3>
-          <p class="text-sm text-blue-700 mt-1">오늘의 입고 건수</p>
+          <div>
+            <h3 class="text-4xl font-bold mb-2" id="today-inbound-count">
+              <span class="loading-shimmer">0</span>
+            </h3>
+            <p class="text-blue-100 text-sm font-medium">오늘의 입고 건수</p>
+          </div>
+          <div class="mt-4 pt-4 border-t border-white/20">
+            <p class="text-xs text-blue-100">
+              <i class="fas fa-arrow-up mr-1"></i>
+              실시간 업데이트
+            </p>
+          </div>
         </div>
 
         <!-- 오늘의 출고 -->
-        <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border border-orange-200">
-          <div class="flex items-center justify-between mb-3">
-            <div class="w-12 h-12 bg-orange-600 rounded-xl flex items-center justify-center">
-              <i class="fas fa-dolly text-white text-xl"></i>
+        <div class="stat-card bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+          <div class="flex items-center justify-between mb-4">
+            <div class="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <i class="fas fa-dolly text-2xl"></i>
             </div>
-            <span class="text-xs font-semibold text-orange-700 bg-orange-200 px-3 py-1 rounded-full">출고</span>
+            <span class="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold">출고</span>
           </div>
-          <h3 class="text-3xl font-bold text-orange-900" id="today-outbound-count">0</h3>
-          <p class="text-sm text-orange-700 mt-1">오늘의 출고 건수</p>
+          <div>
+            <h3 class="text-4xl font-bold mb-2" id="today-outbound-count">
+              <span class="loading-shimmer">0</span>
+            </h3>
+            <p class="text-orange-100 text-sm font-medium">오늘의 출고 건수</p>
+          </div>
+          <div class="mt-4 pt-4 border-t border-white/20">
+            <p class="text-xs text-orange-100">
+              <i class="fas fa-arrow-down mr-1"></i>
+              실시간 업데이트
+            </p>
+          </div>
         </div>
 
         <!-- 오늘의 판매 -->
-        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
-          <div class="flex items-center justify-between mb-3">
-            <div class="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center">
-              <i class="fas fa-cash-register text-white text-xl"></i>
+        <div class="stat-card bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+          <div class="flex items-center justify-between mb-4">
+            <div class="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <i class="fas fa-cash-register text-2xl"></i>
             </div>
-            <span class="text-xs font-semibold text-green-700 bg-green-200 px-3 py-1 rounded-full">판매</span>
+            <span class="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold">판매</span>
           </div>
-          <h3 class="text-3xl font-bold text-green-900" id="today-sale-count">0</h3>
-          <p class="text-sm text-green-700 mt-1">오늘의 판매 건수</p>
+          <div>
+            <h3 class="text-4xl font-bold mb-2" id="today-sale-count">
+              <span class="loading-shimmer">0</span>
+            </h3>
+            <p class="text-green-100 text-sm font-medium">오늘의 판매 건수</p>
+          </div>
+          <div class="mt-4 pt-4 border-t border-white/20">
+            <p class="text-xs text-green-100">
+              <i class="fas fa-check-circle mr-1"></i>
+              실시간 업데이트
+            </p>
+          </div>
         </div>
 
         <!-- 활성 QR 코드 -->
-        <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
-          <div class="flex items-center justify-between mb-3">
-            <div class="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center">
-              <i class="fas fa-barcode text-white text-xl"></i>
+        <div class="stat-card bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+          <div class="flex items-center justify-between mb-4">
+            <div class="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <i class="fas fa-barcode text-2xl"></i>
             </div>
-            <span class="text-xs font-semibold text-purple-700 bg-purple-200 px-3 py-1 rounded-full">활성</span>
+            <span class="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold">활성</span>
           </div>
-          <h3 class="text-3xl font-bold text-purple-900" id="active-qr-count">0</h3>
-          <p class="text-sm text-purple-700 mt-1">활성 QR 코드</p>
+          <div>
+            <h3 class="text-4xl font-bold mb-2" id="active-qr-count">
+              <span class="loading-shimmer">0</span>
+            </h3>
+            <p class="text-purple-100 text-sm font-medium">활성 QR 코드</p>
+          </div>
+          <div class="mt-4 pt-4 border-t border-white/20">
+            <p class="text-xs text-purple-100">
+              <i class="fas fa-database mr-1"></i>
+              전체 등록 코드
+            </p>
+          </div>
         </div>
       </div>
 
       <!-- 최근 활동 -->
-      <div class="bg-slate-50 rounded-xl p-6">
-        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <i class="fas fa-history text-slate-600"></i>
-          최근 QR 트랜잭션
-        </h3>
-        <div id="recent-qr-transactions" class="space-y-2">
-          <p class="text-center text-slate-400 py-8">데이터를 불러오는 중...</p>
+      <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 overflow-hidden">
+        <div class="bg-gradient-to-r from-slate-50 to-slate-100 px-8 py-6 border-b-2 border-slate-200">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center">
+                <i class="fas fa-history text-white"></i>
+              </div>
+              <div>
+                <h3 class="text-xl font-bold text-slate-800">최근 QR 트랜잭션</h3>
+                <p class="text-sm text-slate-500">오늘의 입출고 및 판매 활동</p>
+              </div>
+            </div>
+            <span class="px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm font-bold">
+              <i class="fas fa-circle animate-pulse mr-2"></i>
+              실시간
+            </span>
+          </div>
+        </div>
+        <div class="p-6">
+          <div id="recent-qr-transactions" class="space-y-3">
+            <p class="text-center text-slate-400 py-8">
+              <i class="fas fa-spinner fa-spin text-2xl mb-2"></i><br/>
+              데이터를 불러오는 중...
+            </p>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- CSS 애니메이션 -->
+    <style>
+      @keyframes shimmer {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+      }
+      
+      .loading-shimmer {
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+
+      .stat-card {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .stat-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        transform: rotate(45deg);
+        pointer-events: none;
+      }
+    </style>
   `;
 
   // 데이터 로드
@@ -688,16 +780,105 @@ async function renderQRManagementPage(container) {
 // QR 대시보드 데이터 로드
 async function loadQRDashboardData() {
   try {
-    // API 호출 예정
-    console.log('QR 대시보드 데이터 로드 (개발 중)');
-    // 임시 데이터
+    // 통계 데이터 조회
+    const statsRes = await fetch('/api/qr/stats', {
+      headers: { 'Authorization': `Bearer ${window.authToken}` }
+    });
+
+    if (!statsRes.ok) throw new Error('Failed to load stats');
+
+    const statsData = await statsRes.json();
+
+    // 통계 카드 업데이트
+    const todayStats = statsData.today_stats || {};
+    const qrStats = statsData.qr_stats || {};
+
+    document.getElementById('today-inbound-count').textContent = todayStats.today_inbound_count || '0';
+    document.getElementById('today-outbound-count').textContent = todayStats.today_outbound_count || '0';
+    document.getElementById('today-sale-count').textContent = todayStats.today_sale_count || '0';
+    document.getElementById('active-qr-count').textContent = qrStats.active_codes || '0';
+
+    // 최근 트랜잭션 조회
+    const today = new Date().toISOString().split('T')[0];
+    const transRes = await fetch(`/api/qr/transactions/all?date=${today}&limit=10`, {
+      headers: { 'Authorization': `Bearer ${window.authToken}` }
+    });
+
+    if (!transRes.ok) throw new Error('Failed to load transactions');
+
+    const transData = await transRes.json();
+    renderRecentTransactions(transData.transactions || []);
+
+  } catch (error) {
+    console.error('QR 대시보드 데이터 로드 실패:', error);
+    // 에러 시 기본값 표시
     document.getElementById('today-inbound-count').textContent = '0';
     document.getElementById('today-outbound-count').textContent = '0';
     document.getElementById('today-sale-count').textContent = '0';
     document.getElementById('active-qr-count').textContent = '0';
-  } catch (error) {
-    console.error('QR 대시보드 데이터 로드 실패:', error);
+
+    const container = document.getElementById('recent-qr-transactions');
+    if (container) {
+      container.innerHTML = '<p class="text-center text-slate-400 py-8">데이터를 불러올 수 없습니다</p>';
+    }
   }
+}
+
+// 최근 트랜잭션 렌더링
+function renderRecentTransactions(transactions) {
+  const container = document.getElementById('recent-qr-transactions');
+  if (!container) return;
+
+  if (!transactions || transactions.length === 0) {
+    container.innerHTML = '<p class="text-center text-slate-400 py-8">오늘 트랜잭션이 없습니다</p>';
+    return;
+  }
+
+  const typeConfig = {
+    inbound: { color: 'blue', icon: 'fa-qrcode', label: '입고' },
+    outbound: { color: 'orange', icon: 'fa-dolly', label: '출고' },
+    sale: { color: 'green', icon: 'fa-cash-register', label: '판매' }
+  };
+
+  container.innerHTML = transactions.map(tx => {
+    const config = typeConfig[tx.transaction_type] || { color: 'slate', icon: 'fa-box', label: '기타' };
+    const timeAgo = getTimeAgo(tx.created_at);
+
+    return `
+      <div class="flex items-center gap-4 p-4 bg-white rounded-lg border border-slate-200 hover:border-${config.color}-300 transition-colors">
+        <div class="w-12 h-12 bg-${config.color}-100 rounded-xl flex items-center justify-center flex-shrink-0">
+          <i class="fas ${config.icon} text-${config.color}-600 text-xl"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2 py-1 bg-${config.color}-100 text-${config.color}-700 rounded text-xs font-bold">${config.label}</span>
+            <span class="text-xs text-slate-500">${timeAgo}</span>
+          </div>
+          <h4 class="font-semibold text-slate-900 truncate">${tx.product_name || 'Unknown'}</h4>
+          <p class="text-sm text-slate-600">
+            수량: <span class="font-semibold">${tx.quantity}개</span> 
+            ${tx.warehouse_name ? `| 창고: ${tx.warehouse_name}` : ''}
+            ${tx.user_name ? `| 담당: ${tx.user_name}` : ''}
+          </p>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// 시간 경과 표시 헬퍼 함수
+function getTimeAgo(dateString) {
+  const now = new Date();
+  const past = new Date(dateString);
+  const diffMs = now - past;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+
+  if (diffMins < 1) return '방금 전';
+  if (diffMins < 60) return `${diffMins}분 전`;
+  if (diffHours < 24) return `${diffHours}시간 전`;
+
+  return past.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 // 창고 목록 로드
