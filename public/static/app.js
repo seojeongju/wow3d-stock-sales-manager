@@ -281,6 +281,26 @@ async function loadPage(page) {
       if (window.renderTransactionStatementPage) await window.renderTransactionStatementPage(content);
       else content.innerHTML = '<div class="text-center py-10">모듈 로딩 중...</div>';
       break;
+    case 'qr-dashboard':
+      updatePageTitle('MES 대시보드', 'QR 작업 현황 및 실시간 통계');
+      await renderQRDashboardPage(content);
+      break;
+    case 'qr-inbound':
+      updatePageTitle('QR 입고', 'QR 코드 스캔으로 간편 입고');
+      await renderQRInboundPage(content);
+      break;
+    case 'qr-outbound':
+      updatePageTitle('QR 출고', 'QR 코드 스캔으로 간편 출고');
+      await renderQROutboundPage(content);
+      break;
+    case 'qr-sale':
+      updatePageTitle('QR 판매', 'QR 코드 스캔으로 즉시 판매');
+      await renderQRSalePage(content);
+      break;
+    case 'qr-management':
+      updatePageTitle('QR 관리', 'QR 코드 생성 및 관리');
+      await renderQRManagementPage(content);
+      break;
     default:
       content.innerHTML = '<div class="p-4">준비 중인 페이지입니다.</div>';
   }

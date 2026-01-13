@@ -529,6 +529,7 @@ app.get('/', (c: Context) => {
                             <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
                             <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
                             <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.min.js?v=2"></script>
+                            <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
                             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
                                 <style>
                                     body {
@@ -773,6 +774,37 @@ app.get('/', (c: Context) => {
                                                      </a>
                                                 </div>
                                             </div>
+
+                                            <!-- MES Group -->
+                                            <div>
+                                                <p class="px-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-orange-500/50"></span>
+                                                    MES (제조실행시스템)
+                                                </p>
+                                                <div class="space-y-1">
+                                                    <a href="#" data-page="qr-dashboard" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-chart-line w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">MES 대시보드</span>
+                                                    </a>
+                                                    <a href="#" data-page="qr-inbound" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-qrcode w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">QR 입고</span>
+                                                    </a>
+                                                    <a href="#" data-page="qr-outbound" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-dolly w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">QR 출고</span>
+                                                    </a>
+                                                    <a href="#" data-page="qr-sale" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-cash-register w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">QR 판매</span>
+                                                    </a>
+                                                    <a href="#" data-page="qr-management" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-cogs w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">QR 관리</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+
                                             <!-- System Group -->
                                             <div>
                                                 <p class="px-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -918,6 +950,7 @@ app.get('/', (c: Context) => {
                                 <script src="/static/js/system-settings.js?v=1"></script>
                                 <script src="/static/js/tracking.js?v=1"></script>
                                 <script src="/static/js/transaction-statement.js?v=1"></script>
+                                <script src="/static/js/qr-mes.js?v=1"></script>
                             </body>
                         </html>
                         `)
