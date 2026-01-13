@@ -188,6 +188,8 @@ async function renderQRInboundPage(container) {
 
   // 창고 목록 로드
   await loadWarehousesForQR('inbound-warehouse');
+  // 입고 이력 로드
+  await loadInboundHistory();
 }
 
 // ================================================
@@ -249,6 +251,7 @@ async function renderQROutboundPage(container) {
   `;
 
   await loadWarehousesForQR('outbound-warehouse');
+  await loadOutboundHistory();
 }
 
 // ================================================
@@ -472,38 +475,401 @@ function renderQRCodeList(codes) {
   });
 }
 
+// 전역 스캔 상태
+let html5QrcodeScanner = null;
+let currentScannedData = null;
+
 // QR 스캔 시작
-function startQRScan(type) {
-  showToast('QR 스캔 기능은 Phase 3에서 구현됩니다', 'info');
-  console.log(`QR 스캔 시작: ${type}`);
+async function startQRScan(type) {
+  const readerId = type === 'inbound' ? 'qr-reader' : 'qr-reader-outbound';
+  const startBtn = document.getElementById('start-scan-btn');
+  const stopBtn = document.getElementById('stop-scan-btn');
+
+  if (html5QrcodeScanner) {
+    showToast('이미 스캔이 진행 중입니다', 'warning');
+    return;
+  }
+
+  try {
+    html5QrcodeScanner = new Html5Qrcode(readerId);
+
+    await html5QrcodeScanner.start(
+      { facingMode: "environment" }, // 후면 카메라 우선
+      {
+        fps: 10,
+        qrbox: { width: 250, height: 250 }
+      },
+      async (decodedText) => {
+        // 스캔 성공
+        console.log(`QR 스캔 성공: ${decodedText}`);
+
+        // 스캔 중지
+        await stopQRScan();
+
+        // 스캔된 QR 코드 처리
+        await processScannedQR(decodedText, type);
+      },
+      (error) => {
+        // 스캔 실패 (무시)
+      }
+    );
+
+    if (startBtn) startBtn.classList.add('hidden');
+    if (stopBtn) stopBtn.classList.remove('hidden');
+
+    showToast('스캔을 시작합니다. QR 코드를 카메라에 비춰주세요', 'info');
+
+  } catch (error) {
+    console.error('QR 스캔 시작 실패:', error);
+    showToast('카메라 접근에 실패했습니다. 권한을 확인해주세요', 'error');
+    html5QrcodeScanner = null;
+  }
 }
 
 // QR 스캔 중지
-function stopQRScan() {
-  console.log('QR 스캔 중지');
+async function stopQRScan() {
+  if (html5QrcodeScanner) {
+    try {
+      await html5QrcodeScanner.stop();
+    } catch (error) {
+      console.error('QR 스캔 중지 실패:', error);
+    }
+    html5QrcodeScanner = null;
+  }
+
+  const startBtn = document.getElementById('start-scan-btn');
+  const stopBtn = document.getElementById('stop-scan-btn');
+  if (startBtn) startBtn.classList.remove('hidden');
+  if (stopBtn) stopBtn.classList.add('hidden');
+}
+
+// 스캔된 QR 코드 처리
+async function processScannedQR(qrCode, type) {
+  try {
+    const res = await fetch(`/api/qr/scan/${qrCode}`, {
+      headers: { 'Authorization': `Bearer ${window.authToken}` }
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'QR 코드 조회 실패');
+    }
+
+    const data = await res.json();
+
+    currentScannedData = {
+      qr_code: qrCode,
+      ...data.qr_code,
+      type
+    };    // 스캔 결과 표시
+    displayScannedResult(currentScannedData, type);
+
+    showToast('✅ QR 코드 스캔 성공!', 'success');
+
+  } catch (error) {
+    console.error('QR 스캔 처리 실패:', error);
+    showToast(error.message || 'QR 코드 처리에 실패했습니다', 'error');
+  }
+}
+
+// 스캔 결과 표시
+function displayScannedResult(data, type) {
+  const resultId = type === 'inbound' ? 'qr-scan-result' : `qr-${type}-result`;
+  const resultContainer = document.getElementById(resultId);
+
+  if (!resultContainer) return;
+
+  // 입고용 결과 표시
+  if (type === 'inbound') {
+    document.getElementById('scanned-product-name').textContent = data.product_name;
+    document.getElementById('scanned-product-stock').textContent = `${data.current_stock || 0}개`;
+    document.getElementById('inbound-quantity').value = '1';
+    document.getElementById('inbound-notes').value = '';
+
+    resultContainer.classList.remove('hidden');
+
+    // 스크롤 이동
+    resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // 출고용 결과 표시 (출고 페이지에 동일한 구조 추가 필요)
+  if (type === 'outbound') {
+    resultContainer.innerHTML = `
+      <div class="bg-orange-50 rounded-xl p-6 border border-orange-200">
+        <h3 class="text-lg font-bold text-orange-900 mb-4">스캔 정보</h3>
+        <div class="space-y-3">
+          <div>
+            <label class="text-sm font-medium text-slate-600">제품명</label>
+            <p class="text-lg font-semibold text-slate-900">${data.product_name}</p>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-600">현재 재고</label>
+            <p class="text-lg font-semibold text-slate-900">${data.current_stock || 0}개</p>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-600 block mb-2">출고 수량</label>
+            <input type="number" id="outbound-quantity" value="1" min="1" max="${data.current_stock || 0}"
+                   class="w-full px-4 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500">
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-600 block mb-2">창고 선택</label>
+            <select id="outbound-warehouse" class="w-full px-4 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500">
+              <option value="">창고를 선택하세요</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-600 block mb-2">메모 (선택)</label>
+            <textarea id="outbound-notes" rows="3" placeholder="출고 관련 메모..."
+                      class="w-full px-4 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500"></textarea>
+          </div>
+          <div class="flex gap-2 pt-4">
+            <button onclick="confirmQROutbound()" class="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-semibold">
+              <i class="fas fa-check mr-2"></i>출고 확정
+            </button>
+            <button onclick="cancelQRScan()" class="flex-1 px-4 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 font-semibold">
+              <i class="fas fa-times mr-2"></i>취소
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    resultContainer.classList.remove('hidden');
+
+    // 창고 목록 로드
+    loadWarehousesForQR('outbound-warehouse');
+
+    resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 }
 
 // 수동 QR 입력
-function handleManualQRInput(type) {
+async function handleManualQRInput(type) {
   const inputId = type === 'inbound' ? 'manual-qr-input' : 'manual-qr-input-outbound';
   const input = document.getElementById(inputId);
   const qrCode = input?.value?.trim();
 
-  if (qrCode) {
-    showToast(`QR 코드 처리 (${type}): ${qrCode}\n(Phase 3에서 구현 예정)`, 'info');
-  } else {
+  if (!qrCode) {
     showToast('QR 코드를 입력하세요', 'error');
+    return;
   }
+
+  await processScannedQR(qrCode, type);
+
+  // 입력 필드 초기화
+  if (input) input.value = '';
 }
 
 // QR 입고 확정
-function confirmQRInbound() {
-  showToast('QR 입고 확정 기능은 Phase 3에서 구현됩니다', 'info');
+async function confirmQRInbound() {
+  if (!currentScannedData) {
+    showToast('먼저 QR 코드를 스캔하세요', 'error');
+    return;
+  }
+
+  const quantity = parseInt(document.getElementById('inbound-quantity')?.value || '0');
+  const warehouseId = document.getElementById('inbound-warehouse')?.value;
+  const notes = document.getElementById('inbound-notes')?.value?.trim();
+
+  if (!quantity || quantity < 1) {
+    showToast('올바른 수량을 입력하세요', 'error');
+    return;
+  }
+
+  if (!warehouseId) {
+    showToast('창고를 선택하세요', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/qr/inbound', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${window.authToken}`
+      },
+      body: JSON.stringify({
+        qr_code: currentScannedData.qr_code,
+        quantity,
+        warehouse_id: parseInt(warehouseId),
+        notes
+      })
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || '입고 처리 실패');
+    }
+
+    const data = await res.json();
+
+    showToast(`✅ 입고 완료! ${data.transaction.product_name} (${quantity}개)`, 'success');
+
+    // 폼 초기화
+    currentScannedData = null;
+    document.getElementById('qr-scan-result')?.classList.add('hidden');
+    document.getElementById('inbound-quantity').value = '1';
+    document.getElementById('inbound-notes').value = '';
+
+    // 입고 이력 새로고침
+    await loadInboundHistory();
+
+  } catch (error) {
+    console.error('QR 입고 확정 실패:', error);
+    showToast(error.message || '입고 처리에 실패했습니다', 'error');
+  }
+}
+
+// QR 출고 확정
+async function confirmQROutbound() {
+  if (!currentScannedData) {
+    showToast('먼저 QR 코드를 스캔하세요', 'error');
+    return;
+  }
+
+  const quantity = parseInt(document.getElementById('outbound-quantity')?.value || '0');
+  const warehouseId = document.getElementById('outbound-warehouse')?.value;
+  const notes = document.getElementById('outbound-notes')?.value?.trim();
+
+  if (!quantity || quantity < 1) {
+    showToast('올바른 수량을 입력하세요', 'error');
+    return;
+  }
+
+  if (!warehouseId) {
+    showToast('창고를 선택하세요', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/qr/outbound', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${window.authToken}`
+      },
+      body: JSON.stringify({
+        qr_code: currentScannedData.qr_code,
+        quantity,
+        warehouse_id: parseInt(warehouseId),
+        notes
+      })
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || '출고 처리 실패');
+    }
+
+    const data = await res.json();
+
+    showToast(`✅ 출고 완료! ${data.transaction.product_name} (${quantity}개)`, 'success');
+
+    // 폼 초기화
+    currentScannedData = null;
+    document.getElementById('qr-outbound-result')?.classList.add('hidden');
+
+    // 출고 이력 새로고침
+    await loadOutboundHistory();
+
+  } catch (error) {
+    console.error('QR 출고 확정 실패:', error);
+    showToast(error.message || '출고 처리에 실패했습니다', 'error');
+  }
+}
+
+// 입고 이력 로드
+async function loadInboundHistory() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const res = await fetch(`/api/qr/transactions/inbound?date=${today}&limit=10`, {
+      headers: { 'Authorization': `Bearer ${window.authToken}` }
+    });
+
+    if (!res.ok) throw new Error('Failed to load history');
+
+    const data = await res.json();
+    renderInboundHistory(data.transactions);
+  } catch (error) {
+    console.error('입고 이력 로드 실패:', error);
+  }
+}
+
+// 입고 이력 렌더링
+function renderInboundHistory(transactions) {
+  const container = document.getElementById('qr-inbound-history');
+  if (!container) return;
+
+  if (!transactions || transactions.length === 0) {
+    container.innerHTML = '<p class="text-center text-slate-400 py-8">입고 이력이 없습니다</p>';
+    return;
+  }
+
+  container.innerHTML = transactions.map(tx => `
+    <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+      <div class="flex items-center justify-between">
+        <div class="flex-1">
+          <h4 class="font-semibold text-blue-900">${tx.product_name}</h4>
+          <p class="text-sm text-slate-600">수량: ${tx.quantity}개 | 창고: ${tx.warehouse_name}</p>
+          <p class="text-xs text-slate-500">시간: ${new Date(tx.created_at).toLocaleString('ko-KR')}</p>
+          ${tx.notes ? `<p class="text-xs text-slate-600 mt-1">메모: ${tx.notes}</p>` : ''}
+        </div>
+        <div class="text-blue-600">
+          <i class="fas fa-check-circle text-2xl"></i>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// 출고 이력 로드
+async function loadOutboundHistory() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const res = await fetch(`/api/qr/transactions/outbound?date=${today}&limit=10`, {
+      headers: { 'Authorization': `Bearer ${window.authToken}` }
+    });
+
+    if (!res.ok) throw new Error('Failed to load history');
+
+    const data = await res.json();
+    renderOutboundHistory(data.transactions);
+  } catch (error) {
+    console.error('출고 이력 로드 실패:', error);
+  }
+}
+
+// 출고 이력 렌더링
+function renderOutboundHistory(transactions) {
+  const container = document.getElementById('qr-outbound-history');
+  if (!container) return;
+
+  if (!transactions || transactions.length === 0) {
+    container.innerHTML = '<p class="text-center text-slate-400 py-8">출고 이력이 없습니다</p>';
+    return;
+  }
+
+  container.innerHTML = transactions.map(tx => `
+    <div class="p-4 bg-orange-50 rounded-lg border border-orange-200">
+      <div class="flex items-center justify-between">
+        <div class="flex-1">
+          <h4 class="font-semibold text-orange-900">${tx.product_name}</h4>
+          <p class="text-sm text-slate-600">수량: ${tx.quantity}개 | 창고: ${tx.warehouse_name}</p>
+          <p class="text-xs text-slate-500">시간: ${new Date(tx.created_at).toLocaleString('ko-KR')}</p>
+          ${tx.notes ? `<p class="text-xs text-slate-600 mt-1">메모: ${tx.notes}</p>` : ''}
+        </div>
+        <div class="text-orange-600">
+          <i class="fas fa-check-circle text-2xl"></i>
+        </div>
+      </div>
+    </div>
+  `).join('');
 }
 
 // QR 스캔 취소
 function cancelQRScan() {
+  currentScannedData = null;
   document.getElementById('qr-scan-result')?.classList.add('hidden');
+  document.getElementById('qr-outbound-result')?.classList.add('hidden');
 }
 
 // QR 코드 생성
@@ -614,6 +980,7 @@ window.startQRScan = startQRScan;
 window.stopQRScan = stopQRScan;
 window.handleManualQRInput = handleManualQRInput;
 window.confirmQRInbound = confirmQRInbound;
+window.confirmQROutbound = confirmQROutbound;
 window.cancelQRScan = cancelQRScan;
 window.refreshQRDashboard = refreshQRDashboard;
 

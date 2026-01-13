@@ -370,4 +370,258 @@ qr.get('/stats', async (c) => {
     }
 })
 
+// ================================================
+// 7. QR 입고 처리
+// ================================================
+qr.post('/inbound', async (c) => {
+    const tenantId = c.get('tenantId')
+    const userId = c.get('userId')
+
+    const { qr_code, quantity, warehouse_id, notes } = await c.req.json()
+
+    if (!qr_code) {
+        return c.json({ error: 'QR 코드가 필요합니다' }, 400)
+    }
+
+    if (!quantity || quantity < 1) {
+        return c.json({ error: '올바른 수량을 입력하세요' }, 400)
+    }
+
+    if (!warehouse_id) {
+        return c.json({ error: '창고를 선택하세요' }, 400)
+    }
+
+    try {
+        // QR 코드 정보 조회
+        const qrInfo = await c.env.DB.prepare(`
+      SELECT 
+        qc.id AS qr_id,
+        qc.product_id,
+        qc.status,
+        p.name AS product_name,
+        p.quantity AS current_stock
+      FROM qr_codes qc
+      LEFT JOIN products p ON qc.product_id = p.id
+      WHERE qc.code = ? AND p.tenant_id = ?
+    `).bind(qr_code, tenantId).first()
+
+        if (!qrInfo) {
+            return c.json({ error: 'QR 코드를 찾을 수 없습니다' }, 404)
+        }
+
+        if (qrInfo.status !== 'active') {
+            return c.json({ error: `비활성화된 QR 코드입니다 (상태: ${qrInfo.status})` }, 400)
+        }
+
+        // 트랜잭션으로 묶어서 처리
+        const batch = []
+
+        // 1. QR 트랜잭션 기록
+        batch.push(
+            c.env.DB.prepare(`
+        INSERT INTO qr_transactions (qr_code_id, transaction_type, quantity, warehouse_id, created_by, notes)
+        VALUES (?, 'inbound', ?, ?, ?, ?)
+      `).bind(qrInfo.qr_id, quantity, warehouse_id, userId, notes || null)
+        )
+
+        // 2. 제품 재고 증가
+        batch.push(
+            c.env.DB.prepare(`
+        UPDATE products 
+        SET quantity = quantity + ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(quantity, qrInfo.product_id)
+        )
+
+        // 3. 재고 이력 기록 (Stock movements 테이블에도 기록)
+        batch.push(
+            c.env.DB.prepare(`
+        INSERT INTO stock_movements (product_id, quantity, movement_type, warehouse_id, notes, created_by)
+        VALUES (?, ?, 'in', ?, ?, ?)
+      `).bind(qrInfo.product_id, quantity, warehouse_id, `QR 입고: ${qr_code}${notes ? ' - ' + notes : ''}`, userId)
+        )
+
+        // 배치 실행
+        await c.env.DB.batch(batch)
+
+        // 업데이트된 재고 조회
+        const updatedProduct = await c.env.DB.prepare(`
+      SELECT quantity FROM products WHERE id = ?
+    `).bind(qrInfo.product_id).first()
+
+        return c.json({
+            success: true,
+            message: '입고가 완료되었습니다',
+            transaction: {
+                product_name: qrInfo.product_name,
+                quantity,
+                previous_stock: qrInfo.current_stock,
+                new_stock: updatedProduct?.quantity || 0,
+                warehouse_id
+            }
+        })
+    } catch (error: any) {
+        console.error('QR 입고 처리 오류:', error)
+        return c.json({ error: 'QR 입고 처리 중 오류가 발생했습니다', details: error.message }, 500)
+    }
+})
+
+// ================================================
+// 8. QR 출고 처리
+// ================================================
+qr.post('/outbound', async (c) => {
+    const tenantId = c.get('tenantId')
+    const userId = c.get('userId')
+
+    const { qr_code, quantity, warehouse_id, notes } = await c.req.json()
+
+    if (!qr_code || !quantity || !warehouse_id) {
+        return c.json({ error: '필수 항목을 모두 입력하세요' }, 400)
+    }
+
+    if (quantity < 1) {
+        return c.json({ error: '올바른 수량을 입력하세요' }, 400)
+    }
+
+    try {
+        // QR 코드 정보 조회
+        const qrInfo = await c.env.DB.prepare(`
+      SELECT 
+        qc.id AS qr_id,
+        qc.product_id,
+        qc.status,
+        p.name AS product_name,
+        p.quantity AS current_stock
+      FROM qr_codes qc
+      LEFT JOIN products p ON qc.product_id = p.id
+      WHERE qc.code = ? AND p.tenant_id = ?
+    `).bind(qr_code, tenantId).first()
+
+        if (!qrInfo) {
+            return c.json({ error: 'QR 코드를 찾을 수 없습니다' }, 404)
+        }
+
+        if (qrInfo.status !== 'active') {
+            return c.json({ error: `비활성화된 QR 코드입니다 (상태: ${qrInfo.status})` }, 400)
+        }
+
+        // 재고 부족 확인
+        if (qrInfo.current_stock < quantity) {
+            return c.json({
+                error: '재고가 부족합니다',
+                current_stock: qrInfo.current_stock,
+                requested: quantity
+            }, 400)
+        }
+
+        // 트랜잭션으로 묶어서 처리
+        const batch = []
+
+        // 1. QR 트랜잭션 기록
+        batch.push(
+            c.env.DB.prepare(`
+        INSERT INTO qr_transactions (qr_code_id, transaction_type, quantity, warehouse_id, created_by, notes)
+        VALUES (?, 'outbound', ?, ?, ?, ?)
+      `).bind(qrInfo.qr_id, quantity, warehouse_id, userId, notes || null)
+        )
+
+        // 2. 제품 재고 감소
+        batch.push(
+            c.env.DB.prepare(`
+        UPDATE products 
+        SET quantity = quantity - ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(quantity, qrInfo.product_id)
+        )
+
+        // 3. 재고 이력 기록
+        batch.push(
+            c.env.DB.prepare(`
+        INSERT INTO stock_movements (product_id, quantity, movement_type, warehouse_id, notes, created_by)
+        VALUES (?, ?, 'out', ?, ?, ?)
+      `).bind(qrInfo.product_id, quantity, warehouse_id, `QR 출고: ${qr_code}${notes ? ' - ' + notes : ''}`, userId)
+        )
+
+        await c.env.DB.batch(batch)
+
+        // 업데이트된 재고 조회
+        const updatedProduct = await c.env.DB.prepare(`
+      SELECT quantity FROM products WHERE id = ?
+    `).bind(qrInfo.product_id).first()
+
+        return c.json({
+            success: true,
+            message: '출고가 완료되었습니다',
+            transaction: {
+                product_name: qrInfo.product_name,
+                quantity,
+                previous_stock: qrInfo.current_stock,
+                new_stock: updatedProduct?.quantity || 0,
+                warehouse_id
+            }
+        })
+    } catch (error: any) {
+        console.error('QR 출고 처리 오류:', error)
+        return c.json({ error: 'QR 출고 처리 중 오류가 발생했습니다', details: error.message }, 500)
+    }
+})
+
+// ================================================
+// 9. QR 트랜잭션 이력 조회
+// ================================================
+qr.get('/transactions/:type', async (c) => {
+    const tenantId = c.get('tenantId')
+    const type = c.req.param('type') // 'inbound', 'outbound', 'sale', 'all'
+    const limit = parseInt(c.req.query('limit') || '20')
+    const date = c.req.query('date') // YYYY-MM-DD 형식
+
+    try {
+        let query = `
+      SELECT 
+        qt.id,
+        qt.transaction_type,
+        qt.quantity,
+        qt.notes,
+        qt.created_at,
+        qc.code AS qr_code,
+        p.name AS product_name,
+        p.code AS product_code,
+        w.name AS warehouse_name,
+        u.name AS user_name
+      FROM qr_transactions qt
+      LEFT JOIN qr_codes qc ON qt.qr_code_id = qc.id
+      LEFT JOIN products p ON qc.product_id = p.id
+      LEFT JOIN warehouses w ON qt.warehouse_id = w.id
+      LEFT JOIN users u ON qt.created_by = u.id
+      WHERE p.tenant_id = ?
+    `
+        const params: any[] = [tenantId]
+
+        if (type !== 'all') {
+            query += ' AND qt.transaction_type = ?'
+            params.push(type)
+        }
+
+        if (date) {
+            query += ' AND DATE(qt.created_at) = ?'
+            params.push(date)
+        }
+
+        query += ' ORDER BY qt.created_at DESC LIMIT ?'
+        params.push(limit)
+
+        const { results } = await c.env.DB.prepare(query).bind(...params).all()
+
+        return c.json({
+            success: true,
+            transactions: results
+        })
+    } catch (error: any) {
+        console.error('QR 트랜잭션 조회 오류:', error)
+        return c.json({ error: '트랜잭션 조회 중 오류가 발생했습니다', details: error.message }, 500)
+    }
+})
+
 export default qr
