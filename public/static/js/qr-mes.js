@@ -706,22 +706,180 @@ async function renderQROutboundPage(container) {
 // ================================================
 async function renderQRSalePage(container) {
   container.innerHTML = `
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-      <div class="mb-6">
-        <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
-          <i class="fas fa-cash-register text-green-600"></i>
-          QR 스캔 판매
-        </h2>
-        <p class="text-slate-500 mt-1">QR 코드를 스캔하여 즉시 판매 등록</p>
+    <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-sm border border-green-200 overflow-hidden">
+      <!-- 헤더 -->
+      <div class="bg-gradient-to-r from-green-600 to-emerald-600 p-6">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+              <i class="fas fa-cash-register text-white text-2xl"></i>
+            </div>
+            <div>
+              <h2 class="text-2xl font-bold text-white flex items-center gap-3">
+                QR 스캔 판매
+              </h2>
+              <p class="text-green-100 mt-1">QR 코드를 스캔하여 즉시 판매 등록</p>
+            </div>
+          </div>
+          <button onclick="loadSaleHistory()" class="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all">
+            <i class="fas fa-sync-alt mr-2"></i>새로고침
+          </button>
+        </div>
       </div>
 
-      <div class="text-center py-20 text-slate-400">
-        <i class="fas fa-tools text-6xl mb-4"></i>
-        <p class="text-lg">QR 판매 기능 개발 중입니다...</p>
-        <p class="text-sm mt-2">곧 만나보실 수 있습니다!</p>
+      <div class="p-8">
+        <!-- 메인 스캔 영역 -->
+        <div class="grid lg:grid-cols-2 gap-8 mb-8">
+          <!-- 왼쪽: 스캔 카메라 -->
+          <div class="space-y-6">
+            <!-- 카메라 뷰포트 -->
+            <div class="relative bg-slate-900 rounded-2xl overflow-hidden border-4 border-green-500 shadow-2xl">
+              <!-- 스캔 가이드 오버레이 -->
+              <div id="scan-guide-sale" class="absolute inset-0 z-10 pointer-events-none hidden">
+                <div class="absolute inset-0 bg-black/60"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <div class="relative w-64 h-64">
+                    <div class="scan-box-border-sale"></div>
+                    <div class="absolute inset-0 border-4 border-green-400 rounded-2xl animate-pulse"></div>
+                    <div class="scan-corner-sale top-0 left-0"></div>
+                    <div class="scan-corner-sale top-0 right-0"></div>
+                    <div class="scan-corner-sale bottom-0 left-0"></div>
+                    <div class="scan-corner-sale bottom-0 right-0"></div>
+                    <div class="scan-line-sale"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <div id="qr-reader-sale" class="min-h-[400px] bg-slate-800 flex items-center justify-center">
+                <div class="text-center text-white p-8">
+                  <i class="fas fa-camera text-6xl mb-4 opacity-50"></i>
+                  <p class="text-lg">스캔을 시작하려면 아래 버튼을 클릭하세요</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 컨트롤 버튼 -->
+            <div class="flex gap-3">
+              <button id="start-scan-btn-sale" onclick="startQRScan('sale')" 
+                      class="flex-1 px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105">
+                <i class="fas fa-camera mr-2"></i>스캔 시작
+              </button>
+              <button id="stop-scan-btn-sale" onclick="stopQRScan('sale')" 
+                      class="flex-1 px-6 py-4 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl hover:from-slate-700 hover:to-slate-800 transition-all font-bold text-lg shadow-lg hidden">
+                <i class="fas fa-stop-circle mr-2"></i>스캔 중지
+              </button>
+            </div>
+
+            <!-- 수동 입력 -->
+            <div class="bg-white rounded-xl p-6 border-2 border-slate-200 shadow-sm">
+              <label class="block text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                <i class="fas fa-keyboard text-green-600"></i>
+                수동 입력
+              </label>
+              <div class="flex gap-2">
+                <input type="text" id="manual-qr-input-sale" placeholder="QR-XXXXXX-XXXXX 형식으로 입력..." 
+                       class="flex-1 px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-lg font-mono"
+                       onkeypress="if(event.key==='Enter') handleManualQRInput('sale')">
+                <button onclick="handleManualQRInput('sale')" 
+                        class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-semibold">
+                  <i class="fas fa-check mr-2"></i>확인
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 오른쪽: 스캔 결과 및 판매 폼 -->
+          <div>
+            <!-- 대기 상태 -->
+            <div id="scan-waiting-sale" class="bg-white rounded-xl p-8 border-2 border-dashed border-slate-300">
+              <div class="text-center text-slate-400 py-12">
+                <div class="w-24 h-24 bg-slate-100 rounded-full mx-auto mb-6 flex items-center justify-center">
+                  <i class="fas fa-cash-register text-5xl text-slate-300"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-600 mb-2">스캔 대기 중</h3>
+                <p class="text-slate-500">QR 코드를 스캔하면<br/>여기에 제품 정보가 표시됩니다</p>
+              </div>
+            </div>
+
+            <!-- 스캔 결과 표시 -->
+            <div id="qr-sale-result" class="hidden">
+              <!-- JavaScript에서 동적으로 생성됨 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 오늘의 판매 이력 -->
+        <div class="bg-white rounded-2xl p-6 border-2 border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <i class="fas fa-history text-green-600"></i>
+              오늘의 판매 이력
+            </h3>
+            <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
+              실시간 업데이트
+            </span>
+          </div>
+          <div id="qr-sale-history" class="space-y-3">
+            <p class="text-center text-slate-400 py-8">판매 이력을 불러오는 중...</p>
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- CSS 애니메이션 (판매용) -->
+    <style>
+      .scan-box-border-sale {
+        position: absolute;
+        inset: -4px;
+        background: linear-gradient(45deg, #16a34a, #059669);
+        border-radius: 1.5rem;
+        animation: scan-box-glow 2s ease-in-out infinite;
+      }
+
+      .scan-corner-sale {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        border: 4px solid #16a34a;
+      }
+
+      .scan-corner-sale.top-0.left-0 {
+        border-right: none;
+        border-bottom: none;
+        border-top-left-radius: 1rem;
+      }
+
+      .scan-corner-sale.top-0.right-0 {
+        border-left: none;
+        border-bottom: none;
+        border-top-right-radius: 1rem;
+      }
+
+      .scan-corner-sale.bottom-0.left-0 {
+        border-right: none;
+        border-top: none;
+        border-bottom-left-radius: 1rem;
+      }
+
+      .scan-corner-sale.bottom-0.right-0 {
+        border-left: none;
+        border-top: none;
+        border-bottom-right-radius: 1rem;
+      }
+
+      .scan-line-sale {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #16a34a, transparent);
+        box-shadow: 0 0 10px #16a34a;
+        animation: scan-line-move 2s linear infinite;
+      }
+    </style>
   `;
+
+  await loadSaleHistory();
 }
 
 // ================================================
@@ -1056,6 +1214,45 @@ function decreaseOutboundQuantity() {
   }
 }
 
+// 판매 수량 증가
+function increaseSaleQuantity(maxStock) {
+  const input = document.getElementById('sale-quantity');
+  if (input) {
+    const currentValue = parseInt(input.value || 1);
+    if (currentValue < maxStock) {
+      input.value = currentValue + 1;
+      updateTotalAmount();
+    }
+  }
+}
+
+// 판매 수량 감소
+function decreaseSaleQuantity() {
+  const input = document.getElementById('sale-quantity');
+  if (input) {
+    const currentValue = parseInt(input.value || 1);
+    if (currentValue > 1) {
+      input.value = currentValue - 1;
+      updateTotalAmount();
+    }
+  }
+}
+
+// 총 판매금액 업데이트
+function updateTotalAmount() {
+  const quantityInput = document.getElementById('sale-quantity');
+  const priceInput = document.getElementById('sale-price');
+  const totalDisplay = document.getElementById('total-amount');
+
+  if (quantityInput && priceInput && totalDisplay) {
+    const quantity = parseInt(quantityInput.value || 0);
+    const price = parseInt(priceInput.value || 0);
+    const total = quantity * price;
+
+    totalDisplay.innerHTML = `<span class="text-3xl font-bold text-green-900">${total.toLocaleString()}</span><span class="text-xl text-green-700 ml-2">원</span>`;
+  }
+}
+
 // 스캔 가이드 표시/숨기기
 function toggleScanGuide(show, type = 'inbound') {
   const guideId = type === 'inbound' ? 'scan-guide' : 'scan-guide-outbound';
@@ -1096,9 +1293,19 @@ let currentScannedData = null;
 
 // QR 스캔 시작
 async function startQRScan(type) {
-  const readerId = type === 'inbound' ? 'qr-reader' : 'qr-reader-outbound';
-  const startBtnId = type === 'inbound' ? 'start-scan-btn' : 'start-scan-btn-outbound';
-  const stopBtnId = type === 'inbound' ? 'stop-scan-btn' : 'stop-scan-btn-outbound';
+  let readerId = 'qr-reader';
+  let startBtnId = 'start-scan-btn';
+  let stopBtnId = 'stop-scan-btn';
+
+  if (type === 'outbound') {
+    readerId = 'qr-reader-outbound';
+    startBtnId = 'start-scan-btn-outbound';
+    stopBtnId = 'stop-scan-btn-outbound';
+  } else if (type === 'sale') {
+    readerId = 'qr-reader-sale';
+    startBtnId = 'start-scan-btn-sale';
+    stopBtnId = 'stop-scan-btn-sale';
+  }
 
   const startBtn = document.getElementById(startBtnId);
   const stopBtn = document.getElementById(stopBtnId);
@@ -1158,8 +1365,16 @@ async function stopQRScan(type = 'inbound') {
     html5QrcodeScanner = null;
   }
 
-  const startBtnId = type === 'inbound' ? 'start-scan-btn' : 'start-scan-btn-outbound';
-  const stopBtnId = type === 'inbound' ? 'stop-scan-btn' : 'stop-scan-btn-outbound';
+  let startBtnId = 'start-scan-btn';
+  let stopBtnId = 'stop-scan-btn';
+
+  if (type === 'outbound') {
+    startBtnId = 'start-scan-btn-outbound';
+    stopBtnId = 'stop-scan-btn-outbound';
+  } else if (type === 'sale') {
+    startBtnId = 'start-scan-btn-sale';
+    stopBtnId = 'stop-scan-btn-sale';
+  }
 
   const startBtn = document.getElementById(startBtnId);
   const stopBtn = document.getElementById(stopBtnId);
@@ -1324,6 +1539,130 @@ function displayScannedResult(data, type) {
 
     // 창고 목록 로드
     loadWarehousesForQR('outbound-warehouse');
+
+    resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // 판매용 결과 표시
+  if (type === 'sale') {
+    resultContainer.innerHTML = `
+      <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-300 shadow-lg">
+        <!-- 성공 헤더 -->
+        <div class="flex items-center gap-3 mb-6 pb-4 border-b-2 border-green-200">
+          <div class="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center">
+            <i class="fas fa-check text-white text-xl"></i>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-lg font-bold text-green-900">스캔 성공!</h3>
+            <p class="text-sm text-green-700">제품 정보를 확인하고 판매를 진행하세요</p>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <!-- 제품 정보 카드 -->
+          <div class="bg-white rounded-xl p-5 border border-green-200">
+            <div class="flex items-start gap-4">
+              <div class="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-box text-green-600 text-2xl"></i>
+              </div>
+              <div class="flex-1">
+                <label class="text-xs font-semibold text-slate-500 uppercase">제품명</label>
+                <p class="text-xl font-bold text-slate-900 mt-1">${data.product_name}</p>
+                <div class="flex items-center gap-4 mt-2">
+                  <div>
+                    <label class="text-xs text-slate-500">현재 재고</label>
+                    <p class="text-lg font-semibold ${data.current_stock > 0 ? 'text-green-600' : 'text-red-600'}">${data.current_stock || 0}개</p>
+                  </div>
+                  <div>
+                    <label class="text-xs text-slate-500">기준 판매가</label>
+                    <p class="text-lg font-semibold text-blue-600">${(data.product_price || 0).toLocaleString()}원</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 판매 정보 입력 -->
+          <div class="bg-white rounded-xl p-5 border border-green-200 space-y-4">
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <i class="fas fa-hashtag text-green-600"></i>
+                판매 수량
+              </label>
+              <div class="flex items-center gap-2">
+                <button onclick="decreaseSaleQuantity()" class="w-12 h-12 bg-slate-200 hover:bg-slate-300 rounded-lg transition-all">
+                  <i class="fas fa-minus text-slate-700"></i>
+                </button>
+                <input type="number" id="sale-quantity" value="1" min="1" max="${data.current_stock || 0}"
+                       class="flex-1 px-4 py-3 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 text-center text-2xl font-bold text-green-900">
+                <button onclick="increaseSaleQuantity(${data.current_stock || 0})" class="w-12 h-12 bg-green-600 hover:bg-green-700 rounded-lg transition-all">
+                  <i class="fas fa-plus text-white"></i>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <i class="fas fa-won-sign text-green-600"></i>
+                판매 단가
+              </label>
+              <input type="number" id="sale-price" value="${data.product_price || 0}" min="0" step="100"
+                     class="w-full px-4 py-3 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 text-lg font-semibold"
+                     oninput="updateTotalAmount()">
+              <p class="text-xs text-slate-500 mt-2">
+                <i class="fas fa-info-circle mr-1"></i>기준가: ${(data.product_price || 0).toLocaleString()}원
+              </p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <i class="fas fa-calculator text-green-600"></i>
+                총 판매금액
+              </label>
+              <div id="total-amount" class="px-4 py-4 bg-green-100 border-2 border-green-300 rounded-lg text-center">
+                <span class="text-3xl font-bold text-green-900">${(data.product_price || 0).toLocaleString()}</span>
+                <span class="text-xl text-green-700 ml-2">원</span>
+              </div< /div>
+
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <i class="fas fa-user text-green-600"></i>
+                고객명 (선택사항)
+              </label>
+              <input type="text" id="customer-name" placeholder="고객명을 입력하세요..."
+                     class="w-full px-4 py-3 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500">
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <i class="fas fa-comment-alt text-green-600"></i>
+                메모 (선택사항)
+              </label>
+              <textarea id="sale-notes" rows="2" placeholder="판매 관련 메모를 입력하세요..."
+                        class="w-full px-4 py-3 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 resize-none"></textarea>
+            </div>
+          </div>
+
+          <!-- 액션 버튼 -->
+          <div class="flex gap-3 pt-4">
+            <button onclick="confirmQRSale()" 
+                    ${data.current_stock === 0 ? 'disabled' : ''}
+                    class="flex-1 px-6 py-4 ${data.current_stock > 0 ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700' : 'bg-slate-300 cursor-not-allowed'} text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
+              <i class="fas fa-check-circle mr-2"></i>판매 확정
+            </button>
+            <button onclick="cancelQRScan()" 
+                    class="px-6 py-4 bg-slate-200 text-slate-700 hover:bg-slate-300 rounded-xl font-semibold transition-all">
+              <i class="fas fa-times mr-2"></i>취소
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    resultContainer.classList.remove('hidden');
+
+    // 대기 상태 숨기기
+    const waiting = document.getElementById('scan-waiting-sale');
+    if (waiting) waiting.classList.add('hidden');
 
     resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -1557,11 +1896,127 @@ function cancelQRScan() {
   currentScannedData = null;
   document.getElementById('qr-scan-result')?.classList.add('hidden');
   document.getElementById('qr-outbound-result')?.classList.add('hidden');
+  document.getElementById('qr-sale-result')?.classList.add('hidden');
 
   // 대기 상태 다시 표시
   showScanWaiting(true);  // 입고 대기 표시
   const waitingOutbound = document.getElementById('scan-waiting-outbound');
   if (waitingOutbound) waitingOutbound.classList.remove('hidden');
+
+  const waitingSale = document.getElementById('scan-waiting-sale');
+  if (waitingSale) waitingSale.classList.remove('hidden');
+}
+
+// QR 판매 확정
+async function confirmQRSale() {
+  if (!currentScannedData) {
+    showToast('먼저 QR 코드를 스캔하세요', 'error');
+    return;
+  }
+
+  const quantity = parseInt(document.getElementById('sale-quantity')?.value || '0');
+  const salePrice = parseInt(document.getElementById('sale-price')?.value || '0');
+  const customerName = document.getElementById('customer-name')?.value?.trim();
+  const notes = document.getElementById('sale-notes')?.value?.trim();
+
+  if (!quantity || quantity < 1) {
+    showToast('올바른 수량을 입력하세요', 'error');
+    return;
+  }
+
+  if (salePrice < 0) {
+    showToast('올바른 판매가를 입력하세요', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/qr/sale', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${window.authToken}`
+      },
+      body: JSON.stringify({
+        qr_code: currentScannedData.qr_code,
+        quantity,
+        sale_price: salePrice,
+        customer_name: customerName,
+        notes
+      })
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || '판매 처리 실패');
+    }
+
+    const data = await res.json();
+
+    showToast(`✅ 판매 완료! ${data.transaction.product_name} (${quantity}개)`, 'success');
+
+    // 폼 초기화
+    cancelQRScan(); // 스캔 상태 초기화 및 대기 화면 표시
+
+    // 판매 이력 새로고침
+    await loadSaleHistory();
+
+  } catch (error) {
+    console.error('QR 판매 확정 실패:', error);
+    showToast(error.message || '판매 처리에 실패했습니다', 'error');
+  }
+}
+
+// 판매 이력 로드
+async function loadSaleHistory() {
+  const historyContainer = document.getElementById('qr-sale-history');
+  if (!historyContainer) return;
+
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const res = await fetch(`/api/qr/transactions/sale?date=${today}`, {
+      headers: { 'Authorization': `Bearer ${window.authToken}` }
+    });
+
+    if (!res.ok) throw new Error('Failed to load history');
+
+    const data = await res.json();
+    renderSaleHistory(data.transactions);
+  } catch (error) {
+    console.error('판매 이력 로드 실패:', error);
+    historyContainer.innerHTML = '<p class="text-center text-red-500 py-4">이력을 불러오는데 실패했습니다</p>';
+  }
+}
+
+// 판매 이력 렌더링
+function renderSaleHistory(transactions) {
+  const container = document.getElementById('qr-sale-history');
+  if (!container) return;
+
+  if (!transactions || transactions.length === 0) {
+    container.innerHTML = '<p class="text-center text-slate-400 py-8">오늘 판매 내역이 없습니다</p>';
+    return;
+  }
+
+  container.innerHTML = transactions.map(tx => `
+    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-green-300 transition-colors">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center border border-slate-200 shadow-sm">
+          <i class="fas fa-box text-green-600"></i>
+        </div>
+        <div>
+          <h4 class="font-bold text-slate-800">${tx.product_name}</h4>
+          <p class="text-sm text-slate-500">
+            <span class="font-mono bg-slate-200 px-1 rounded text-xs mr-2">${tx.qr_code}</span>
+            ${new Date(tx.created_at).toLocaleTimeString()}
+          </p>
+        </div>
+      </div>
+      <div class="text-right">
+        <span class="block text-lg font-bold text-green-600">-${tx.quantity}개</span>
+        <span class="text-xs text-slate-500">${tx.user_name}</span>
+      </div>
+    </div>
+  `).join('');
 }
 
 // QR 코드 생성
@@ -1597,8 +2052,6 @@ async function generateQRCodes() {
       const error = await res.json();
       throw new Error(error.error || 'QR 코드 생성 실패');
     }
-
-    const data = await res.json();
 
     showToast(`✅ ${data.codes.length}개의 QR 코드가 생성되었습니다!`, 'success');
 
@@ -1643,14 +2096,76 @@ async function downloadQRCode(qrCode, productName) {
     });
   } catch (error) {
     console.error('QR 코드 다운로드 실패:', error);
-    showToast('다운로드에 실패했습니다', 'error');
+    showToast('QR 코드 다운로드에 실패했습니다', 'error');
   }
 }
 
-// QR 라벨 출력
+// QR 코드 라벨 출력 (PDF)
 async function printQRLabel(qrCode, productName) {
-  showToast('QR 라벨 출력 기능은 개발 중입니다', 'info');
-  // Phase 2 후반부에 jsPDF로 구현 예정
+  try {
+    // jsPDF 로드 체크
+    if (!window.jspdf) {
+      showToast('PDF 라이브러리를 로드 중입니다...', 'info');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: [80, 50] // 라벨 용지 크기 (80mm x 50mm)
+    });
+
+    // QR 코드 생성
+    const canvas = document.createElement('canvas');
+    await window.QRCode.toCanvas(canvas, qrCode, {
+      width: 200,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' }
+    });
+    const qrDataUrl = canvas.toDataURL('image/png');
+
+    // PDF 디자인
+    doc.setLineWidth(0.5);
+    doc.rect(2, 2, 76, 46); // 테두리
+
+    // QR 이미지
+    doc.addImage(qrDataUrl, 'PNG', 4, 10, 30, 30);
+
+    // 텍스트 정보
+    doc.setFontSize(10);
+    doc.text("Product Info", 36, 12);
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(qrCode, 36, 20);
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Date: ${new Date().toLocaleDateString('en-US')}`, 36, 28);
+
+    doc.setFontSize(8);
+    doc.text("WOW3D Stock Manager", 36, 42);
+
+    // 자동 인쇄 및 열기
+    doc.autoPrint();
+    window.open(doc.output('bloburl'), '_blank');
+
+  } catch (error) {
+    console.error('라벨 출력 실패:', error);
+    showToast('라벨 생성 중 오류가 발생했습니다', 'error');
+  }
+}
+
+// 동적 스크립트 로드 헬퍼
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
 }
 
 // QR 대시보드 새로고침
@@ -1679,5 +2194,9 @@ window.increaseQuantity = increaseQuantity;
 window.decreaseQuantity = decreaseQuantity;
 window.increaseOutboundQuantity = increaseOutboundQuantity;
 window.decreaseOutboundQuantity = decreaseOutboundQuantity;
+window.increaseSaleQuantity = increaseSaleQuantity;
+window.decreaseSaleQuantity = decreaseSaleQuantity;
+window.confirmQRSale = confirmQRSale;
+window.loadSaleHistory = loadSaleHistory;
 
 console.log('✅ QR MES 모듈 로드 완료');
