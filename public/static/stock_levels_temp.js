@@ -1,33 +1,75 @@
 
+// 정렬 상태 관리
+let stockSortConfig = {
+  field: 'updated_at',
+  order: 'desc'
+};
+
+window.handleStockSort = function (field) {
+  if (stockSortConfig.field === field) {
+    stockSortConfig.order = stockSortConfig.order === 'asc' ? 'desc' : 'asc';
+  } else {
+    stockSortConfig.field = field;
+    // 숫자는 내림차순, 문자는 오름차순 기본이 좋으나 단순화를 위해 desc/asc 토글
+    if (field === 'warehouse_name' || field === 'product_name' || field === 'category') {
+      stockSortConfig.order = 'asc';
+    } else {
+      stockSortConfig.order = 'desc';
+    }
+  }
+  loadWarehouseStockLevels(1); // 첫 페이지로 리셋하며 로드
+}
+
+function getSortIcon(field) {
+  if (stockSortConfig.field !== field) return '<i class="fas fa-sort text-slate-300 ml-1 text-[10px]"></i>';
+  return stockSortConfig.order === 'asc'
+    ? '<i class="fas fa-sort-up text-indigo-500 ml-1"></i>'
+    : '<i class="fas fa-sort-down text-indigo-500 ml-1"></i>';
+}
+
 // 창고별 재고 현황 로드 (페이지네이션 포함)
 async function loadWarehouseStockLevels(page = 1) {
-    const container = document.getElementById('stockLevelsContainer');
-    const warehouseId = document.getElementById('levelWarehouseFilter')?.value || '';
+  const container = document.getElementById('stockLevelsContainer');
+  const warehouseId = document.getElementById('levelWarehouseFilter')?.value || '';
 
-    container.innerHTML = '<div class="flex justify-center py-10"><i class="fas fa-spinner fa-spin text-indigo-500 text-2xl"></i></div>';
+  container.innerHTML = '<div class="flex justify-center py-10"><i class="fas fa-spinner fa-spin text-indigo-500 text-2xl"></i></div>';
 
-    try {
-        const params = {
-            page: page,
-            limit: 10,
-            warehouseId: warehouseId
-        };
+  try {
+    const params = {
+      page: page,
+      limit: 10,
+      warehouseId: warehouseId,
+      sortBy: stockSortConfig.field,
+      sortOrder: stockSortConfig.order
+    };
 
-        const res = await axios.get(`${API_BASE}/warehouse-stocks`, { params });
-        const { data: stocks, pagination } = res.data;
+    const res = await axios.get(`${API_BASE}/warehouse-stocks`, { params });
+    const { data: stocks, pagination } = res.data;
 
-        container.innerHTML = `
+    container.innerHTML = `
       <div class="min-w-full inline-block align-middle">
         <div class="border rounded-lg overflow-hidden">
           <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50">
               <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">창고명</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">상품명</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">SKU</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">카테고리</th>
-                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">재고수량</th>
-                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">최근 업데이트</th>
+                <th scope="col" onclick="handleStockSort('warehouse_name')" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center">창고명 ${getSortIcon('warehouse_name')}</div>
+                </th>
+                <th scope="col" onclick="handleStockSort('product_name')" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center">상품명 ${getSortIcon('product_name')}</div>
+                </th>
+                <th scope="col" onclick="handleStockSort('sku')" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center">SKU ${getSortIcon('sku')}</div>
+                </th>
+                <th scope="col" onclick="handleStockSort('category')" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center">카테고리 ${getSortIcon('category')}</div>
+                </th>
+                <th scope="col" onclick="handleStockSort('quantity')" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center justify-end">재고수량 ${getSortIcon('quantity')}</div>
+                </th>
+                <th scope="col" onclick="handleStockSort('updated_at')" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center justify-end">최근 업데이트 ${getSortIcon('updated_at')}</div>
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200 bg-white">
@@ -81,8 +123,8 @@ async function loadWarehouseStockLevels(page = 1) {
         </div>
       </div>
     `;
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = '<div class="text-center py-10 text-rose-500">데이터 로드 실패</div>';
-    }
+  } catch (e) {
+    console.error(e);
+    container.innerHTML = '<div class="text-center py-10 text-rose-500">데이터 로드 실패</div>';
+  }
 }

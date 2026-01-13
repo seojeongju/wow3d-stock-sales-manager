@@ -14,10 +14,21 @@ app.get('/', async (c) => {
   const status = c.req.query('status') || 'completed'
 
   let query = `
-    SELECT s.*, c.name as customer_name, c.phone as customer_phone, u.name as created_by_name
+    SELECT DISTINCT s.*, 
+           c.name as customer_name, 
+           c.phone as customer_phone, 
+           u.name as created_by_name,
+           COALESCE(s.courier, op.courier) as courier,
+           COALESCE(s.tracking_number, op.tracking_number) as tracking_number,
+           (SELECT GROUP_CONCAT(p.name, ', ') 
+            FROM sale_items si 
+            JOIN products p ON si.product_id = p.id 
+            WHERE si.sale_id = s.id) as items_summary
     FROM sales s
     LEFT JOIN customers c ON s.customer_id = c.id
     LEFT JOIN users u ON s.created_by = u.id
+    LEFT JOIN outbound_order_mappings oom ON s.id = oom.sale_id
+    LEFT JOIN outbound_packages op ON oom.outbound_order_id = op.outbound_order_id
     WHERE s.tenant_id = ?
   `
   const params: any[] = [tenantId]
@@ -69,16 +80,29 @@ app.get('/:id', async (c) => {
   const id = c.req.param('id')
 
   const sale = await DB.prepare(`
-    SELECT s.*, c.name as customer_name, c.phone as customer_phone, u.name as created_by_name
+    SELECT s.*, 
+           c.name as customer_name, c.phone as customer_phone, 
+           u.name as created_by_name,
+           op.courier as outbound_courier,
+           op.tracking_number as outbound_tracking_number,
+           oo.warehouse_id as outbound_warehouse_id
     FROM sales s
     LEFT JOIN customers c ON s.customer_id = c.id
     LEFT JOIN users u ON s.created_by = u.id
+    LEFT JOIN outbound_order_mappings oom ON s.id = oom.sale_id
+    LEFT JOIN outbound_orders oo ON oom.outbound_order_id = oo.id
+    LEFT JOIN outbound_packages op ON oo.id = op.outbound_order_id
     WHERE s.id = ? AND s.tenant_id = ?
   `).bind(id, tenantId).first()
 
   if (!sale) {
     return c.json({ success: false, error: '판매 내역을 찾을 수 없습니다.' }, 404)
   }
+
+  // Merge outbound info if present
+  if (sale.outbound_courier) sale.courier = sale.outbound_courier;
+  if (sale.outbound_tracking_number) sale.tracking_number = sale.outbound_tracking_number;
+  if (sale.outbound_warehouse_id) sale.warehouse_id = sale.outbound_warehouse_id;
 
   // 판매 상품 조회
   const { results: items } = await DB.prepare(`
@@ -365,4 +389,25 @@ app.get('/stats/bestsellers', async (c) => {
   return c.json({ success: true, data: results })
 })
 
+// 배송 정보 업데이트
+app.put('/:id/shipping', async (c) => {
+  const { DB } = c.env
+  const tenantId = c.get('tenantId')
+  const id = c.req.param('id')
+  const { courier, tracking_number, shipping_address, status, warehouse_id } = await c.req.json()
+
+  try {
+    await DB.prepare(`
+      UPDATE sales 
+      SET courier = ?, tracking_number = ?, shipping_address = ?, status = ?, warehouse_id = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND tenant_id = ?
+    `).bind(courier, tracking_number, shipping_address, status, warehouse_id, id, tenantId).run()
+
+    return c.json({ success: true, message: '배송 정보가 업데이트되었습니다.' })
+  } catch (e) {
+    return c.json({ success: false, error: (e as Error).message }, 500)
+  }
+})
+
 export default app
+

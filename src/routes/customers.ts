@@ -98,8 +98,8 @@ app.post('/', async (c) => {
   }
 
   const result = await DB.prepare(`
-    INSERT INTO customers (name, phone, email, zip_code, address, address_detail, company, department, position, birthday, purchase_path, notes, tenant_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO customers (name, phone, email, zip_code, address, address_detail, company, department, position, birthday, purchase_path, notes, grade, tenant_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.name,
     body.phone,
@@ -113,6 +113,7 @@ app.post('/', async (c) => {
     body.birthday || null,
     body.purchase_path || '기타',
     body.notes || null,
+    body.grade || '일반',
     tenantId
   ).run()
 
@@ -197,6 +198,10 @@ app.put('/:id', async (c) => {
   if (body.notes !== undefined) {
     updates.push('notes = ?')
     params.push(body.notes)
+  }
+  if (body.grade !== undefined) {
+    updates.push('grade = ?')
+    params.push(body.grade)
   }
 
   if (updates.length === 0) {

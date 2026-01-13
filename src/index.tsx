@@ -20,6 +20,10 @@ import settingsRouter from './routes/settings'
 import superAdminRouter from './routes/super-admin'
 import suppliersRouter from './routes/suppliers'
 import purchasesRouter from './routes/purchases'
+import trackingRouter from './routes/tracking'
+import diagnosticRouter from './routes/diagnostic'
+import productOptionsRouter from './routes/product-options'
+import pricesRouter from './routes/prices'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -34,6 +38,7 @@ app.route('/api/auth', authRouter)
 app.route('/api/subscription', subscriptionRouter)
 app.route('/api/import-export', importExportRouter)
 app.route('/api/products', productsRouter)
+app.route('/api/product-options', productOptionsRouter)
 app.route('/api/customers', customersRouter)
 app.route('/api/sales', salesRouter)
 app.route('/api/stock', stockRouter)
@@ -46,6 +51,9 @@ app.route('/api/settings', settingsRouter)
 app.route('/api/super-admin', superAdminRouter)
 app.route('/api/suppliers', suppliersRouter)
 app.route('/api/purchases', purchasesRouter)
+app.route('/api/tracking', trackingRouter)
+app.route('/api/diagnostic', diagnosticRouter)
+app.route('/api/prices', pricesRouter)
 app.get('/login', (c: Context) => {
     return c.html(`<!DOCTYPE html>
 <html lang="ko">
@@ -53,232 +61,362 @@ app.get('/login', (c: Context) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로그인 - 재고/판매 관리 시스템</title>
+    <title>로그인 - WOW-Smart Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #0f172a;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .bg-mesh {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-color: #0f172a;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(170, 75%, 35%, 0.15) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(215, 64%, 40%, 0.15) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(270, 75%, 40%, 0.1) 0, transparent 50%);
+            filter: blur(80px);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .input-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f1f5f9;
+            transition: all 0.3s ease;
+        }
+
+        .input-glass:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #2dd4bf;
+            box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.2);
+            outline: none;
+        }
+
+        .btn-gradient {
+            background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 100%);
+            box-shadow: 0 10px 15px -3px rgba(45, 212, 191, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .btn-gradient:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 20px 25px -5px rgba(45, 212, 191, 0.4);
+        }
+
+        /* Pricing Card Glass */
+        .pricing-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(45, 212, 191, 0.3);
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-up {
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+    </style>
 </head>
 
-<body class="bg-slate-50 min-h-screen font-sans text-slate-900">
-    <div class="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+<body class="text-slate-200 min-h-screen">
+    <div class="bg-mesh"></div>
 
-        <!-- Login Container -->
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden mb-20 relative z-10">
-            <div class="p-8">
-                <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold text-teal-600 mb-2">Stock Manager</h1>
-                    <p class="text-slate-500">재고와 판매를 한 곳에서 관리하세요</p>
+    <!-- Background Transparency Filter -->
+    <svg style="position: absolute; width: 0; height: 0;">
+        <filter id="remove-white">
+            <feColorMatrix type="matrix" values="1 0 0 0 0
+                                                  0 1 0 0 0
+                                                  0 0 1 0 0
+                                                  -1 -1 -1 1 1" />
+        </filter>
+    </svg>
+
+    <div class="min-h-screen flex flex-col items-center py-20 px-4">
+        <!-- Main Auth Container -->
+        <div class="w-full max-w-5xl flex flex-col md:flex-row glass-card rounded-[2rem] overflow-hidden animate-up">
+            <!-- Left Panel (Branding) -->
+            <div class="hidden md:flex flex-col justify-center p-12 lg:p-20 bg-gradient-to-br from-teal-500/10 to-indigo-500/10 w-1/2 border-r border-white/5">
+                <div class="mb-10">
+                    <div class="flex items-center gap-4 mb-8">
+                        <img src="/static/wow-symbol-gold.jpg" alt="WOW Logo" class="h-16 w-auto rounded-xl" style="filter: brightness(1.1);">
+                        <h1 class="text-4xl font-extrabold text-white tracking-tighter">
+                            WOW <br><span class="text-teal-400">Smart Manager</span>
+                        </h1>
+                    </div>
+                    <p class="text-slate-400 text-lg leading-relaxed">
+                        WOW Smart Manager는 단순한 관리를 넘어<br>
+                        데이터를 통한 비즈니스 통찰을 제공합니다.
+                    </p>
+                </div>
+                
+                <div class="space-y-6">
+                    <div class="flex items-center gap-4 group">
+                        <div class="w-12 h-12 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-400 group-hover:bg-teal-500/20 transition-all">
+                            <i class="fas fa-bolt text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-white font-semibold">Real-time Stock Tracking</p>
+                            <p class="text-slate-500 text-sm">한 눈에 파악하는 정확한 재고 현황</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 group">
+                        <div class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 transition-all">
+                            <i class="fas fa-chart-line text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-white font-semibold">Smart Sales Insights</p>
+                            <p class="text-slate-500 text-sm">성장을 위한 체계적인 판매 분석 리포트</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel (Form) -->
+            <div class="w-full md:w-1/2 p-10 lg:p-16 flex flex-col justify-center bg-[#0b111e]/50">
+                <!-- Mobile Logo -->
+                <div class="md:hidden flex items-center justify-center gap-3 mb-10">
+                    <img src="/static/wow-symbol-gold.jpg" alt="WOW Logo" class="h-10 w-auto rounded-lg">
+                    <h1 class="text-2xl font-bold text-white tracking-tighter">WOW Smart Manager</h1>
                 </div>
 
-                <!-- 탭 버튼 -->
-                <div class="flex mb-6 border-b border-slate-200">
+                <div class="text-center md:text-left mb-10">
+                    <h1 class="text-3xl font-bold text-white mb-2" id="formTitle">환영합니다</h1>
+                    <p class="text-slate-400" id="formDesc">로그인하여 서비스를 시작하세요</p>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex p-1.5 bg-white/5 rounded-2xl mb-8">
                     <button onclick="switchTab('login')" id="loginTabBtn"
-                        class="flex-1 py-3 text-sm font-medium text-teal-600 border-b-2 border-teal-600 focus:outline-none transition-colors">로그인</button>
+                        class="flex-1 py-2.5 text-sm font-semibold rounded-xl text-white bg-teal-500 shadow-lg transition-all duration-300">
+                        로그인
+                    </button>
                     <button onclick="switchTab('register')" id="registerTabBtn"
-                        class="flex-1 py-3 text-sm font-medium text-slate-500 hover:text-teal-600 focus:outline-none transition-colors">회원가입</button>
+                        class="flex-1 py-2.5 text-sm font-semibold rounded-xl text-slate-400 hover:text-white transition-all duration-300">
+                        회원가입
+                    </button>
                 </div>
 
-                <!-- 로그인 폼 -->
-                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                <!-- Login Form -->
+                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-                        <div class="relative">
-                            <i class="fas fa-envelope absolute left-3 top-3 text-slate-400"></i>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">이메일 주소</label>
+                        <div class="relative group">
+                            <i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-teal-400 transition-colors"></i>
                             <input type="email" id="loginEmail" required
-                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
-                                placeholder="example@company.com">
+                                class="w-full pl-12 pr-4 py-3.5 input-glass rounded-2xl text-sm"
+                                placeholder="name@company.com">
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
-                        <div class="relative">
-                            <i class="fas fa-lock absolute left-3 top-3 text-slate-400"></i>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">비밀번호</label>
+                        <div class="relative group">
+                            <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-teal-400 transition-colors"></i>
                             <input type="password" id="loginPassword" required
-                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
-                                placeholder="••••••••">
+                                class="w-full pl-12 pr-4 py-3.5 input-glass rounded-2xl text-sm"
+                                placeholder="비밀번호를 입력하세요">
                         </div>
                     </div>
                     <button type="submit"
-                        class="w-full bg-teal-600 text-white py-2.5 rounded-lg font-medium hover:bg-teal-700 transition-colors shadow-sm mt-2">
-                        로그인
+                        class="w-full py-4 btn-gradient rounded-2xl text-white font-bold text-sm tracking-wider uppercase mt-4">
+                        로그인하기
                     </button>
                 </form>
 
-                <!-- 회원가입 폼 -->
+                <!-- Register Form -->
                 <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-                        <div class="relative">
-                            <i class="fas fa-envelope absolute left-3 top-3 text-slate-400"></i>
-                            <input type="email" id="regEmail" required
-                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
-                                placeholder="example@company.com">
-                        </div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">이메일</label>
+                        <input type="email" id="regEmail" required
+                            class="w-full px-4 py-3.5 input-glass rounded-2xl text-sm"
+                            placeholder="name@company.com">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
-                        <div class="relative">
-                            <i class="fas fa-lock absolute left-3 top-3 text-slate-400"></i>
-                            <input type="password" id="regPassword" required
-                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
-                                placeholder="••••••••">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">비밀번호</label>
+                        <input type="password" id="regPassword" required
+                            class="w-full px-4 py-3.5 input-glass rounded-2xl text-sm"
+                            placeholder="최소 8자 이상">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">이름</label>
+                            <input type="text" id="regName" required
+                                class="w-full px-4 py-3.5 input-glass rounded-2xl text-sm"
+                                placeholder="실명을 입력하세요">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">전화번호</label>
+                            <input type="tel" id="regPhone" required
+                                class="w-full px-4 py-3.5 input-glass rounded-2xl text-sm"
+                                placeholder="010-0000-0000">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
-                            <div class="relative">
-                                <i class="fas fa-user absolute left-3 top-3 text-slate-400"></i>
-                                <input type="text" id="regName" required
-                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
-                                    placeholder="홍길동">
-                            </div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">조직명 (회사명)</label>
+                            <input type="text" id="regCompany" required
+                                class="w-full px-4 py-3.5 input-glass rounded-2xl text-sm"
+                                placeholder="회사 또는 팀 이름">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">요금제 선택</label>
-                            <div class="relative">
-                                <i class="fas fa-rocket absolute left-3 top-3 text-slate-400"></i>
-                                <select id="regPlan"
-                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow appearance-none bg-white">
-                                    <option value="FREE">Free (₩0)</option>
-                                    <option value="BASIC">Basic (₩9,900)</option>
-                                    <option value="PRO">Pro (₩29,900)</option>
-                                </select>
-                                <i class="fas fa-chevron-down absolute right-3 top-3 text-slate-400 pointer-events-none"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">회사명 (조직 이름)</label>
-                        <div class="relative">
-                            <i class="fas fa-building absolute left-3 top-3 text-slate-400"></i>
-                            <input type="text" id="regCompany" required
-                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
-                                placeholder="(주)와우3D">
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">요금제</label>
+                            <select id="regPlan"
+                                class="w-full px-4 py-3.5 input-glass rounded-2xl text-sm appearance-none cursor-pointer">
+                                <option value="FREE" class="bg-[#0f172a]">무료 플랜 (Free)</option>
+                                <option value="BASIC" class="bg-[#0f172a]">베이직 플랜 (Basic)</option>
+                                <option value="PRO" class="bg-[#0f172a]">프로 플랜 (Pro)</option>
+                            </select>
                         </div>
                     </div>
                     <button type="submit"
-                        class="w-full bg-teal-600 text-white py-2.5 rounded-lg font-medium hover:bg-teal-700 transition-colors shadow-sm mt-2">
-                        회원가입 및 조직 생성
+                        class="w-full py-4 btn-gradient rounded-2xl text-white font-bold text-sm tracking-wider uppercase mt-4">
+                        계정 만들기
                     </button>
                 </form>
-            </div>
-            <div class="bg-teal-50 px-8 py-4 border-t border-teal-100 text-center text-xs text-teal-600 font-medium">
-                Tip: 아래에서 요금제 정보를 확인하세요!
+
+                <p class="mt-8 text-center text-slate-500 text-xs">
+                    가입 시 다음에 동의하게 됩니다: <a href="#" class="text-teal-400 hover:underline">이용약관 및 개인정보처리방침</a>
+                </p>
             </div>
         </div>
 
         <!-- Pricing Section -->
-        <div class="w-full max-w-5xl px-4 animate-fade-in-up">
-            <div class="text-center mb-12">
-                <h2 class="text-2xl font-bold text-slate-800 mb-3">
-                    <i class="fas fa-rocket text-teal-600 mr-2"></i>서비스 요금제 안내
-                </h2>
-                <p class="text-slate-500">비즈니스 규모에 맞는 최적의 플랜을 선택하세요.</p>
+        <div class="w-full max-w-6xl mt-32 animate-up" style="animation-delay: 0.2s">
+            <div class="text-center mb-16">
+                <span class="text-teal-400 font-bold text-sm tracking-[0.3em] uppercase mb-4 block">Pricing Models</span>
+                <h2 class="text-4xl font-bold text-white mb-4">비즈니스에 맞는 최적의 플랜</h2>
+                <p class="text-slate-400">합리적인 요금으로 시작하는 스마트한 관리의 첫걸음</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <!-- Free Plan -->
-                <div
-                    class="bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 relative group overflow-hidden">
-                    <div
-                        class="absolute top-0 left-0 w-full h-1.5 bg-slate-300 group-hover:bg-slate-400 transition-colors">
+                <div class="pricing-card rounded-[2rem] p-10 flex flex-col relative overflow-hidden group">
+                    <div class="absolute top-0 left-0 w-full h-1.5 bg-slate-700"></div>
+                    <div class="mb-8">
+                        <h3 class="text-xl font-bold text-white mb-4">Free Starter</h3>
+                        <div class="flex items-baseline mb-2">
+                            <span class="text-4xl font-bold text-white">₩0</span>
+                            <span class="text-slate-500 ml-2">/month</span>
+                        </div>
+                        <p class="text-sm text-slate-500 leading-relaxed">개인 및 소규모 창업자를 위한<br>기초 재고 관리 서비스</p>
                     </div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-2">Free</h3>
-                    <div class="flex items-baseline mb-4">
-                        <span class="text-4xl font-bold text-slate-900">₩0</span>
-                        <span class="text-slate-500 ml-2">/월</span>
-                    </div>
-                    <p class="text-sm text-slate-500 mb-8 h-10">개인 또는 소규모 팀의<br>간단한 재고 관리를 위해</p>
 
-                    <ul class="space-y-4 mb-8">
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check text-teal-500 mt-1 mr-3"></i> <span>상품 100개 제한</span>
+                    <ul class="space-y-4 mb-10 flex-1">
+                        <li class="flex items-center gap-3 text-sm text-slate-300">
+                            <i class="fas fa-check-circle text-teal-500 opacity-50"></i> <span>상품 등록 최대 100개</span>
                         </li>
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check text-teal-500 mt-1 mr-3"></i> <span>사용자 1명 (초대 불가)</span>
+                        <li class="flex items-center gap-3 text-sm text-slate-300">
+                            <i class="fas fa-check-circle text-teal-500 opacity-50"></i> <span>1인 사용자 계정</span>
                         </li>
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check text-teal-500 mt-1 mr-3"></i> <span>기본 재고 입출고</span>
+                        <li class="flex items-center gap-3 text-sm text-slate-300">
+                            <i class="fas fa-check-circle text-teal-500 opacity-50"></i> <span>기본 수불 관리</span>
                         </li>
                     </ul>
+
                     <button onclick="scrollToTop('register', 'FREE')"
-                        class="w-full py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 hover:text-slate-800 transition-colors">
-                        무료로 시작하기
+                        class="w-full py-4 rounded-2xl border border-white/10 text-white font-bold text-sm hover:bg-white/5 transition-colors">
+                        Get Started
                     </button>
                 </div>
 
                 <!-- Basic Plan -->
-                <div
-                    class="bg-white rounded-2xl p-8 shadow-md hover:shadow-2xl transition-all duration-300 border-2 border-teal-500 relative transform md:-translate-y-4 z-10">
-                    <div
-                        class="absolute top-0 right-0 bg-teal-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl">
-                        인기 플랜</div>
-                    <div class="absolute top-0 left-0 w-full h-1 bg-teal-500"></div>
-                    <h3 class="text-xl font-bold text-teal-700 mb-2">Basic</h3>
-                    <div class="flex items-baseline mb-4">
-                        <span class="text-4xl font-bold text-slate-900">₩9,900</span>
-                        <span class="text-slate-500 ml-2">/월</span>
+                <div class="pricing-card rounded-[2rem] p-10 flex flex-col relative overflow-hidden border-teal-500/30 bg-teal-500/5 group scale-105 shadow-2xl shadow-teal-500/10">
+                    <div class="absolute top-0 left-0 w-full h-1.5 bg-teal-500"></div>
+                    <div class="absolute -top-4 -right-4 bg-teal-500 text-white text-[10px] font-bold px-8 py-6 rounded-full rotate-12 flex items-end justify-center">POPULAR</div>
+                    
+                    <div class="mb-8">
+                        <h3 class="text-xl font-bold text-teal-400 mb-4">Standard Business</h3>
+                        <div class="flex items-baseline mb-2">
+                            <span class="text-4xl font-bold text-white">₩9,900</span>
+                            <span class="text-slate-500 ml-2">/month</span>
+                        </div>
+                        <p class="text-sm text-slate-300 leading-relaxed">본격적인 성장을 시작하는<br>팀을 위한 전문적인 관리 기능</p>
                     </div>
-                    <p class="text-sm text-slate-500 mb-8 h-10">성장하는 팀을 위한<br>표준 재고 관리 기능</p>
 
-                    <ul class="space-y-4 mb-8">
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>상품 1,000개</span>
+                    <ul class="space-y-4 mb-10 flex-1">
+                        <li class="flex items-center gap-3 text-sm text-white">
+                            <i class="fas fa-check-circle text-teal-500"></i> <span>상품 등록 최대 1,000개</span>
                         </li>
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>사용자 5명까지</span>
+                        <li class="flex items-center gap-3 text-sm text-white">
+                            <i class="fas fa-check-circle text-teal-500"></i> <span>사용자 계정 최대 5명</span>
                         </li>
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>주간/월간 리포트</span>
+                        <li class="flex items-center gap-3 text-sm text-white">
+                            <i class="fas fa-check-circle text-teal-500"></i> <span>데이터 엑셀 다운로드</span>
                         </li>
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>데이터 엑셀 내보내기</span>
+                        <li class="flex items-center gap-3 text-sm text-white">
+                            <i class="fas fa-check-circle text-teal-500"></i> <span>주간 성과 리포트</span>
                         </li>
                     </ul>
+
                     <button onclick="scrollToTop('register', 'BASIC')"
-                        class="w-full py-3 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-700 transition-colors shadow-lg shadow-teal-200">
-                        지금 시작하기
+                        class="w-full py-4 rounded-2xl btn-gradient text-white font-bold text-sm">
+                        Start 14-Day Trial
                     </button>
                 </div>
 
                 <!-- Pro Plan -->
-                <div
-                    class="bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 relative group overflow-hidden">
-                    <div
-                        class="absolute top-0 left-0 w-full h-1.5 bg-purple-500 group-hover:bg-purple-600 transition-colors">
+                <div class="pricing-card rounded-[2rem] p-10 flex flex-col relative overflow-hidden group">
+                    <div class="absolute top-0 left-0 w-full h-1.5 bg-purple-600"></div>
+                    <div class="mb-8">
+                        <h3 class="text-xl font-bold text-purple-400 mb-4">Enterprise Pro</h3>
+                        <div class="flex items-baseline mb-2">
+                            <span class="text-4xl font-bold text-white">₩29,900</span>
+                            <span class="text-slate-500 ml-2">/month</span>
+                        </div>
+                        <p class="text-sm text-slate-500 leading-relaxed">확장 중인 대규모 비즈니스를 위한<br>모든 기능 및 기술 지원</p>
                     </div>
-                    <h3 class="text-xl font-bold text-purple-700 mb-2">Pro</h3>
-                    <div class="flex items-baseline mb-4">
-                        <span class="text-4xl font-bold text-slate-900">₩29,900</span>
-                        <span class="text-slate-500 ml-2">/월</span>
-                    </div>
-                    <p class="text-sm text-slate-500 mb-8 h-10">본격적인 비즈니스 확장을 위한<br>고급 기능 및 무제한 사용</p>
 
-                    <ul class="space-y-4 mb-8">
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>상품 무제한</span>
+                    <ul class="space-y-4 mb-10 flex-1">
+                        <li class="flex items-center gap-3 text-sm text-slate-300">
+                            <i class="fas fa-check-circle text-purple-500"></i> <span>상품 및 사용자 무제한</span>
                         </li>
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>사용자 무제한</span>
+                        <li class="flex items-center gap-3 text-sm text-slate-300">
+                            <i class="fas fa-check-circle text-purple-500"></i> <span>API 및 웹훅 연동 지원</span>
                         </li>
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>API 및 웹훅 연동(예정)</span>
+                        <li class="flex items-center gap-3 text-sm text-slate-300">
+                            <i class="fas fa-check-circle text-purple-500"></i> <span>실시간 재고 알림</span>
                         </li>
-                        <li class="flex items-start text-sm text-slate-600">
-                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>우선 기술 지원</span>
+                        <li class="flex items-center gap-3 text-sm text-slate-300">
+                            <i class="fas fa-check-circle text-purple-500"></i> <span>우선 기술 지원 채널</span>
                         </li>
                     </ul>
+
                     <button onclick="scrollToTop('register', 'PRO')"
-                        class="w-full py-3 rounded-xl border border-purple-200 text-purple-700 font-bold hover:bg-purple-50 transition-colors">
-                        Enterprise 문의
+                        class="w-full py-4 rounded-2xl border border-white/10 text-white font-bold text-sm hover:bg-white/5 transition-colors">
+                        Enterprise Inquiry
                     </button>
                 </div>
             </div>
 
-            <div class="mt-20 text-center text-xs text-slate-400">
-                &copy; 2025 Stock Sales Manager. All rights reserved.
+            <div class="mt-32 text-center text-xs text-slate-600 tracking-widest pb-10">
+                &copy; 2025 WOW-Smart Manager. All rights reserved.
             </div>
         </div>
     </div>
@@ -291,21 +429,31 @@ app.get('/login', (c: Context) => {
             const registerForm = document.getElementById('registerForm');
             const loginBtn = document.getElementById('loginTabBtn');
             const registerBtn = document.getElementById('registerTabBtn');
+            const formTitle = document.getElementById('formTitle');
+            const formDesc = document.getElementById('formDesc');
 
             if (tab === 'login') {
                 loginForm.classList.remove('hidden');
                 registerForm.classList.add('hidden');
-                loginBtn.classList.add('text-teal-600', 'border-teal-600');
-                loginBtn.classList.remove('text-slate-500');
-                registerBtn.classList.remove('text-teal-600', 'border-teal-600');
-                registerBtn.classList.add('text-slate-500');
+                
+                loginBtn.classList.add('text-white', 'bg-teal-500', 'shadow-lg');
+                loginBtn.classList.remove('text-slate-400');
+                registerBtn.classList.add('text-slate-400');
+                registerBtn.classList.remove('text-white', 'bg-teal-500', 'shadow-lg');
+
+                formTitle.innerText = "환영합니다";
+                formDesc.innerText = "로그인하여 서비스를 시작하세요";
             } else {
                 loginForm.classList.add('hidden');
                 registerForm.classList.remove('hidden');
-                registerBtn.classList.add('text-teal-600', 'border-teal-600');
-                registerBtn.classList.remove('text-slate-500');
-                loginBtn.classList.remove('text-teal-600', 'border-teal-600');
-                loginBtn.classList.add('text-slate-500');
+                
+                registerBtn.classList.add('text-white', 'bg-teal-500', 'shadow-lg');
+                registerBtn.classList.remove('text-slate-400');
+                loginBtn.classList.add('text-slate-400');
+                loginBtn.classList.remove('text-white', 'bg-teal-500', 'shadow-lg');
+
+                formTitle.innerText = "계정 만들기";
+                formDesc.innerText = "스마트한 관리의 시작, 지금 바로 합류하세요";
             }
         }
 
@@ -327,6 +475,7 @@ app.get('/login', (c: Context) => {
                 const res = await axios.post(\`\${API_BASE}/auth/login\`, { email, password });
                 if (res.data.success) {
                     localStorage.setItem('token', res.data.data.token);
+                    localStorage.setItem('refreshToken', res.data.data.refreshToken);
                     localStorage.setItem('user', JSON.stringify(res.data.data.user));
                     window.location.href = '/';
                 }
@@ -340,16 +489,18 @@ app.get('/login', (c: Context) => {
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPassword').value;
             const name = document.getElementById('regName').value;
+            const phone = document.getElementById('regPhone').value;
             const company_name = document.getElementById('regCompany').value;
             const plan = document.getElementById('regPlan').value;
 
             try {
                 const res = await axios.post(\`\${API_BASE}/auth/register\`, {
-                    email, password, name, company_name, plan
+                    email, password, name, phone, company_name, plan
                 });
                 if (res.data.success) {
                     alert('회원가입이 완료되었습니다. 자동 로그인됩니다.');
                     localStorage.setItem('token', res.data.data.token);
+                    localStorage.setItem('refreshToken', res.data.data.refreshToken);
                     localStorage.setItem('user', JSON.stringify(res.data.data.user));
                     window.location.href = '/';
                 }
@@ -371,12 +522,13 @@ app.get('/', (c: Context) => {
             <head>
                 <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <title>(주)와우쓰리디 판매관리</title>
+                        <title>WOW-Smart Manager</title>
                         <script src="https://cdn.tailwindcss.com"></script>
                         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
                             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                             <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
                             <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+                            <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.min.js?v=2"></script>
                             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
                                 <style>
                                     body {
@@ -400,27 +552,96 @@ app.get('/', (c: Context) => {
                                         background: #94a3b8;
             }
 
+                                    /* Modern Sidebar Styles */
                                     .nav-link {
-                                        transition: all 0.2s ease-in-out;
-            }
+                                        position: relative;
+                                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                                    }
+
+                                    .nav-link:hover {
+                                        background-color: rgba(255, 255, 255, 0.05);
+                                        color: #f1f5f9;
+                                    }
 
                                     .nav-link.active {
-                                        background: #2dd4bf; /* Teal 400 - Pastel */
-                                    color: #ffffff;
-                                    box-shadow: 0 4px 6px -1px rgba(45, 212, 191, 0.3);
-                                    font-weight: 600;
-            }
+                                        background: linear-gradient(90deg, rgba(45, 212, 191, 0.15) 0%, rgba(45, 212, 191, 0) 100%);
+                                        color: #2dd4bf; /* Teal 400 */
+                                    }
+                                    
+                                    .nav-link.active::before {
+                                        content: '';
+                                        position: absolute;
+                                        left: 0;
+                                        top: 0;
+                                        bottom: 0;
+                                        width: 3px;
+                                        background-color: #2dd4bf;
+                                        border-radius: 0 4px 4px 0;
+                                    }
 
-                                    .nav-link:not(.active):hover {
-                                        background: rgba(45, 212, 191, 0.1); /* Teal 400 with opacity */
-                                    color: #ccfbf1; /* Teal 100 */
-            }
+                                    .nav-link i {
+                                        transition: all 0.3s ease;
+                                    }
 
+                                    .nav-link.active i {
+                                        color: #2dd4bf;
+                                        filter: drop-shadow(0 0 8px rgba(45, 212, 191, 0.4));
+                                        transform: scale(1.1);
+                                    }
+
+                                    /* Submenu Styles */
+                                    .nav-submenu {
+                                        max-height: 0;
+                                        overflow: hidden;
+                                        transition: all 0.3s ease-in-out;
+                                        background: rgba(0, 0, 0, 0.15);
+                                        border-radius: 0.5rem;
+                                        opacity: 0;
+                                    }
+                                    
+                                    .nav-submenu.open {
+                                        max-height: 500px;
+                                        margin-top: 0.25rem;
+                                        margin-bottom: 0.5rem;
+                                        padding: 0.25rem 0;
+                                        opacity: 1;
+                                    }
+
+                                    .submenu-arrow {
+                                        transition: transform 0.3s ease;
+                                    }
+            
                                     .glass-header {
-                                        background: rgba(255, 255, 255, 0.85);
-                                    backdrop-filter: blur(12px);
-                                    border-bottom: 1px solid rgba(204, 251, 241, 0.5); /* Teal 100 border */
-            }
+                                        background: rgba(255, 255, 255, 0.9);
+                                        backdrop-filter: blur(8px);
+                                        border-bottom: 1px solid #e2e8f0;
+                                    }
+
+                                    /* Print Styles */
+                                    @media print {
+                                        #sidebar, #sidebarOverlay, .glass-header, .no-print {
+                                            display: none !important;
+                                        }
+                                        #content {
+                                            margin-left: 0 !important;
+                                            padding: 0 !important;
+                                            width: 100% !important;
+                                        }
+                                        body {
+                                            background: white !important;
+                                        }
+                                        .print-only {
+                                            display: block !important;
+                                        }
+                                        .invoice-box {
+                                            padding: 0 !important;
+                                            border: none !important;
+                                            box-shadow: none !important;
+                                        }
+                                    }
+                                    .print-only {
+                                        display: none;
+                                    }
                                 </style>
                                 <script>
                                     tailwind.config = {
@@ -456,72 +677,134 @@ app.get('/', (c: Context) => {
                                     <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden md:hidden transition-opacity" onclick="toggleSidebar()"></div>
 
                                     <!-- 사이드바 -->
-                                    <aside id="sidebar" class="w-64 bg-gradient-to-b from-teal-900 via-teal-800 to-teal-900 text-teal-100 flex flex-col shadow-xl z-30 fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out border-r border-teal-800/50">
-                                        <div class="h-16 flex items-center px-6 border-b border-teal-700/50 bg-teal-900/50 justify-between">
-                                            <div class="flex items-center gap-3">
-                                                <div class="relative w-8 h-8">
-                                                    <div id="companyLogoPlaceholder" class="w-8 h-8 bg-teal-400 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-teal-400/30 absolute inset-0">W</div>
-                                                    <img id="companyLogo" src="" alt="Logo" class="w-8 h-8 rounded-lg object-cover shadow-lg hidden relative z-10">
-                                                </div>
-                                                <div>
-                                                    <h1 id="companyName" class="text-white font-bold text-lg leading-none tracking-tight">WOW3D</h1>
-                                                    <p class="text-xs text-teal-400 font-medium mt-0.5 tracking-wide">Sales Manager</p>
+                                    <aside id="sidebar" class="w-[280px] bg-[#0f172a] text-slate-400 flex flex-col z-30 fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out border-r border-[#1e293b] shadow-2xl">
+                                        <!-- Logo Section -->
+                                        <div class="h-20 flex items-center px-6 border-b border-[#1e293b] bg-[#0f172a] relative">
+                                            <div class="flex items-center w-full">
+                                                <div class="relative group cursor-pointer w-full flex items-center gap-3">
+                                                    <img id="companyLogo" src="/static/wow-symbol-gold.jpg" alt="Logo" class="h-10 w-auto max-w-[150px] object-contain transition-all duration-300 rounded-lg">
+                                                    <div id="companyLogoPlaceholder" class="h-10 w-10 bg-gradient-to-br from-teal-400 to-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg hidden">W</div>
+                                                    <span id="companyName" class="text-white font-bold text-lg leading-tight tracking-tight truncate">WOW Smart Manager</span>
                                                 </div>
                                             </div>
-                                            <!-- 모바일 닫기 버튼 -->
-                                            <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white">
+                                            <button onclick="toggleSidebar()" class="md:hidden ml-auto text-slate-500 hover:text-white transition-colors p-2">
                                                 <i class="fas fa-times text-lg"></i>
                                             </button>
                                         </div>
 
-                                        <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
-                                            <p class="px-3 text-xs font-bold text-teal-500/70 uppercase tracking-widest mb-3 text-[10px]">Menu</p>
-                                            <a href="#" data-page="dashboard" class="nav-link active flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                <i class="fas fa-chart-pie w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                                                <span class="font-medium">대시보드</span>
-                                            </a>
-                                            <a href="#" data-page="sales" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                <i class="fas fa-cash-register w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                                                <span class="font-medium">판매 관리</span>
-                                            </a>
-                                            <a href="#" data-page="outbound" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                <i class="fas fa-truck-loading w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                                                <span class="font-medium">출고 관리</span>
-                                            </a>
-                                            <a href="#" data-page="purchases" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                <i class="fas fa-truck-moving w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                                                <span class="font-medium">입고/발주 관리</span>
-                                            </a>
-                                            <a href="#" data-page="customers" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                <i class="fas fa-users w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                                                <span class="font-medium">고객 관리</span>
-                                            </a>
-                                            <a href="#" data-page="products" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                <i class="fas fa-box w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                                                <span class="font-medium">상품 관리</span>
-                                            </a>
-                                            <a href="#" data-page="stock" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                <i class="fas fa-cubes w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                                                <span class="font-medium">재고 관리</span>
-                                            </a>
-                                            <div class="pt-4 mt-4 border-t border-slate-800">
-                                                <a href="#" data-page="settings" class="nav-link flex items-center px-3 py-2.5 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                    <i class="fas fa-cog w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-                                                    <span class="font-medium">설정</span>
-                                                </a>
+                                        <!-- Navigation -->
+                                        <nav class="flex-1 px-4 py-8 space-y-8 overflow-y-auto custom-scrollbar">
+                                            <!-- Analysis Group -->
+                                            <div>
+                                                <p class="px-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-teal-500/50"></span>
+                                                    분석 및 현황
+                                                </p>
+                                                <div class="space-y-1">
+                                                    <a href="#" data-page="dashboard" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-chart-pie w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">대시보드</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+
+                                            <!-- Business Group -->
+                                            <div>
+                                                <p class="px-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500/50"></span>
+                                                    영업 및 물류
+                                                </p>
+                                                <div class="space-y-1">
+                                                    <a href="#" data-page="sales" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-cash-register w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">판매 관리</span>
+                                                    </a>
+                                                    <a href="#" data-page="outbound" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-truck-loading w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">출고 관리</span>
+                                                    </a>
+                                                    <a href="#" data-page="purchases" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-shopping-cart w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">입고/발주 관리</span>
+                                                    </a>
+                                                    <a href="#" data-page="stock" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-cubes w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">재고 관리</span>
+                                                    </a>
+                                                    <a href="#" data-page="transaction-statement" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-file-invoice w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">거래명세서 출력</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+
+                                            <!-- Resources Group -->
+                                            <div>
+                                                <p class="px-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-purple-500/50"></span>
+                                                    기준 정보
+                                                </p>
+                                                <div class="space-y-1">
+                                                     <div class="nav-item-group">
+                                                         <button onclick="toggleSubMenu(this, 'product-submenu')" class="flex items-center justify-between w-full px-4 py-3 rounded-lg group hover:bg-white/5 transition-all text-slate-400 hover:text-white">
+                                                             <div class="flex items-center">
+                                                                 <i class="fas fa-box w-6 text-center text-lg mr-3"></i>
+                                                                 <span class="font-medium">상품 관리</span>
+                                                             </div>
+                                                             <i class="fas fa-chevron-down text-[10px] submenu-arrow"></i>
+                                                         </button>
+                                                         <div id="product-submenu" class="nav-submenu ml-4 space-y-1">
+                                                              <a href="#" data-page="products" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                  <i class="fas fa-list w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                  <span>품목 정보 관리</span>
+                                                              </a>
+                                                              <a href="#" data-page="product-options" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                  <i class="fas fa-tags w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                  <span>옵션 프리셋 관리</span>
+                                                              </a>
+                                                              <a href="#" data-page="pricing-policy" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                  <i class="fas fa-hand-holding-usd w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                  <span>가격 정책 관리</span>
+                                                              </a></div>
+                                                     </div>
+                                                     <a href="#" data-page="customers" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
+                                                         <i class="fas fa-users w-6 text-center text-lg mr-3"></i>
+                                                         <span class="font-medium">고객 관리</span>
+                                                     </a>
+                                                </div>
+                                            </div>
+                                            <!-- System Group -->
+                                            <div>
+                                                <p class="px-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-gray-500/50"></span>
+                                                    시스템
+                                                </p>
+                                                <div class="space-y-1">
+                                                    <a href="#" id="nav-super-admin" data-page="super-admin" class="nav-link flex items-center px-4 py-3 rounded-lg group hidden" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-shield-alt w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">시스템 관리</span>
+                                                    </a>
+                                                    <a href="#" id="nav-settings" data-page="settings" class="nav-link flex items-center px-4 py-3 rounded-lg group hidden" onclick="closeSidebarOnMobile()">
+                                                        <i class="fas fa-cog w-6 text-center text-lg mr-3"></i>
+                                                        <span class="font-medium">설정</span>
+                                                    </a>
+                                                </div>
                                             </div>
                                         </nav>
 
-                                        <div class="p-4 border-t border-teal-700/50 bg-teal-900/50">
-                                            <div class="flex items-center gap-3 px-2">
-                                                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-400 to-emerald-400 flex items-center justify-center text-white font-bold text-sm shadow-md" id="user-avatar">
-                                                    U
+                                        <!-- User Profile Section -->
+                                        <div class="p-4 border-t border-[#1e293b] bg-[#0b111e]">
+                                            <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-[#1e293b] transition-all duration-300 cursor-pointer group">
+                                                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-500 p-[2px] shadow-md group-hover:shadow-teal-500/20">
+                                                    <div class="w-full h-full rounded-full bg-[#0f172a] flex items-center justify-center text-white font-bold text-sm" id="user-avatar">
+                                                        U
+                                                    </div>
                                                 </div>
                                                 <div class="flex-1 min-w-0">
-                                                    <p class="text-sm font-medium text-white truncate" id="user-name">Loading...</p>
-                                                    <p class="text-xs text-slate-500 truncate" id="user-email">...</p>
+                                                    <p class="text-sm font-semibold text-white truncate group-hover:text-teal-400 transition-colors" id="user-name">Loading...</p>
+                                                    <p class="text-[11px] text-slate-400 truncate" id="user-email">...</p>
                                                 </div>
-                                                <button onclick="logout()" class="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-slate-800" title="로그아웃">
+                                                <button onclick="logout()" class="text-slate-500 hover:text-red-400 hover:bg-red-400/10 p-2 rounded-lg transition-all duration-300" title="로그아웃">
                                                     <i class="fas fa-sign-out-alt"></i>
                                                 </button>
                                             </div>
@@ -575,10 +858,41 @@ app.get('/', (c: Context) => {
 
                                     // 모바일에서 메뉴 클릭 시 사이드바 닫기
                                     function closeSidebarOnMobile() {
-                if (window.innerWidth < 768) { // md breakpoint
-                                        toggleSidebar();
-                }
-            }
+                                        if (window.innerWidth < 768) { // md breakpoint
+                                            toggleSidebar();
+                                        }
+                                    }
+
+                                    // 서브메뉴 토글 함수
+                                    function toggleSubMenu(button, menuId) {
+                                        const menu = document.getElementById(menuId);
+                                        const arrow = button?.querySelector('.submenu-arrow');
+                                        
+                                        if (menu && menu.classList.contains('open')) {
+                                            menu.classList.remove('open');
+                                            if (arrow) arrow.style.transform = 'rotate(0deg)';
+                                        } else if (menu) {
+                                            menu.classList.add('open');
+                                            if (arrow) arrow.style.transform = 'rotate(180deg)';
+                                        }
+                                    }
+
+                                    // 초기 상태 설정 (현재 페이지가 포함된 서브메뉴 열기)
+                                    document.addEventListener('DOMContentLoaded', () => {
+                                        setTimeout(() => {
+                                            const activeLink = document.querySelector('.nav-link.active');
+                                            if (activeLink) {
+                                                const parentSubmenu = activeLink.closest('.nav-submenu');
+                                                if (parentSubmenu) {
+                                                    const group = parentSubmenu.closest('.nav-item-group');
+                                                    if (group) {
+                                                        const btn = group.querySelector('button');
+                                                        toggleSubMenu(btn, parentSubmenu.id);
+                                                    }
+                                                }
+                                            }
+                                        }, 500); 
+                                    });
 
                                     // 현재 시간 표시
                                     function updateTime() {
@@ -595,10 +909,15 @@ app.get('/', (c: Context) => {
                                 <script src="/static/js/utils.js?v=2"></script>
                                 <script src="/static/js/utils_address.js?v=1"></script>
                                 <script src="/static/js/auth.js?v=1"></script>
-                                <script src="/static/app.js?v=17"></script>
-                                <script src="/static/js/outbound.js?v=6"></script>
+                                <script src="/static/app.js?v=26"></script>
+                                <script src="/static/js/outbound.js?v=9"></script>
                                 <script src="/static/js/purchases.js?v=1"></script>
-                                <script src="/static/js/products.js?v=1"></script>
+                                <script src="/static/js/options.js?v=1"></script>
+                                <script src="/static/js/products.js?v=7"></script>
+                                <script src="/static/js/prices.js?v=1"></script>
+                                <script src="/static/js/system-settings.js?v=1"></script>
+                                <script src="/static/js/tracking.js?v=1"></script>
+                                <script src="/static/js/transaction-statement.js?v=1"></script>
                             </body>
                         </html>
                         `)

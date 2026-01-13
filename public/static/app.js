@@ -5,6 +5,7 @@
 // 로그아웃
 function logout() {
   localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
   localStorage.removeItem('tenant');
   window.location.href = '/login';
@@ -132,11 +133,11 @@ async function loadUserInfo() {
     // API로 최신 정보 확인
     const response = await axios.get(`${API_BASE}/auth/me`);
     if (response.data.success) {
-      // 아직 auth/me가 구현되지 않았으므로(Not implemented yet), 실제 데이터가 오면 업데이트
-      // 현재는 로컬 스토리지 데이터로 충분
-      // const user = response.data.data;
-      // localStorage.setItem('user', JSON.stringify(user));
-      // updateUserUI(user);
+      const { user, tenant } = response.data.data;
+      // Merge tenant info into user object for UI usage if needed, or store separately
+      user.tenant_name = tenant.name;
+      localStorage.setItem('user', JSON.stringify(user));
+      updateUserUI(user);
     }
   } catch (error) {
     console.error('사용자 정보 로드 실패:', error);
@@ -159,36 +160,35 @@ function updateUserUI(user) {
     }
   }
 
-  // Super Admin Menu
-  if (user.role === 'SUPER_ADMIN') {
-    const nav = document.querySelector('nav');
-    if (nav && !document.getElementById('nav-super-admin')) {
-      const link = document.createElement('a');
-      link.href = '#';
-      link.id = 'nav-super-admin';
-      link.dataset.page = 'super-admin';
-      link.className = 'nav-link flex items-center px-3 py-2.5 rounded-lg group';
-      link.setAttribute('onclick', 'closeSidebarOnMobile()'); // For mobile
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        // Remove active from others
-        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-        link.classList.add('active');
-        loadPage('super-admin');
-      });
+  // Role-based Menu Visibility Control
+  const superAdminNav = document.getElementById('nav-super-admin');
+  const settingsNav = document.getElementById('nav-settings');
+  const systemGroup = superAdminNav?.closest('div')?.parentElement; // div containing the group
 
-      link.innerHTML = `
-        <i class="fas fa-user-shield w-6 text-center text-lg mr-2 group-hover:text-white transition-colors"></i>
-        <span class="font-medium">시스템 관리</span>
-      `;
+  if (superAdminNav) {
+    if (user.role === 'SUPER_ADMIN') {
+      superAdminNav.classList.remove('hidden');
+    } else {
+      superAdminNav.classList.add('hidden');
+    }
+  }
 
-      // Settings Div before which to insert
-      const settingsDiv = nav.querySelector('div.pt-4');
-      if (settingsDiv) {
-        nav.insertBefore(link, settingsDiv);
-      } else {
-        nav.appendChild(link);
-      }
+  if (settingsNav) {
+    // Only Admin, Owner, and Super Admin can see settings
+    if (['SUPER_ADMIN', 'ADMIN', 'OWNER'].includes(user.role)) {
+      settingsNav.classList.remove('hidden');
+    } else {
+      settingsNav.classList.add('hidden');
+    }
+  }
+
+  // Show/Hide System Group container
+  if (systemGroup) {
+    const hasVisibleItems = Array.from(systemGroup.querySelectorAll('.nav-link:not(.hidden)')).length > 0;
+    if (hasVisibleItems) {
+      systemGroup.classList.remove('hidden');
+    } else {
+      systemGroup.classList.add('hidden');
     }
   }
 }
@@ -239,13 +239,21 @@ async function loadPage(page) {
       updatePageTitle('상품 관리', '상품 등록 및 재고 관리');
       await loadProducts(content);
       break;
+    case 'product-options':
+      updatePageTitle('옵션 관리', '자주 사용하는 옵션 프리셋 관리');
+      await renderProductOptionsPage(content);
+      break;
     case 'stock':
       updatePageTitle('재고 관리', '입고/출고 및 재고 조정');
       await renderStockPage();
       break;
     case 'sales':
-      updatePageTitle('판매 관리', '판매 등록 및 내역 조회');
+      updatePageTitle('판매 관리', '판매 및 주문 내역 관리');
       await loadSales(content);
+      break;
+    case 'pricing-policy':
+      updatePageTitle('가격 정책 관리', '등급별 및 고객별 특수 단가 현황');
+      await loadPricingPolicy(content);
       break;
     case 'purchases':
       updatePageTitle('입고/발주 관리', '발주서 작성 및 입고 처리');
@@ -267,6 +275,11 @@ async function loadPage(page) {
     case 'super-admin':
       updatePageTitle('시스템 관리', '전체 조직 및 사용자 관리');
       await renderSuperAdminPage(content);
+      break;
+    case 'transaction-statement':
+      updatePageTitle('거래명세서 출력', '고객별 거래 내역 통합 및 출력');
+      if (window.renderTransactionStatementPage) await window.renderTransactionStatementPage(content);
+      else content.innerHTML = '<div class="text-center py-10">모듈 로딩 중...</div>';
       break;
     default:
       content.innerHTML = '<div class="p-4">준비 중인 페이지입니다.</div>';
@@ -1205,7 +1218,7 @@ async function renderPosTab(container) {
   try {
     const [productsRes, customersRes, salesRes] = await Promise.all([
       axios.get(`${API_BASE}/products`),
-      axios.get(`${API_BASE}/customers`),
+      axios.get(`${API_BASE}/customers?limit=100`), // 고객 리스트를 충분히 가져옴 (검색 및 스크롤을 위해)
       axios.get(`${API_BASE}/sales?limit=5`) // 최근 5건만
     ]);
 
@@ -1234,6 +1247,13 @@ async function renderPosTab(container) {
                       onchange="filterPosProducts()">
                 <option value="">전체 카테고리</option>
               </select>
+              <select id="posSort" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 bg-white transition-shadow"
+                      onchange="filterPosProducts()">
+                <option value="newest">최신순</option>
+                <option value="stock_desc">재고많은순</option>
+                <option value="stock_asc">재고적은순</option>
+                <option value="name_asc">상품명순</option>
+              </select>
             </div>
           </div>
           
@@ -1251,10 +1271,39 @@ async function renderPosTab(container) {
         <div class="w-1/3 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
           <div class="p-4 border-b border-slate-200 bg-teal-50/50">
             <h3 class="font-bold text-lg text-teal-900 mb-3 flex items-center"><i class="fas fa-receipt mr-2"></i>주문 내역</h3>
-            <select id="posCustomer" class="w-full border border-indigo-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-              <option value="">비회원 / 고객 선택</option>
-              ${window.customers.map(c => `<option value="${c.id}">${c.name} (${c.phone})</option>`).join('')}
-            </select>
+            <div class="space-y-2">
+              <div class="relative">
+                <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                <input type="text" id="posCustomerSearch" placeholder="고객 검색 (이름/연락처)" 
+                       class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                       onkeyup="window.searchPosCustomers(this.value)">
+              </div>
+              
+              <!-- 스크롤 가능한 고객 리스트 영역 -->
+              <div id="posCustomerResults" class="max-h-32 overflow-y-auto border border-slate-200 rounded-lg bg-white shadow-inner">
+                 <div class="p-2 text-xs text-slate-500 cursor-pointer hover:bg-teal-50 transition-colors" onclick="window.selectPosCustomer('', '비회원')">
+                    <i class="fas fa-user-circle mr-1"></i>비회원 / 고객 선택
+                 </div>
+                 ${window.customers.map(c => `
+                   <div class="p-2 text-xs text-slate-700 cursor-pointer hover:bg-teal-50 border-t border-slate-100 transition-colors" 
+                        onclick="window.selectPosCustomer('${c.id}', '${c.name} (${c.phone})')">
+                     <span class="font-bold">${c.name}</span> <span class="text-slate-500 ml-1">${c.phone}</span>
+                   </div>
+                 `).join('')}
+              </div>
+
+              <!-- 선택된 고객 정보 강조 표시 -->
+              <div id="selectedCustomerInfo" class="hidden flex items-center justify-between px-3 py-2 bg-teal-600 text-white rounded-lg shadow-sm">
+                 <div class="flex items-center gap-2">
+                   <i class="fas fa-user-check text-xs"></i>
+                   <span class="text-xs font-bold" id="selectedCustomerText">비회원</span>
+                 </div>
+                 <button onclick="window.selectPosCustomer('', '비회원')" class="text-white/80 hover:text-white transition-colors">
+                   <i class="fas fa-times-circle"></i>
+                 </button>
+              </div>
+              <input type="hidden" id="posCustomer" value="">
+            </div>
           </div>
 
           <div id="posCartItems" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
@@ -1326,12 +1375,24 @@ function renderPosProducts() {
 
   const searchText = document.getElementById('posSearch').value.toLowerCase();
   const category = document.getElementById('posCategory').value;
+  const sort = document.getElementById('posSort').value;
 
   // Filter
-  let filtered = window.products.filter(p =>
-    (p.name.toLowerCase().includes(searchText) || p.sku.toLowerCase().includes(searchText)) &&
+  let filtered = (window.products || []).filter(p =>
+    (p.name.toLowerCase().includes(searchText) || (p.sku && p.sku.toLowerCase().includes(searchText))) &&
     (category === '' || p.category === category)
   );
+
+  // Sort
+  if (sort === 'newest') {
+    filtered.sort((a, b) => b.id - a.id);
+  } else if (sort === 'stock_desc') {
+    filtered.sort((a, b) => (b.current_stock || 0) - (a.current_stock || 0));
+  } else if (sort === 'stock_asc') {
+    filtered.sort((a, b) => (a.current_stock || 0) - (b.current_stock || 0));
+  } else if (sort === 'name_asc') {
+    filtered.sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   // Pagination
   const total = filtered.length;
@@ -1344,59 +1405,56 @@ function renderPosProducts() {
   const end = start + posPerPage;
   const pageItems = filtered.slice(start, end);
 
-  // List View
-  container.innerHTML = `
-    <table class="min-w-full text-sm text-left">
-      <thead class="bg-slate-50 font-bold text-slate-500 sticky top-0 z-10">
-        <tr>
-          <th class="px-4 py-3 border-b border-slate-200 pl-6">상품정보</th>
-          <th class="px-4 py-3 border-b border-slate-200">카테고리</th>
-          <th class="px-4 py-3 border-b border-slate-200 text-right">가격</th>
-          <th class="px-4 py-3 border-b border-slate-200 text-center">재고</th>
-          <th class="px-4 py-3 border-b border-slate-200 text-center">담기</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-        ${pageItems.map(p => `
-          <tr class="hover:bg-slate-50 transition-colors ${p.current_stock <= 0 ? 'opacity-60 bg-slate-50' : ''}">
-            <td class="px-4 py-3 pl-6">
-              <div class="font-bold text-slate-800">${p.name}</div>
-              <div class="text-xs text-slate-400 font-mono">${p.sku}</div>
-            </td>
-            <td class="px-4 py-3 text-slate-600">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</td>
-            <td class="px-4 py-3 text-right font-bold text-teal-600">${formatCurrency(p.selling_price)}</td>
-            <td class="px-4 py-3 text-center">
-              <span class="${p.current_stock <= 0 ? 'text-rose-600 font-bold' : 'text-slate-600'}">${p.current_stock}</span>
-            </td>
-            <td class="px-4 py-3 text-center">
-               <button onclick="addToCart(${p.id})" ${p.current_stock <= 0 ? 'disabled' : ''} 
-                      class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                <i class="fas fa-plus"></i>
-              </button>
-            </td>
-          </tr>
-        `).join('')}
-        ${pageItems.length === 0 ? '<tr><td colspan="5" class="px-4 py-12 text-center text-slate-400">검색 결과가 없습니다.</td></tr>' : ''}
-      </tbody>
-    </table>
-  `;
+  // Card View (Maintains UI seen in user screenshot)
+  container.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4";
+  container.innerHTML = pageItems.map(p => {
+    const isMaster = p.product_type === 'master' || (p.variant_count && p.variant_count > 0);
+    const isBundle = p.product_type === 'bundle';
+    const isOutOfStock = p.current_stock <= 0 && !isMaster;
+
+    return `
+      <div class="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-all cursor-pointer flex flex-col h-full group relative overflow-hidden ${isOutOfStock ? 'opacity-60 grayscale' : ''}"
+           onclick="window.handlePosProductSelection(${p.id}, '${isMaster ? 'master' : (p.product_type || 'simple')}')">
+        <div class="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div class="bg-teal-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
+            <i class="fas ${isMaster ? 'fa-list-ul' : 'fa-plus'}"></i>
+          </div>
+        </div>
+        <div class="flex justify-between items-start mb-2">
+          <span class="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</span>
+          <span class="text-xs text-slate-400 font-mono">${p.sku}</span>
+        </div>
+        <div class="flex gap-2 items-center mb-1">
+          <h4 class="font-bold text-slate-800 line-clamp-2 flex-1">${p.name}</h4>
+          ${isMaster ? '<span class="px-1.5 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] font-bold rounded shrink-0">옵션</span>' : ''}
+          ${isBundle ? '<span class="px-1.5 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-bold rounded shrink-0">세트</span>' : ''}
+        </div>
+        <div class="mt-auto pt-3 border-t border-slate-100 flex justify-between items-end">
+          <div>
+             <p class="text-xs text-slate-500">재고: <span class="${isOutOfStock ? 'text-rose-600 font-bold' : 'text-slate-700'}">${isMaster ? '-' : `${p.current_stock}개`}</span></p>
+          </div>
+          <p class="text-lg font-bold text-teal-600 font-mono">${isMaster ? '옵션 선택' : formatCurrency(p.selling_price)}</p>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (pageItems.length === 0) {
+    container.className = "flex flex-col items-center justify-center p-12 text-slate-400 w-full col-span-full";
+    container.innerHTML = `<i class="fas fa-search text-4xl mb-3 opacity-20"></i><p>검색 결과가 없습니다.</p>`;
+  }
 
   // Pagination Controls
   if (totalPages > 1) {
     let buttons = '';
-    // Previous
-    buttons += `<button onclick="changePosPage(${posCurrentPage - 1})" ${posCurrentPage === 1 ? 'disabled' : ''} class="w-8 h-8 flex items-center justify-center rounded-lg border ${posCurrentPage === 1 ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm mr-1"><i class="fas fa-chevron-left"></i></button>`;
+    buttons += `<button onclick="window.changePosPage(${posCurrentPage - 1})" ${posCurrentPage === 1 ? 'disabled' : ''} class="w-8 h-8 flex items-center justify-center rounded-lg border ${posCurrentPage === 1 ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm mr-1"><i class="fas fa-chevron-left"></i></button>`;
 
     let startPage = Math.max(1, posCurrentPage - 2);
     let endPage = Math.min(totalPages, posCurrentPage + 2);
-
     for (let i = startPage; i <= endPage; i++) {
-      buttons += `<button onclick="changePosPage(${i})" class="w-8 h-8 flex items-center justify-center rounded-lg border ${i === posCurrentPage ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm mx-0.5">${i}</button>`;
+      buttons += `<button onclick="window.changePosPage(${i})" class="w-8 h-8 flex items-center justify-center rounded-lg border ${i === posCurrentPage ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm mx-0.5">${i}</button>`;
     }
-
-    // Next
-    buttons += `<button onclick="changePosPage(${posCurrentPage + 1})" ${posCurrentPage === totalPages ? 'disabled' : ''} class="w-8 h-8 flex items-center justify-center rounded-lg border ${posCurrentPage === totalPages ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm ml-1"><i class="fas fa-chevron-right"></i></button>`;
-
+    buttons += `<button onclick="window.changePosPage(${posCurrentPage + 1})" ${posCurrentPage === totalPages ? 'disabled' : ''} class="w-8 h-8 flex items-center justify-center rounded-lg border ${posCurrentPage === totalPages ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'} transition-colors font-medium text-sm ml-1"><i class="fas fa-chevron-right"></i></button>`;
     pagContainer.innerHTML = `<div class="flex items-center justify-center">${buttons}</div>`;
     pagContainer.classList.remove('hidden');
   } else {
@@ -1410,9 +1468,384 @@ function filterPosProducts() {
   renderPosProducts();
 }
 
+function handlePosProductSelection(productId, type) {
+  console.log('handlePosProductSelection', productId, type);
+  if (type === 'master') {
+    window.showPosVariantSelector(productId);
+  } else {
+    window.addToCart(productId);
+  }
+}
+
+// POS 변체 선택 모달 관련
+let posVariantsCache = [];
+
+async function showPosVariantSelector(productId) {
+  console.log('showPosVariantSelector', productId);
+  try {
+    const res = await axios.get(`${API_BASE}/products/${productId}`);
+    const product = res.data.data;
+    posVariantsCache = product.variants || [];
+
+    console.log('Loaded variants:', posVariantsCache);
+
+    if (posVariantsCache.length === 0) {
+      alert('이 상품(ID: ' + productId + ')에 등록된 세부옵션이 없습니다. 상품 관리에서 옵션을 구성해 주세요.');
+      return;
+    }
+
+
+    // 모달 UI 주입
+    const existingModal = document.getElementById('posVariantSelectorModal');
+    if (existingModal) existingModal.remove();
+
+    const modalHtml = `
+      <div id="posVariantSelectorModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[110]" onclick="if(event.target === this) closePosVariantSelector()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden flex flex-col max-h-[80vh]">
+          <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
+            <h3 class="font-bold text-slate-800">옵션 선택: ${product.name}</h3>
+            <button onclick="closePosVariantSelector()" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="overflow-y-auto">
+            <div class="divide-y divide-slate-50">
+              ${posVariantsCache.map((v, idx) => {
+      const optionName = v.options && v.options.length > 0
+        ? v.options.map(o => o.value_name).join(' / ')
+        : v.name;
+      const isOutOfStock = v.current_stock <= 0;
+
+      return `
+                <div class="p-4 hover:bg-slate-50 cursor-pointer flex justify-between items-center group transition-colors ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : ''}" 
+                     onclick="${isOutOfStock ? '' : `selectPosVariant(${idx})`}">
+                  <div class="flex-1">
+                    <div class="font-bold text-slate-700 font-medium group-hover:text-teal-700">${optionName}</div>
+                    <div class="text-[10px] text-slate-400 font-mono mt-0.5">${v.sku}</div>
+                    <div class="text-teal-600 font-bold text-sm mt-1">${formatCurrency(v.selling_price)}</div>
+                  </div>
+                  <div class="flex items-center gap-4">
+                    <div class="text-right">
+                      <div class="text-[10px] text-slate-400 uppercase tracking-wider">재고</div>
+                      <div class="text-sm font-bold ${isOutOfStock ? 'text-rose-500' : 'text-slate-600'}">
+                        ${isOutOfStock ? '품절' : `${v.current_stock}개`}
+                      </div>
+                    </div>
+                    <div class="w-8 h-8 rounded-full ${isOutOfStock ? 'bg-slate-50 text-slate-300' : 'bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white'} flex items-center justify-center transition-all">
+                      <i class="fas fa-plus"></i>
+                    </div>
+                  </div>
+                </div>
+                `;
+    }).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  } catch (e) {
+    console.error(e);
+    showToast('옵션 정보를 불러오는데 실패했습니다.', 'error');
+  }
+}
+
+function selectPosVariant(index) {
+  const variant = posVariantsCache[index];
+  if (!variant) return;
+  addVariantToPosCart(variant);
+}
+
+function addVariantToPosCart(variant) {
+  if (!window.cart) window.cart = [];
+
+  const existing = window.cart.find(item => item.product.id === variant.id);
+
+  if (existing) {
+    if (existing.quantity >= variant.current_stock) {
+      alert('재고 수량을 초과할 수 없습니다.');
+      return;
+    }
+    existing.quantity++;
+  } else {
+    // 옵션 정보를 포함하여 추가 (product 객체에 options 속성이 이미 있음)
+    // 보여줄 때는 options를 조합해서 보여주도록 renderCart 수정 필요
+    window.cart.push({ product: variant, quantity: 1 });
+  }
+
+  renderCart();
+  closePosVariantSelector();
+}
+
+function closePosVariantSelector() {
+  const modal = document.getElementById('posVariantSelectorModal');
+  if (modal) {
+    modal.remove();
+    console.log('POS Variant Selector Modal closed.');
+  }
+}
+
 function changePosPage(page) {
   posCurrentPage = page;
   renderPosProducts();
+}
+
+function addToCart(productId) {
+  const product = window.products.find(p => p.id === productId);
+  if (!product) return;
+
+  if (product.product_type !== 'master' && product.current_stock <= 0) {
+    alert('재고가 없습니다.');
+    return;
+  }
+
+  if (!window.cart) window.cart = [];
+  const existing = window.cart.find(item => item.product.id === productId);
+
+  if (existing) {
+    if (existing.quantity >= product.current_stock) {
+      alert('재고 수량을 초과할 수 없습니다.');
+      return;
+    }
+    existing.quantity++;
+  } else {
+    window.cart.push({ product, quantity: 1 });
+  }
+  renderCart();
+}
+
+function renderCart() {
+  const container = document.getElementById('posCartItems');
+  const totalAmountEl = document.getElementById('posTotalAmount');
+  const finalAmountEl = document.getElementById('posFinalAmount');
+  const discountInput = document.getElementById('posDiscount');
+
+  if (!container) return;
+
+  if (!window.cart || window.cart.length === 0) {
+    container.innerHTML = '<div class="flex flex-col items-center justify-center h-full text-slate-400"><i class="fas fa-shopping-basket text-4xl mb-3 opacity-20"></i><p>상품을 담아주세요.</p></div>';
+    if (totalAmountEl) totalAmountEl.textContent = '0원';
+    if (finalAmountEl) finalAmountEl.textContent = '0원';
+    return;
+  }
+
+  let total = 0;
+  container.innerHTML = window.cart.map(item => {
+    const itemTotal = (item.product.selling_price || 0) * item.quantity;
+    total += itemTotal;
+    return `
+      <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2 hover:border-teal-500 transition-colors group">
+        <div class="flex justify-between items-start">
+          <div class="min-w-0 flex-1">
+             <div class="font-bold text-slate-800 text-sm truncate">${item.product.name}</div>
+             <div class="text-xs text-slate-500 font-mono">${item.product.sku}</div>
+          </div>
+          <button onclick="removeFromCart(${item.product.id})" class="text-slate-300 hover:text-rose-500 p-1 rounded-md hover:bg-rose-50 transition-colors">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="flex justify-between items-end mt-1">
+          <div class="text-sm font-bold text-teal-600">${formatCurrency(item.product.selling_price * item.quantity)}</div>
+          <div class="flex items-center bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
+            <button onclick="updateCartQty(${item.product.id}, -1)" class="w-8 h-8 flex items-center justify-center hover:bg-white text-slate-600 border-r border-slate-200 transition-colors">
+              <i class="fas fa-minus text-xs"></i>
+            </button>
+            <input type="number" readonly value="${item.quantity}" class="w-10 h-8 text-center text-sm font-bold bg-transparent border-none p-0 focus:ring-0 text-slate-700">
+            <button onclick="updateCartQty(${item.product.id}, 1)" class="w-8 h-8 flex items-center justify-center hover:bg-white text-slate-600 border-l border-slate-200 transition-colors">
+              <i class="fas fa-plus text-xs"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (totalAmountEl) totalAmountEl.textContent = formatCurrency(total);
+  const discount = parseInt(discountInput?.value) || 0;
+  const final = Math.max(0, total - discount);
+  if (finalAmountEl) finalAmountEl.textContent = formatCurrency(final);
+}
+
+function updateCartQty(productId, delta) {
+  const item = window.cart.find(i => i.product.id === productId);
+  if (!item) return;
+
+  const newQty = item.quantity + delta;
+  if (newQty <= 0) {
+    if (confirm('상품을 장바구니에서 삭제하시겠습니까?')) {
+      removeFromCart(productId);
+    }
+    return;
+  }
+  if (newQty > item.product.current_stock) {
+    alert(`재고 부족! (현재 재고: ${item.product.current_stock})`);
+    return;
+  }
+  item.quantity = newQty;
+  renderCart();
+}
+
+window.showPosVariantSelector = showPosVariantSelector;
+window.selectPosVariant = selectPosVariant;
+window.closePosVariantSelector = closePosVariantSelector;
+window.handlePosProductSelection = handlePosProductSelection;
+window.changePosPage = changePosPage;
+window.addToCart = addToCart;
+window.renderCart = renderCart;
+window.updateCartQty = updateCartQty;
+window.removeFromCart = removeFromCart;
+window.checkout = checkout;
+window.switchSalesTab = switchSalesTab;
+window.filterPosProducts = filterPosProducts;
+window.searchPosCustomers = searchPosCustomers;
+window.selectPosCustomer = selectPosCustomer;
+
+async function searchPosCustomers(query) {
+  const resultsContainer = document.getElementById('posCustomerResults');
+  if (!resultsContainer) return;
+
+  try {
+    const res = await axios.get(`${API_BASE}/customers`, {
+      params: { search: query, limit: 50 }
+    });
+    const customers = res.data.data;
+
+    let html = `<div class="p-2 text-xs text-slate-500 cursor-pointer hover:bg-teal-50 transition-colors" onclick="window.selectPosCustomer('', '비회원')">
+          <i class="fas fa-user-circle mr-1"></i>비회원 / 고객 선택
+       </div>`;
+
+    html += customers.map(c => `
+         <div class="p-2 text-xs text-slate-700 cursor-pointer hover:bg-teal-50 border-t border-slate-100 transition-colors" 
+              onclick="window.selectPosCustomer('${c.id}', '${c.name} (${c.phone})')">
+           <span class="font-bold">${c.name}</span> <span class="text-slate-500 ml-1">${c.phone}</span>
+         </div>
+       `).join('');
+
+    resultsContainer.innerHTML = html;
+  } catch (e) {
+    console.error('Customer search failed', e);
+  }
+}
+
+function selectPosCustomer(id, name) {
+  const hiddenInput = document.getElementById('posCustomer');
+  const selectedInfo = document.getElementById('selectedCustomerInfo');
+  const selectedText = document.getElementById('selectedCustomerText');
+  const searchInput = document.getElementById('posCustomerSearch');
+  const resultsContainer = document.getElementById('posCustomerResults');
+
+  if (hiddenInput) hiddenInput.value = id;
+
+  if (id) {
+    if (selectedInfo) selectedInfo.classList.remove('hidden');
+    if (selectedText) selectedText.textContent = name;
+    if (resultsContainer) resultsContainer.classList.add('hidden');
+    if (searchInput) searchInput.classList.add('hidden');
+
+    // 고객별 가격 조회 실행
+    applyCustomPricesToCart(id);
+  } else {
+    if (selectedInfo) selectedInfo.classList.add('hidden');
+    if (selectedText) selectedText.textContent = '비회원';
+    if (resultsContainer) resultsContainer.classList.remove('hidden');
+    if (searchInput) {
+      searchInput.classList.remove('hidden');
+      searchInput.value = '';
+    }
+    searchPosCustomers(''); // 리스트 초기화
+
+    // 가격 초기화 (기본 판매가로)
+    resetCartPrices();
+  }
+}
+
+async function applyCustomPricesToCart(customerId) {
+  if (!window.cart || window.cart.length === 0) return;
+
+  const productIds = window.cart.map(item => item.product.id);
+
+  try {
+    const res = await axios.post(`${API_BASE}/prices/lookup`, {
+      customer_id: customerId,
+      product_ids: productIds
+    });
+
+    const customPrices = res.data.data; // [{product_id, custom_price}, ...]
+
+    window.cart.forEach(item => {
+      const match = customPrices.find(cp => cp.product_id === item.product.id);
+      if (match && match.custom_price !== null) {
+        // 기존 가격 저장 (나중에 비회원 전환 시 복구용)
+        if (!item.original_price) item.original_price = item.product.selling_price;
+        item.product.selling_price = match.custom_price;
+      }
+    });
+
+    renderCart();
+    showToast('고객 맞춤 가격이 적용되었습니다.', 'success');
+  } catch (e) {
+    console.error('Price lookup failed', e);
+  }
+}
+
+function resetCartPrices() {
+  if (!window.cart) return;
+  window.cart.forEach(item => {
+    if (item.original_price) {
+      item.product.selling_price = item.original_price;
+      delete item.original_price;
+    }
+  });
+  renderCart();
+}
+
+function removeFromCart(productId) {
+  window.cart = window.cart.filter(i => i.product.id !== productId);
+  renderCart();
+}
+
+async function checkout() {
+  if (!window.cart || window.cart.length === 0) {
+    alert('장바구니가 비어있습니다.');
+    return;
+  }
+
+  if (!confirm('결제를 진행하시겠습니까?')) return;
+
+  const customerId = document.getElementById('posCustomer')?.value || null;
+  const discountInput = document.getElementById('posDiscount');
+  const discount = parseInt(discountInput?.value) || 0;
+
+  // 결제 수단 확인
+  const paymentMethodWrapper = document.querySelector('input[name="paymentMethod"]:checked');
+  const paymentMethod = paymentMethodWrapper ? paymentMethodWrapper.value : 'card';
+
+  const payload = {
+    customer_id: customerId,
+    items: window.cart.map(item => ({
+      product_id: item.product.id,
+      quantity: item.quantity
+    })),
+    discount_amount: discount,
+    payment_method: paymentMethod,
+    // POS 판매는 바로 완료 처리
+    status: 'completed'
+  };
+
+  try {
+    const res = await axios.post(`${API_BASE}/sales`, payload);
+    if (res.data.success) {
+      alert('판매 등록이 완료되었습니다.');
+      window.cart = [];
+      renderCart();
+      // 재고 현황 등을 갱신하기 위해 탭 새로고침
+      switchSalesTab('pos');
+    }
+  } catch (e) {
+    console.error(e);
+    alert('결제 처리 중 오류가 발생했습니다: ' + (e.response?.data?.error || e.message));
+  }
 }
 
 // 주문/배송 관리 탭 렌더링
@@ -1490,13 +1923,23 @@ async function renderOrderManagementTab(container) {
                   </td>
                   <td class="px-6 py-4 text-slate-600">
                     ${s.tracking_number ? `
-                      <div class="text-xs font-medium">${s.courier}</div>
-                      <div class="text-xs font-mono text-slate-500">${s.tracking_number}</div>
-                    ` : '-'}
+                      <div class="flex items-center gap-2">
+                        <div>
+                          <div class="text-xs font-medium">${s.courier}</div>
+                          <div class="text-xs font-mono text-slate-500">${s.tracking_number}</div>
+                        </div>
+                        <button onclick="openTrackingModal('${s.tracking_number}', '${s.courier}')" 
+                                class="text-teal-600 hover:text-teal-800 p-1.5 hover:bg-teal-50 rounded-lg transition-colors"
+                                title="배송 추적">
+                          <i class="fas fa-shipping-fast"></i>
+                        </button>
+                      </div>
+                    ` : '<span class="text-slate-400 text-xs">출고 대기중</span>'}
                   </td>
                   <td class="px-6 py-4 space-x-2">
-                    <button onclick="openShippingModal(${s.id})" class="text-teal-600 hover:text-indigo-800 font-medium text-xs bg-teal-50 px-2 py-1 rounded hover:bg-teal-100 transition-colors">
-                      <i class="fas fa-truck mr-1"></i>배송
+                    <button onclick="viewShippingInfo(${s.id}, '${s.tracking_number || ''}', '${s.courier || ''}')" 
+                            class="text-teal-600 hover:text-teal-800 font-medium text-xs bg-teal-50 px-2 py-1 rounded hover:bg-teal-100 transition-colors">
+                      <i class="fas fa-shipping-fast mr-1"></i>배송조회
                     </button>
                     ${s.status !== 'cancelled' ? `
                       <button onclick="openClaimModal(${s.id})" class="text-amber-600 hover:text-amber-800 font-medium text-xs bg-amber-50 px-2 py-1 rounded hover:bg-amber-100 transition-colors">
@@ -1585,10 +2028,22 @@ async function filterOrderList() {
                 </span>
               </td>
               <td class="px-6 py-4 text-slate-600">
-                ${s.tracking_number ? `
-                  <div class="text-xs font-medium">${s.courier}</div>
-                  <div class="text-xs font-mono text-slate-500">${s.tracking_number}</div>
-                ` : '-'}
+                ${(() => {
+        if (!s.tracking_number) return '-';
+        const url = window.getTrackingUrl(s.courier, s.tracking_number);
+        if (url) {
+          return `
+                          <div class="text-xs font-medium">${s.courier}</div>
+                          <a href="${url}" target="_blank" class="text-xs font-mono text-blue-600 hover:underline flex items-center gap-1">
+                             <i class="fas fa-external-link-alt text-[10px]"></i> ${s.tracking_number}
+                          </a>
+                        `;
+        }
+        return `
+                      <div class="text-xs font-medium">${s.courier}</div>
+                      <div class="text-xs font-mono text-slate-500">${s.tracking_number}</div>
+                    `;
+      })()}
               </td>
               <td class="px-6 py-4 space-x-2">
                 <button onclick="openShippingModal(${s.id})" class="text-teal-600 hover:text-indigo-800 font-medium text-xs bg-teal-50 px-2 py-1 rounded hover:bg-teal-100 transition-colors">
@@ -1706,19 +2161,8 @@ function formatCurrency(amount) {
   }).format(amount || 0);
 }
 
-function showError(container, message) {
-  container.innerHTML = `
-    <div class="bg-red-50 border border-red-200 rounded-lg p-6">
-      <p class="text-red-800"><i class="fas fa-exclamation-circle mr-2"></i>${message}</p>
-    </div>
-  `;
-}
 
-function showSuccess(message) {
-  // 토스트 알림 (간단 구현)
-  alert(message);
-  alert(message);
-}
+
 
 // --- CSV 다운로드 유틸리티 ---
 function downloadCSV(data, filename, headers) {
@@ -1912,6 +2356,15 @@ function injectCustomerModal() {
                   </select>
                   <input type="text" id="custPathInput" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow hidden" placeholder="구매 경로 직접 입력">
                 </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-2">고객 등급 <span class="text-teal-600 font-bold text-[10px] ml-1">자동 할인 적용</span></label>
+                  <select id="custGrade" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-indigo-500 transition-shadow bg-white">
+                    <option value="일반">일반</option>
+                    <option value="VIP">VIP</option>
+                    <option value="도매">도매</option>
+                    <option value="대리점">대리점</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -2022,8 +2475,8 @@ async function editCustomer(id) {
     document.getElementById('custName').value = customer.name;
     document.getElementById('custPhone').value = formatPhoneNumber(customer.phone);
     document.getElementById('custEmail').value = customer.email || '';
+    document.getElementById('custGrade').value = customer.grade || '일반';
 
-    // 구매 경로 설정
     const pathSelect = document.getElementById('custPathSelect');
     const pathInput = document.getElementById('custPathInput');
     const commonPaths = ['자사몰', '스마트스토어', '쿠팡', '오프라인', '지인소개'];
@@ -2061,13 +2514,14 @@ async function submitCustomer(e) {
 
   const pathSelect = document.getElementById('custPathSelect');
   const pathInput = document.getElementById('custPathInput');
-  const purchase_path = pathSelect.value === 'custom' ? pathInput.value : pathSelect.value;
+  const path = pathSelect.value === 'custom' ? pathInput.value : pathSelect.value;
 
   const payload = {
     name: document.getElementById('custName').value,
     phone: document.getElementById('custPhone').value,
     email: document.getElementById('custEmail').value,
-    purchase_path: purchase_path,
+    purchase_path: path,
+    grade: document.getElementById('custGrade').value,
     company: document.getElementById('custCompany').value,
     department: document.getElementById('custDept').value,
     position: document.getElementById('custPosition').value,
@@ -2101,202 +2555,10 @@ async function submitCustomer(e) {
 
 // --- POS 관련 함수 ---
 
-function renderPosProducts(filterText = '', filterCat = '') {
-  const container = document.getElementById('posProductList');
-  if (!container) return;
+/* Redundant POS block removed to prevent overriding fixed logic */
 
-  let filtered = window.products || [];
-  if (filterText) {
-    filtered = filtered.filter(p =>
-      p.name.toLowerCase().includes(filterText.toLowerCase()) ||
-      p.sku.toLowerCase().includes(filterText.toLowerCase())
-    );
-  }
-  if (filterCat) {
-    filtered = filtered.filter(p => p.category === filterCat);
-  }
 
-  container.innerHTML = filtered.map(p => `
-    <div class="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-all cursor-pointer flex flex-col h-full group relative overflow-hidden"
-         onclick="addToCart(${p.id})">
-      <div class="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div class="bg-teal-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
-          <i class="fas fa-plus"></i>
-        </div>
-      </div>
-      <div class="flex justify-between items-start mb-2">
-        <span class="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded">${[p.category, p.category_medium, p.category_small].filter(Boolean).join(' > ')}</span>
-        <span class="text-xs text-slate-400 font-mono">${p.sku}</span>
-      </div>
-      <h4 class="font-bold text-slate-800 mb-1 line-clamp-2 flex-1">${p.name}</h4>
-      <div class="mt-auto pt-3 border-t border-slate-100 flex justify-between items-end">
-        <div>
-           <p class="text-xs text-slate-500">재고: <span class="${p.current_stock <= p.min_stock_alert ? 'text-rose-600 font-bold' : 'text-slate-700'}">${p.current_stock}</span></p>
-        </div>
-        <p class="text-lg font-bold text-teal-600">${formatCurrency(p.selling_price)}</p>
-      </div>
-    </div>
-  `).join('');
-}
 
-function filterPosProducts() {
-  const text = document.getElementById('posSearch').value;
-  const cat = document.getElementById('posCategory').value;
-  renderPosProducts(text, cat);
-}
-
-function addToCart(productId) {
-  const product = window.products.find(p => p.id === productId);
-  if (!product) return;
-
-  if (product.current_stock <= 0) {
-    alert('재고가 없는 상품입니다.');
-    return;
-  }
-
-  const existingItem = window.cart.find(item => item.product.id === productId);
-
-  if (existingItem) {
-    if (existingItem.quantity >= product.current_stock) {
-      alert('재고 수량을 초과할 수 없습니다.');
-      return;
-    }
-    existingItem.quantity++;
-  } else {
-    window.cart.push({
-      product: product,
-      quantity: 1
-    });
-  }
-
-  renderCart();
-}
-
-function removeFromCart(productId) {
-  window.cart = window.cart.filter(item => item.product.id !== productId);
-  renderCart();
-}
-
-function updateCartQuantity(productId, delta) {
-  const item = window.cart.find(i => i.product.id === productId);
-  if (!item) return;
-
-  const newQty = item.quantity + delta;
-
-  if (newQty <= 0) {
-    removeFromCart(productId);
-    return;
-  }
-
-  if (newQty > item.product.current_stock) {
-    alert('재고 수량을 초과할 수 없습니다.');
-    return;
-  }
-
-  item.quantity = newQty;
-  renderCart();
-}
-
-function renderCart() {
-  const container = document.getElementById('posCartItems');
-  const totalEl = document.getElementById('posTotalAmount');
-  const finalEl = document.getElementById('posFinalAmount');
-  const discountInput = document.getElementById('posDiscount');
-
-  if (!container) return;
-
-  if (window.cart.length === 0) {
-    container.innerHTML = `
-      <div class="text-center text-slate-400 mt-10">
-        <div class="bg-slate-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
-          <i class="fas fa-shopping-basket text-3xl text-slate-300"></i>
-        </div>
-        <p class="font-medium">장바구니가 비어있습니다.</p>
-        <p class="text-sm mt-1">상품을 선택하여 담아주세요.</p>
-      </div>
-    `;
-    totalEl.textContent = '0원';
-    finalEl.textContent = '0원';
-    return;
-  }
-
-  let total = 0;
-  container.innerHTML = window.cart.map(item => {
-    const itemTotal = item.product.selling_price * item.quantity;
-    total += itemTotal;
-    return `
-      <div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100 group hover:border-indigo-200 transition-colors">
-        <div class="flex-1 min-w-0 mr-3">
-          <div class="font-medium text-slate-800 truncate">${item.product.name}</div>
-          <div class="text-xs text-slate-500 mt-0.5">${formatCurrency(item.product.selling_price)} x ${item.quantity}</div>
-        </div>
-        <div class="flex items-center gap-3">
-          <div class="font-bold text-slate-700">${formatCurrency(itemTotal)}</div>
-          <div class="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm">
-            <button onclick="updateCartQuantity(${item.product.id}, -1)" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-l-lg transition-colors">
-              <i class="fas fa-minus text-xs"></i>
-            </button>
-            <span class="w-8 text-center text-sm font-medium text-slate-700">${item.quantity}</span>
-            <button onclick="updateCartQuantity(${item.product.id}, 1)" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-r-lg transition-colors">
-              <i class="fas fa-plus text-xs"></i>
-            </button>
-          </div>
-          <button onclick="removeFromCart(${item.product.id})" class="text-slate-400 hover:text-rose-500 transition-colors ml-1">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  totalEl.textContent = formatCurrency(total);
-
-  const discount = parseInt(discountInput.value) || 0;
-  const final = Math.max(0, total - discount);
-  finalEl.textContent = formatCurrency(final);
-}
-
-async function checkout() {
-  if (window.cart.length === 0) {
-    alert('장바구니가 비어있습니다.');
-    return;
-  }
-
-  if (!confirm('결제를 진행하시겠습니까?')) return;
-
-  const customerId = document.getElementById('posCustomer').value;
-  const discount = parseInt(document.getElementById('posDiscount').value) || 0;
-  const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-
-  const payload = {
-    customer_id: customerId ? parseInt(customerId) : null,
-    items: window.cart.map(item => ({
-      product_id: item.product.id,
-      quantity: item.quantity
-    })),
-    discount_amount: discount,
-    payment_method: paymentMethod,
-    notes: 'POS 판매'
-  };
-
-  try {
-    await axios.post(`${API_BASE}/sales`, payload);
-    showSuccess('결제가 완료되었습니다.');
-
-    // 초기화
-    window.cart = [];
-    document.getElementById('posDiscount').value = 0;
-    renderCart();
-
-    // 데이터 갱신
-    switchSalesTab('pos');
-
-  } catch (error) {
-    console.error('결제 실패:', error);
-    const msg = error.response?.data?.error || '결제 처리 중 오류가 발생했습니다.';
-    alert(msg);
-  }
-}
 
 async function cancelSale(saleId) {
   if (!confirm('정말 이 판매 내역을 취소하시겠습니까?\\n재고가 다시 복구됩니다.')) return;
@@ -2425,6 +2687,69 @@ async function openShippingModal(saleId) {
     alert('정보 로드 실패');
   }
 }
+
+// 배송 정보 조회 (운송장이 있으면 추적, 없으면 안내)
+function viewShippingInfo(saleId, trackingNumber, courier) {
+  if (trackingNumber && trackingNumber !== '') {
+    // 운송장 있음 - 배송 추적 모달 열기
+    openTrackingModal(trackingNumber, courier);
+  } else {
+    // 운송장 없음 - 안내 모달 표시
+    showNoTrackingInfoModal(saleId);
+  }
+}
+
+// 운송장 없을 때 안내 모달
+function showNoTrackingInfoModal(saleId) {
+  const modalHtml = `
+    <div id="noTrackingModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 border border-slate-100">
+        <div class="p-6 text-center">
+          <div class="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center mb-4">
+            <i class="fas fa-box text-3xl text-blue-600"></i>
+          </div>
+          <h3 class="text-xl font-bold text-slate-800 mb-2">출고 대기중</h3>
+          <p class="text-slate-600 mb-4">
+            아직 출고가 완료되지 않았습니다.<br>
+            배송 정보는 <strong>출고 관리</strong>에서 입력됩니다.
+          </p>
+          
+          <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-left">
+            <p class="text-sm text-blue-700 mb-2">
+              <i class="fas fa-info-circle mr-2"></i>
+              <strong>배송 정보 입력 방법:</strong>
+            </p>
+            <ol class="text-sm text-blue-600 space-y-1 ml-6 list-decimal">
+              <li>좌측 메뉴에서 <strong>출고 관리</strong> 선택</li>
+              <li>해당 주문의 출고 등록</li>
+              <li>택배사와 운송장 번호 입력</li>
+              <li>저장 후 이 페이지에서 배송 조회 가능</li>
+            </ol>
+          </div>
+
+          <div class="flex gap-2">
+            <button onclick="closeNoTrackingModal()" 
+                    class="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+              닫기
+            </button>
+            <button onclick="closeNoTrackingModal(); loadPage('outbound')" 
+                    class="flex-1 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-bold">
+              <i class="fas fa-arrow-right mr-2"></i>출고 관리로 이동
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeNoTrackingModal() {
+  const modal = document.getElementById('noTrackingModal');
+  if (modal) modal.remove();
+}
+
 
 async function submitShipping(e) {
   e.preventDefault();
@@ -2691,20 +3016,65 @@ function injectStockModal() {
 
   document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-  // 상품 선택 시 현재 재고 표시 리스너
-  document.getElementById('stockProduct').addEventListener('change', function (e) {
-    const productId = parseInt(e.target.value);
-    const product = window.products.find(p => p.id === productId);
-    const display = document.getElementById('currentStockDisplay');
-    const value = document.getElementById('currentStockValue');
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-    if (product) {
-      value.textContent = product.current_stock;
-      display.classList.remove('hidden');
+  // 상품/창고 선택 시 현재 재고 표시 업데이트
+  const updateCurrentStockDisplay = async () => {
+    const productId = parseInt(document.getElementById('stockProduct').value);
+    const warehouseId = parseInt(document.getElementById('stockWarehouse').value);
+    const type = document.getElementById('stockMovementType').value;
+    const product = window.products?.find(p => p.id === productId);
+
+    const display = document.getElementById('currentStockDisplay');
+    const valueEl = document.getElementById('currentStockValue');
+    const labelEl = document.getElementById('stockQuantityLabel');
+
+    if (type === 'adjust') {
+      labelEl.textContent = warehouseId ? '실재고 (변경 후 수량)' : '총 실재고 (변경 후 수량)';
+      document.getElementById('stockQuantity').placeholder = "실제 조사된 수량을 입력하세요";
     } else {
-      display.classList.add('hidden');
+      labelEl.textContent = '수량';
+      document.getElementById('stockQuantity').placeholder = "이동할 수량을 입력하세요";
     }
+
+    if (!product) {
+      display.classList.add('hidden');
+      return;
+    }
+
+    let text = '';
+
+    // 창고별 재고 데이터가 없으면 로드 (Product가 선택되었을 때)
+    if (productId && !window.currentProductWarehouseStocks && window.currentProductWarehouseStocksLoading !== productId) {
+      window.currentProductWarehouseStocksLoading = productId;
+      try {
+        const res = await axios.get(`${API_BASE}/stock/warehouse-stocks/${productId}`);
+        window.currentProductWarehouseStocks = res.data.data;
+      } catch (e) {
+        console.error(e);
+        window.currentProductWarehouseStocks = [];
+      }
+      window.currentProductWarehouseStocksLoading = null;
+    }
+
+    if (warehouseId) {
+      const whStock = window.currentProductWarehouseStocks?.find(i => i.warehouse_id === warehouseId)?.quantity || 0;
+      text = `선택 창고 재고: ${whStock} / 총 재고: ${product.current_stock}`;
+    } else {
+      text = `현재 총 재고: ${product.current_stock}`;
+    }
+
+    valueEl.textContent = text;
+    display.classList.remove('hidden');
+  };
+
+  document.getElementById('stockProduct').addEventListener('change', () => {
+    // 상품 변경 시 재고 데이터 초기화 후 다시 로드
+    window.currentProductWarehouseStocks = null;
+    updateCurrentStockDisplay();
   });
+
+  document.getElementById('stockWarehouse').addEventListener('change', updateCurrentStockDisplay);
 }
 
 async function openStockModal(type) {
@@ -2719,6 +3089,7 @@ async function openStockModal(type) {
 
   form.reset();
   typeInput.value = type;
+  window.currentProductWarehouseStocks = null; // Reset cached stocks
 
   if (type === 'in') {
     title.textContent = '재고 입고';
@@ -2788,13 +3159,27 @@ async function submitStockMovement(e) {
   if (type === 'in') endpoint = '/stock/in';
   else if (type === 'out') endpoint = '/stock/out';
   else if (type === 'adjust') {
-    // 조정은 창고별 조정이 아직 구현 안됨. 전체 재고 조정임.
-    // 창고 선택을 숨기거나 해야 함. 일단은 전체 재고 조정으로 처리.
     endpoint = '/stock/adjust';
-    // adjust API는 new_stock을 받으므로 payload 수정 필요
-    // 하지만 UI가 수량 입력이므로, 여기서는 입고/출고만 우선 지원.
-    alert('재고 조정은 아직 창고별 관리를 지원하지 않습니다.');
-    return;
+
+    // 조정의 경우 new_stock을 계산해서 보내야 함
+    const product = window.products.find(p => p.id === parseInt(productId));
+    if (!product) return;
+
+    if (warehouseId) {
+      // 창고별 조정: 입력값은 '해당 창고의 실재고'
+      // 변동량(diff) = 입력값(Target) - 현재 창고 재고
+      const whItems = window.currentProductWarehouseStocks || [];
+      const currentWhStock = whItems.find(i => i.warehouse_id === parseInt(warehouseId))?.quantity || 0;
+      const targetWhStock = quantity;
+      const diff = targetWhStock - currentWhStock;
+
+      // Backend는 new_stock(Total)을 받음
+      // New Total = Current Total + diff
+      payload.new_stock = product.current_stock + diff;
+    } else {
+      // 전체 조정: 입력값은 '전체 실재고'
+      payload.new_stock = quantity;
+    }
   }
 
   try {
@@ -3352,9 +3737,15 @@ async function renderWarehouseTab(container) {
           <h3 class="text-lg font-bold text-slate-800">창고 관리</h3>
           <p class="text-slate-500 text-sm">물류 창고를 등록하고 관리하세요.</p>
         </div>
-        <button onclick="openWarehouseModal()" class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors">
-          <i class="fas fa-plus mr-2"></i>창고 등록
-        </button>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="syncGlobalStock()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
+            <i class="fas fa-sync-alt mr-2"></i>재고 전체 동기화
+            </button>
+            <button onclick="openWarehouseModal()" class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors shadow-sm">
+            <i class="fas fa-plus mr-2"></i>창고 등록
+            </button>
+        </div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full">
@@ -3495,6 +3886,21 @@ async function deleteWarehouse(id) {
     switchSettingsTab('warehouse');
   } catch (err) {
     alert(err.response?.data?.error || '삭제 실패');
+  }
+}
+
+async function syncGlobalStock() {
+  if (!confirm('모든 상품의 총 재고(Global Stock)를 각 창고별 재고의 합계로 강제 동기화하시겠습니까?\\n\\n이 작업은 되돌릴 수 없으며, "창고 재고"가 존재하는 상품의 총 재고 수치가 변경될 수 있습니다.')) return;
+
+  try {
+    const res = await axios.post(`${API_BASE}/stock/sync-global`);
+    if (res.data.success) {
+      showSuccess(`동기화 완료: ${res.data.updatedRows}개 상품의 재고가 수정되었습니다.`);
+      switchSettingsTab('warehouse');
+    }
+  } catch (e) {
+    console.error(e);
+    alert('동기화 실패: ' + (e.response?.data?.error || e.message));
   }
 }
 
@@ -5005,6 +5411,34 @@ async function syncLegacyStock() {
 }
 
 
+// 정렬 상태 관리
+let stockSortConfig = {
+  field: 'updated_at',
+  order: 'desc'
+};
+
+window.handleStockSort = function (field) {
+  if (stockSortConfig.field === field) {
+    stockSortConfig.order = stockSortConfig.order === 'asc' ? 'desc' : 'asc';
+  } else {
+    stockSortConfig.field = field;
+    // 숫자는 내림차순, 문자는 오름차순 기본이 좋으나 단순화를 위해 desc/asc 토글
+    if (field === 'warehouse_name' || field === 'product_name' || field === 'category') {
+      stockSortConfig.order = 'asc';
+    } else {
+      stockSortConfig.order = 'desc';
+    }
+  }
+  loadWarehouseStockLevels(1); // 첫 페이지로 리셋하며 로드
+}
+
+function getSortIcon(field) {
+  if (stockSortConfig.field !== field) return '<i class="fas fa-sort text-slate-300 ml-1 text-[10px]"></i>';
+  return stockSortConfig.order === 'asc'
+    ? '<i class="fas fa-sort-up text-indigo-500 ml-1"></i>'
+    : '<i class="fas fa-sort-down text-indigo-500 ml-1"></i>';
+}
+
 // 창고별 재고 현황 로드 (페이지네이션 포함)
 async function loadWarehouseStockLevels(page = 1) {
   const container = document.getElementById('stockLevelsContainer');
@@ -5016,7 +5450,9 @@ async function loadWarehouseStockLevels(page = 1) {
     const params = {
       page: page,
       limit: 10,
-      warehouseId: warehouseId
+      warehouseId: warehouseId,
+      sortBy: stockSortConfig.field,
+      sortOrder: stockSortConfig.order
     };
 
     const res = await axios.get(`${API_BASE}/stock/warehouse-stocks`, { params });
@@ -5028,12 +5464,24 @@ async function loadWarehouseStockLevels(page = 1) {
           <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50">
               <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap">창고명</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap">상품명</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap">SKU</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap">카테고리</th>
-                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap">재고수량</th>
-                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap">최근 업데이트</th>
+                <th scope="col" onclick="handleStockSort('warehouse_name')" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center">창고명 ${getSortIcon('warehouse_name')}</div>
+                </th>
+                <th scope="col" onclick="handleStockSort('product_name')" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center">상품명 ${getSortIcon('product_name')}</div>
+                </th>
+                <th scope="col" onclick="handleStockSort('sku')" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center">SKU ${getSortIcon('sku')}</div>
+                </th>
+                <th scope="col" onclick="handleStockSort('category')" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center">카테고리 ${getSortIcon('category')}</div>
+                </th>
+                <th scope="col" onclick="handleStockSort('quantity')" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center justify-end">재고수량 ${getSortIcon('quantity')}</div>
+                </th>
+                <th scope="col" onclick="handleStockSort('updated_at')" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-slate-100 select-none">
+                    <div class="flex items-center justify-end">최근 업데이트 ${getSortIcon('updated_at')}</div>
+                </th>
                 <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap">관리</th>
               </tr>
             </thead>
@@ -5433,14 +5881,17 @@ async function renderAllTenants(container) {
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${t.user_count}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${t.product_count}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${new Date(t.created_at).toLocaleDateString()}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                <button onclick="openEditTenantModal(${t.id}, '${t.name}', '${t.plan_type || t.plan || 'FREE'}', '${t.status}')" class="text-teal-600 hover:text-teal-900 border border-teal-200 hover:bg-teal-50 px-2 py-1 rounded transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-1">
+                                <button onclick="openTenantUsersModal(${t.id}, '${t.name}')" title="사용자 관리" class="text-indigo-600 hover:text-indigo-900 border border-indigo-200 hover:bg-indigo-50 px-2 py-1 rounded transition-colors">
+                                    <i class="fas fa-users"></i>
+                                </button>
+                                <button onclick="openEditTenantModal(${t.id}, '${t.name}', '${t.plan_type || t.plan || 'FREE'}', '${t.status}')" title="조직 수정" class="text-teal-600 hover:text-teal-900 border border-teal-200 hover:bg-teal-50 px-2 py-1 rounded transition-colors">
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 <button onclick="impersonateTenant(${t.id}, '${t.name}')" class="text-white bg-teal-600 hover:bg-teal-700 px-3 py-1 rounded text-xs transition-colors">
                                     <i class="fas fa-sign-in-alt mr-1"></i>접속
                                 </button>
-                                <button onclick="deleteTenant(${t.id})" class="text-rose-600 hover:text-rose-900 border border-rose-200 hover:bg-rose-50 px-2 py-1 rounded transition-colors">
+                                <button onclick="deleteTenant(${t.id})" title="조직 삭제" class="text-rose-600 hover:text-rose-900 border border-rose-200 hover:bg-rose-50 px-2 py-1 rounded transition-colors">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </td>
@@ -5559,8 +6010,9 @@ async function renderAllUsers(container) {
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${u.tenant_name}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${u.role}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${new Date(u.created_at).toLocaleDateString()}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button onclick="alert('준비중: 사용자 관리 기능')" class="text-teal-600 hover:text-teal-900">수정</button>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                <button onclick="resetUserPassword(${u.id}, '${u.name}')" class="text-indigo-600 hover:text-indigo-900 text-xs font-bold border border-indigo-100 px-2 py-1 rounded">비번 초기화</button>
+                                <button onclick="openEditUserRoleModal(${u.id}, '${u.name}', '${u.role}')" class="text-teal-600 hover:text-teal-900 text-xs font-bold border border-teal-100 px-2 py-1 rounded">권한 변경</button>
                             </td>
                         </tr>
                     `).join('')}
@@ -5670,6 +6122,139 @@ window.impersonateTenant = impersonateTenant;
 window.exitImpersonation = exitImpersonation;
 window.approvePlanRequest = approvePlanRequest;
 window.rejectPlanRequest = rejectPlanRequest;
+window.openTenantUsersModal = openTenantUsersModal;
+window.resetUserPassword = resetUserPassword;
+window.openEditUserRoleModal = openEditUserRoleModal;
+window.handleUpdateUserRole = handleUpdateUserRole;
+window.openEditTenantModal = openEditTenantModal;
+window.handleUpdateTenant = handleUpdateTenant;
+window.deleteTenant = deleteTenant;
+
+// 특정 테넌트 사용자 모달
+async function openTenantUsersModal(tenantId, tenantName) {
+  try {
+    const res = await axios.get(`${API_BASE}/super-admin/tenants/${tenantId}/users`);
+    const users = res.data.data;
+
+    const modalHtml = `
+      <div id="tenantUsersModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold">'${tenantName}' 사용자 관리</h3>
+                <button onclick="document.getElementById('tenantUsersModal').remove()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div class="overflow-auto border rounded-lg">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">이름</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">이메일</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">권한</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                        ${users.map(u => `
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${u.name}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${u.email}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-bold ${u.role === 'OWNER' ? 'bg-purple-100 text-purple-700' : (u.role === 'ADMIN' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700')}">
+                                        ${u.role}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                    <button onclick="resetUserPassword(${u.id}, '${u.name}')" class="text-indigo-600 hover:text-indigo-900 border border-indigo-100 px-2 py-1 rounded text-xs">비번 초기화</button>
+                                    <button onclick="openEditUserRoleModal(${u.id}, '${u.name}', '${u.role}')" class="text-teal-600 hover:text-teal-900 border border-teal-100 px-2 py-1 rounded text-xs">권한 변경</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="document.getElementById('tenantUsersModal').remove()" class="px-6 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-bold">
+                    닫기
+                </button>
+            </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  } catch (err) {
+    alert('사용자 목록 로드 실패: ' + (err.response?.data?.error || err.message));
+  }
+}
+
+// 비밀번호 초기화 (슈퍼관리자용 임시 비밀번호 설정)
+async function resetUserPassword(userId, userName) {
+  const newPassword = prompt(`'${userName}' 사용자의 새로운 비밀번호를 입력하세요 (최소 4자):`);
+  if (!newPassword) return;
+  if (newPassword.length < 4) return alert('비밀번호는 4자 이상이어야 합니다.');
+
+  try {
+    const res = await axios.post(`${API_BASE}/super-admin/users/${userId}/password`, { newPassword });
+    if (res.data.success) {
+      alert('비밀번호가 성공적으로 변경되었습니다.');
+    }
+  } catch (err) {
+    alert('변경 실패: ' + (err.response?.data?.error || err.message));
+  }
+}
+
+// 역할 변경 모달
+function openEditUserRoleModal(id, name, currentRole) {
+  const modalHtml = `
+    <div id="editUserRoleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
+            <h3 class="text-lg font-bold mb-4">'${name}' 권한 수정</h3>
+            <form onsubmit="handleUpdateUserRole(event, ${id})">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">권한 설정</label>
+                    <select id="editUserRole" class="block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="OWNER" ${currentRole === 'OWNER' ? 'selected' : ''}>OWNER (소유자)</option>
+                        <option value="ADMIN" ${currentRole === 'ADMIN' ? 'selected' : ''}>ADMIN (관리자)</option>
+                        <option value="staff" ${currentRole === 'staff' ? 'selected' : ''}>staff (일반 사용자)</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="document.getElementById('editUserRoleModal').remove()" class="px-4 py-2 border rounded text-gray-600">취소</button>
+                    <button type="submit" class="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 font-bold">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// 역할 수정 처리
+async function handleUpdateUserRole(e, id) {
+  e.preventDefault();
+  const role = document.getElementById('editUserRole').value;
+
+  try {
+    const res = await axios.put(`${API_BASE}/super-admin/users/${id}/role`, { role });
+    if (res.data.success) {
+      alert('권한이 변경되었습니다.');
+      document.getElementById('editUserRoleModal').remove();
+      // 탭 데이터 갱신 (열려있다면)
+      if (document.getElementById('tenantUsersModal')) {
+        // 모달 하단의 목록을 갱신하는 대신 단순 닫고 다시 열기 유도하거나, 그냥 알림만.
+      }
+      if (currentPage === 'super-admin') {
+        switchSuperAdminTab('users');
+      }
+    }
+  } catch (err) {
+    alert('변경 실패: ' + (err.response?.data?.error || err.message));
+  }
+}
 
 // --- Outbound Edit/Delete Functions ---
 
@@ -5861,3 +6446,24 @@ function renderDashboardDeadStock(deadStocks) {
     </div>
   `).join('');
 }
+
+// 설정 페이지 렌더링
+async function renderSettingsPage(content) {
+  if (window.loadSystemSettings) {
+    await window.loadSystemSettings(content);
+  } else {
+    content.innerHTML = `
+      <div class="text-center py-10">
+        <i class="fas fa-spinner fa-spin text-xl text-slate-400"></i>
+        <p class="text-slate-500 mt-2">모듈 로딩 중...</p>
+      </div>
+    `;
+  }
+}
+
+window.renderSettingsPage = renderSettingsPage;
+// Note: Suber Admin functions are assigned to window earlier in the file (around line 5750)
+
+
+
+

@@ -2,7 +2,7 @@
 // 유틸리티: 토스트 메시지
 function showToast(message, type = 'success') {
     const el = document.createElement('div');
-    el.className = `fixed bottom-5 right-5 px-6 py-3 rounded-xl shadow-lg text-white font-medium transform transition-all duration-300 translate-y-10 opacity-0 z-[9999] flex items-center ${type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`;
+    el.className = `fixed bottom-5 right-5 px-6 py-3 rounded-xl shadow-lg text-white font-medium transform transition-all duration-300 translate-y-10 opacity-0 z-[9999] flex items-center no-print ${type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`;
     el.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2"></i>${message}`;
     document.body.appendChild(el);
 
@@ -80,4 +80,23 @@ window.showToast = showToast;
 window.showSuccess = showSuccess;
 window.showError = showError;
 window.formatDateTimeKST = formatDateTimeKST;
-window.formatPhoneNumber = formatPhoneNumber;
+// 운송장 추적 URL 생성
+function getTrackingUrl(courier, number) {
+    if (!number) return null;
+    const cleanNum = number.replace(/[^0-9]/g, '');
+    if (!cleanNum) return null;
+
+    // 업체명 정규화
+    const c = (courier || '').replace(/\s+/g, '');
+
+    if (c.includes('CJ') || c.includes('대한통운')) return `https://nplus.doortodoor.co.kr/web/detail.jsp?slipno=${cleanNum}`;
+    if (c.includes('우체국')) return `https://service.epost.go.kr/trace.RetrieveDomRgiTraceList.comm?sid1=${cleanNum}`;
+    if (c.includes('한진')) return `https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumVal=${cleanNum}`;
+    if (c.includes('로젠')) return `https://www.ilogen.com/m/personal/trace/${cleanNum}`;
+    if (c.includes('롯데')) return `https://www.lotteglogis.com/home/reservation/tracking/index/${cleanNum}`;
+    if (c.includes('편의점') && c.includes('CV')) return `https://www.cvsnet.co.kr/invoice/tracking.jsp?invoice_no=${cleanNum}`;
+    if (c.includes('CU')) return `https://www.cupost.co.kr/postbox/delivery/localResult.cupost?invoice_no=${cleanNum}`;
+
+    return null;
+}
+window.getTrackingUrl = getTrackingUrl;

@@ -271,50 +271,63 @@ app.post('/direct', async (c) => {
         }
 
         // 4. 고객 및 판매 정보 연동
-        // 전화번호가 있는 경우에만 고객/판매 연동 처리
-        if (body.phone) {
-            let customerId: number;
+        let customerId: number | null = null;
 
-            // 고객 조회
+        // 1) 고객 ID가 직접 전달된 경우 (기존 고객 선택)
+        if (body.customerId) {
+            const selectedCust = await DB.prepare('SELECT id FROM customers WHERE id = ? AND tenant_id = ?')
+                .bind(body.customerId, tenantId).first<{ id: number }>();
+            if (selectedCust) customerId = selectedCust.id;
+        }
+
+        // 2) 고객 ID가 없고 구매자 정보(buyerName/Phone)가 있는 경우 
+        const buyerName = body.buyerName || body.recipient;
+        const buyerPhone = body.buyerPhone || body.phone;
+
+        if (!customerId && buyerPhone) {
+            // 연락처로 기존 고객 조회
             const existingCust = await DB.prepare('SELECT id FROM customers WHERE phone = ? AND tenant_id = ?')
-                .bind(body.phone, tenantId).first<{ id: number }>();
+                .bind(buyerPhone, tenantId).first<{ id: number }>();
 
             if (existingCust) {
                 customerId = existingCust.id;
-                // 기존 고객: 구매액/횟수 업데이트
-                await DB.prepare(`
-                    UPDATE customers 
-                    SET total_purchase_amount = total_purchase_amount + ?,
-                        purchase_count = purchase_count + 1,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                `).bind(totalSaleAmount, customerId).run();
             } else {
-                // 신규 고객 생성
+                // 신규 구매자 정보로 고객 생성
                 const newCust = await DB.prepare(`
                     INSERT INTO customers (
                         name, phone, address, purchase_path, 
                         total_purchase_amount, purchase_count, tenant_id
-                    ) VALUES (?, ?, ?, ?, ?, 1, ?)
+                    ) VALUES (?, ?, ?, ?, 0, 0, ?)
                 `).bind(
-                    body.recipient || '미입력',
-                    body.phone,
+                    buyerName || '미입력',
+                    buyerPhone,
                     body.address,
                     body.purchasePath || '기타',
-                    totalSaleAmount,
                     tenantId
                 ).run();
                 customerId = newCust.meta.last_row_id;
             }
+        }
+
+        // 고객 정보가 식별된 경우 구매 통계 업데이트 및 Sale 생성
+        if (customerId) {
+            // 기존 고객: 구매액/횟수 업데이트
+            await DB.prepare(`
+                UPDATE customers 
+                SET total_purchase_amount = total_purchase_amount + ?,
+                    purchase_count = purchase_count + 1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `).bind(totalSaleAmount, customerId).run();
 
             // Sales 테이블 기록 (통계용)
             // 출고 등록이 이미 재고를 차감했으므로, 여기서 생성하는 Sales는 재고 차감을 하지 않아야 함 (Sales API가 아니므로 직접 INSERT)
             const saleResult = await DB.prepare(`
-               INSERT INTO sales (
-                   tenant_id, customer_id, total_amount, discount_amount, final_amount, 
-                   payment_method, notes, created_by, status
-               ) VALUES (?, ?, ?, 0, ?, '간편출고', ?, ?, 'completed')
-           `).bind(tenantId, customerId, totalSaleAmount, totalSaleAmount, body.memo, userId).run();
+                INSERT INTO sales (
+                    tenant_id, customer_id, total_amount, discount_amount, final_amount, 
+                    payment_method, notes, created_by, status
+                ) VALUES (?, ?, ?, 0, ?, '간편출고', ?, ?, 'completed')
+            `).bind(tenantId, customerId, totalSaleAmount, totalSaleAmount, body.memo, userId).run();
 
             const saleId = saleResult.meta.last_row_id;
 
@@ -330,6 +343,227 @@ app.post('/direct', async (c) => {
 
     } catch (e: any) {
         console.error('Direct outbound error:', e);
+        return c.json({ success: false, error: e.message }, 500);
+    }
+});
+
+// 대량 출고 등록 (Excel Upload) - PENDING 상태 생성, 재고 차감 X
+app.post('/bulk', async (c) => {
+    const { DB } = c.env;
+    const tenantId = c.get('tenantId');
+    const userId = c.get('userId');
+    const body = await c.req.json();
+    const items = body.items || [];
+
+    if (!Array.isArray(items) || items.length === 0) {
+        return c.json({ success: false, error: 'No items provided' }, 400);
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    const errors: any[] = [];
+
+    // Loop through items (Best effort)
+    for (const item of items) {
+        try {
+            // 필수 필드 체크
+            if (!item.productName || !item.quantity || !item.recipient || !item.address) {
+                throw new Error('필수 정보 누락 (상품명, 수량, 수령인, 주소)');
+            }
+
+            // 1. 상품 찾기 (이름으로)
+            // 매칭 정확도를 높이기 위해 SKU 검색도 고려 가능하나, 엑셀은 보통 이름
+            const product = await DB.prepare('SELECT id, name, selling_price, current_stock FROM products WHERE name = ? AND tenant_id = ?')
+                .bind(item.productName, tenantId).first<{ id: number, name: string, selling_price: number, current_stock: number }>();
+
+            if (!product) {
+                throw new Error(`상품을 찾을 수 없습니다: ${item.productName}`);
+            }
+
+            // 재고 체크 (경고만 하고 생성은 허용? 아니면 차단? PENDING이므로 생성 허용하되, 나중에 출고 시 막힘)
+            // 여기서는 생성 허용.
+
+            // 2. 주문 번호 생성
+            // Random suffix to avoid collision in loop
+            const orderDate = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+            const randomSuffix = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+            const orderNumber = `BU-${orderDate}-${randomSuffix}`;
+
+            // 3. 고객 처리 (전화번호 기준)
+            let customerId: number = 0;
+            if (item.phone) {
+                const existingCust = await DB.prepare('SELECT id FROM customers WHERE phone = ? AND tenant_id = ?')
+                    .bind(item.phone, tenantId).first<{ id: number }>();
+
+                if (existingCust) {
+                    customerId = existingCust.id;
+                } else {
+                    const newCust = await DB.prepare(`
+                        INSERT INTO customers (name, phone, address, purchase_path, tenant_id)
+                        VALUES (?, ?, ?, 'Excel Upload', ?)
+                    `).bind(item.recipient, item.phone, item.address, tenantId).run();
+                    customerId = newCust.meta.last_row_id;
+                }
+            }
+
+            // 4. Sales 생성 (Pending Shipment)
+            const unitPrice = product.selling_price || 0;
+            const subtotal = unitPrice * item.quantity;
+
+            const saleResult = await DB.prepare(`
+               INSERT INTO sales (
+                   tenant_id, customer_id, total_amount, discount_amount, final_amount, 
+                   payment_method, notes, created_by, status
+               ) VALUES (?, ?, ?, 0, ?, 'Excel Upload', ?, ?, 'pending_shipment')
+            `).bind(tenantId, customerId || null, subtotal, subtotal, item.notes || '', userId).run();
+            const saleId = saleResult.meta.last_row_id;
+
+            // Sale Item
+            await DB.prepare(`
+               INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal)
+               VALUES (?, ?, ?, ?, ?)
+            `).bind(saleId, product.id, item.quantity, unitPrice, subtotal).run();
+
+            // 5. Outbound Order 생성 (PENDING)
+            // Warehouse ID: 기본값(NULL) 또는 지정. 엑셀에 없으므로 NULL 또는 첫번째 창고?
+            // 나중에 출고 처리 시 창고 선택 가능하도록 해야 함. 일단 NULL로 둠.
+            const orderResult = await DB.prepare(`
+              INSERT INTO outbound_orders (
+                tenant_id, order_number, destination_name, destination_address, destination_phone, 
+                status, created_by, notes, purchase_path
+              ) VALUES (?, ?, ?, ?, ?, 'PENDING', ?, ?, 'Excel Upload')
+            `).bind(
+                tenantId, orderNumber, item.recipient, item.address, item.phone,
+                userId, item.notes || ''
+            ).run();
+            const orderId = orderResult.meta.last_row_id;
+
+            // Outbound Item
+            await DB.prepare(`
+                INSERT INTO outbound_items (
+                    outbound_order_id, product_id, quantity_ordered, status
+                ) VALUES (?, ?, ?, 'PENDING')
+             `).bind(orderId, product.id, item.quantity).run();
+
+            // Outbound Package (운송장 있으면 미리 등록)
+            if (item.courier && item.trackingNumber) {
+                await DB.prepare(`
+                    INSERT INTO outbound_packages (outbound_order_id, courier, tracking_number)
+                    VALUES (?, ?, ?)
+                `).bind(orderId, item.courier, item.trackingNumber).run();
+            }
+
+            // Mapping
+            await DB.prepare(`
+                INSERT INTO outbound_order_mappings (outbound_order_id, sale_id)
+                VALUES (?, ?)
+            `).bind(orderId, saleId).run();
+
+            successCount++;
+
+        } catch (e: any) {
+            console.error('Bulk item error:', e);
+            failCount++;
+            errors.push({ row: item, error: e.message });
+        }
+    }
+
+    return c.json({
+        success: true,
+        data: {
+            total: items.length,
+            success: successCount,
+            fail: failCount,
+            errors
+        }
+    });
+});
+
+// 출고 확정 (PENDING -> SHIPPED)
+app.post('/:id/ship', async (c) => {
+    const { DB } = c.env;
+    const tenantId = c.get('tenantId');
+    const userId = c.get('userId');
+    const id = c.req.param('id');
+    const body = await c.req.json(); // { warehouseId: ... } expected
+
+    const warehouseId = body.warehouseId;
+    // validation
+    if (!warehouseId) return c.json({ success: false, error: 'Warehouse ID is required' }, 400);
+
+    // 1. Order 조회
+    const order = await DB.prepare('SELECT * FROM outbound_orders WHERE id = ? AND tenant_id = ?')
+        .bind(id, tenantId).first<OutboundOrder>();
+
+    if (!order) return c.json({ success: false, error: 'Order not found' }, 404);
+    if (order.status !== 'PENDING') return c.json({ success: false, error: 'Order is not in PENDING state' }, 400);
+
+    // 2. Items 조회
+    const { results: items } = await DB.prepare(`
+        SELECT oi.*, p.name as product_name, p.current_stock
+        FROM outbound_items oi
+        JOIN products p ON oi.product_id = p.id
+        WHERE oi.outbound_order_id = ?
+    `).bind(id).all<{ id: number, product_id: number, quantity_ordered: number, product_name: string, current_stock: number }>();
+
+    try {
+        // 재고 체크
+        for (const item of items) {
+            // Global Check
+            if (item.current_stock < item.quantity_ordered) {
+                throw new Error(`상품 '${item.product_name}'의 재고가 부족합니다.`);
+            }
+            // Warehouse Stock Check
+            const whStock = await DB.prepare('SELECT quantity FROM product_warehouse_stocks WHERE product_id = ? AND warehouse_id = ?')
+                .bind(item.product_id, warehouseId).first<{ quantity: number }>();
+            const currentWhStock = whStock?.quantity || 0;
+            if (currentWhStock < item.quantity_ordered) {
+                throw new Error(`상품 '${item.product_name}'의 창고 재고가 부족합니다. (현재: ${currentWhStock})`);
+            }
+        }
+
+        // 재고 차감 및 상태 업데이트
+        for (const item of items) {
+            // 1) Global 재고 차감
+            await DB.prepare('UPDATE products SET current_stock = current_stock - ? WHERE id = ?')
+                .bind(item.quantity_ordered, item.product_id).run();
+
+            // 2) Warehouse 재고 차감
+            await DB.prepare(`
+                UPDATE product_warehouse_stocks 
+                SET quantity = quantity - ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE product_id = ? AND warehouse_id = ?
+            `).bind(item.quantity_ordered, item.product_id, warehouseId).run();
+
+            // 3) 이동 내역 기록
+            await DB.prepare(`
+              INSERT INTO stock_movements (tenant_id, product_id, warehouse_id, movement_type, quantity, reason, notes, created_by)
+              VALUES (?, ?, ?, '출고', ?, ?, ?, ?)
+            `).bind(
+                tenantId, item.product_id, warehouseId, -item.quantity_ordered,
+                '출고확정', `Order: ${order.order_number}`, userId
+            ).run();
+
+            // 4) Item status update
+            await DB.prepare('UPDATE outbound_items SET status = ?, quantity_picked = ?, quantity_packed = ? WHERE id = ?')
+                .bind('SHIPPED', item.quantity_ordered, item.quantity_ordered, item.id).run();
+        }
+
+        // 3. Order Status Update & Warehouse ID Update
+        await DB.prepare('UPDATE outbound_orders SET status = ?, warehouse_id = ? WHERE id = ?')
+            .bind('SHIPPED', warehouseId, id).run();
+
+        // 4. Update Linked Sales Status
+        // Find sales via mappings
+        const { results: mappings } = await DB.prepare('SELECT sale_id FROM outbound_order_mappings WHERE outbound_order_id = ?').bind(id).all<{ sale_id: number }>();
+        for (const map of mappings) {
+            await DB.prepare("UPDATE sales SET status = 'shipped' WHERE id = ?").bind(map.sale_id).run();
+        }
+
+        return c.json({ success: true });
+
+    } catch (e: any) {
+        console.error('Ship error:', e);
         return c.json({ success: false, error: e.message }, 500);
     }
 });
@@ -350,23 +584,68 @@ app.put('/:id', async (c) => {
     }
 
     try {
-        // 기본 정보 업데이트
-        await DB.prepare(`
-            UPDATE outbound_orders 
-            SET destination_name = COALESCE(?, destination_name),
-                destination_phone = COALESCE(?, destination_phone),
-                destination_address = COALESCE(?, destination_address),
-                notes = COALESCE(?, notes),
-                purchase_path = COALESCE(?, purchase_path)
-            WHERE id = ?
-        `).bind(
-            body.destination_name,
-            body.destination_phone,
-            body.destination_address,
-            body.notes,
-            body.purchase_path,
-            id
-        ).run()
+        // 기본 정보 업데이트 (출고일시 포함)
+        const updateFields: string[] = []
+        const updateValues: any[] = []
+
+        if (body.destination_name !== undefined) {
+            updateFields.push('destination_name = ?')
+            updateValues.push(body.destination_name)
+        }
+        if (body.destination_phone !== undefined) {
+            updateFields.push('destination_phone = ?')
+            updateValues.push(body.destination_phone)
+        }
+        if (body.destination_address !== undefined) {
+            updateFields.push('destination_address = ?')
+            updateValues.push(body.destination_address)
+        }
+        if (body.notes !== undefined) {
+            updateFields.push('notes = ?')
+            updateValues.push(body.notes)
+        }
+        if (body.purchase_path !== undefined) {
+            updateFields.push('purchase_path = ?')
+            updateValues.push(body.purchase_path)
+        }
+        if (body.created_at !== undefined && body.created_at !== null) {
+            updateFields.push('created_at = ?')
+            updateValues.push(body.created_at)
+        }
+
+        if (updateFields.length > 0) {
+            updateValues.push(id)
+            await DB.prepare(`
+                UPDATE outbound_orders 
+                SET ${updateFields.join(', ')}
+                WHERE id = ?
+            `).bind(...updateValues).run()
+        }
+
+        // 상품명 및 수량 업데이트 (첫 번째 아이템)
+        if (body.product_name !== undefined || body.quantity !== undefined) {
+            const firstItem = await DB.prepare('SELECT id, product_id FROM outbound_items WHERE outbound_order_id = ? ORDER BY id LIMIT 1')
+                .bind(id).first<{ id: number, product_id: number }>()
+
+            if (firstItem) {
+                // 상품명이 변경된 경우, 상품 ID 찾기
+                if (body.product_name !== undefined && body.product_name !== '') {
+                    const product = await DB.prepare('SELECT id FROM products WHERE name = ? AND tenant_id = ?')
+                        .bind(body.product_name, tenantId).first<{ id: number }>()
+
+                    if (product) {
+                        await DB.prepare('UPDATE outbound_items SET product_id = ? WHERE id = ?')
+                            .bind(product.id, firstItem.id).run()
+                    }
+                }
+
+                // 수량 업데이트
+                if (body.quantity !== undefined && body.quantity !== null) {
+                    await DB.prepare('UPDATE outbound_items SET quantity_ordered = ? WHERE id = ?')
+                        .bind(body.quantity, firstItem.id).run()
+                }
+            }
+        }
 
         // 운송장 정보 업데이트 (패키지가 있으면 업데이트, 없으면 생성)
         if (body.courier || body.tracking_number) {

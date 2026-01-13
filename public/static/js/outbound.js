@@ -99,7 +99,12 @@ async function renderOutboundRegistrationTab(container) {
       <!-- 좌측: 상품 선택 -->
       <div class="w-1/2 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
         <div class="p-4 border-b border-slate-200 bg-slate-50">
-          <h3 class="font-bold text-slate-800 mb-3">1. 출고 상품 선택</h3>
+          <div class="flex justify-between items-center mb-3">
+             <h3 class="font-bold text-slate-800">1. 출고 상품 선택</h3>
+             <button onclick="openOutboundExcelUploadModal()" class="text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700 transition-colors flex items-center gap-1">
+               <i class="fas fa-file-excel"></i> 엑셀 일괄 등록
+             </button>
+          </div>
           
           <div class="flex gap-4 mb-3">
             <label class="flex items-center cursor-pointer group">
@@ -140,7 +145,7 @@ async function renderOutboundRegistrationTab(container) {
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-          <h3 class="font-bold text-slate-800 mb-4">3. 배송 및 출고 정보</h3>
+          <h3 class="font-bold text-slate-800 mb-4">3. 구매자 정보 (고객 등록 대상)</h3>
           <div class="space-y-4">
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">출고 창고 <span class="text-red-500">*</span></label>
@@ -149,21 +154,62 @@ async function renderOutboundRegistrationTab(container) {
                  ${(window.warehouses || []).map(w => `<option value="${w.id}" ${w.name.includes('기본') ? 'selected' : ''}>${w.name}</option>`).join('')}
               </select>
             </div>
+
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">기존 고객 검색</label>
+              <div class="relative" id="outCustomerSearchWrapper">
+                <input type="text" id="outCustomerSearch" placeholder="이름 또는 연락처로 고객 검색..." 
+                       class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                       onkeyup="searchOutboundCustomer(this.value)">
+                <div id="outCustomerResults" class="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-20 hidden max-h-40 overflow-y-auto"></div>
+              </div>
+              <div id="outSelectedCustomer" class="hidden p-2 bg-white border border-teal-500 rounded-lg flex justify-between items-center">
+                 <div class="flex items-center gap-2">
+                   <div class="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-xs"><i class="fas fa-user"></i></div>
+                   <span id="outSelectedCustomerLabel" class="text-sm font-bold text-slate-700"></span>
+                 </div>
+                 <button onclick="clearOutboundCustomer()" class="text-slate-400 hover:text-rose-500 p-1"><i class="fas fa-sync-alt text-xs"></i></button>
+              </div>
+              <input type="hidden" id="outCustomerId">
+            </div>
+
+            <div id="outNewBuyerFields" class="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">구매자명</label>
+                <input type="text" id="outBuyerName" oninput="syncToRecipient()" placeholder="신규 고객일 경우 입력" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">구매자 연락처</label>
+                <input type="text" id="outBuyerPhone" oninput="syncToRecipient()" placeholder="예) 01012345678" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <div class="flex justify-between items-center mb-4">
+             <h3 class="font-bold text-slate-800">4. 수령인 및 배송지 정보</h3>
+             <label class="flex items-center cursor-pointer group">
+               <input type="checkbox" id="outSameAsBuyer" checked onchange="toggleSameAsBuyer()" class="form-checkbox text-teal-600 focus:ring-teal-500 w-4 h-4 rounded">
+               <span class="ml-2 text-xs text-slate-500 group-hover:text-teal-600 font-medium">구매자와 동일</span>
+             </label>
+          </div>
+          <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1">수령인</label>
+                <label class="block text-xs font-bold text-slate-500 mb-1">수령인 성함</label>
                 <input type="text" id="outDestName" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500">
               </div>
               <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1">연락처</label>
+                <label class="block text-xs font-bold text-slate-500 mb-1">수령인 연락처</label>
                 <input type="text" id="outDestPhone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500">
               </div>
             </div>
             <div>
-              <label class="block text-xs font-bold text-slate-500 mb-1">주소</label>
+              <label class="block text-xs font-bold text-slate-500 mb-1">배송 주소</label>
               <div class="flex gap-2">
-                 <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 mb-2" placeholder="주소">
-                 <button type="button" onclick="openAddressSearch('outDestAddress')" class="mb-2 bg-teal-600 text-white px-3 py-2 rounded text-sm hover:bg-teal-700 font-medium whitespace-nowrap">
+                 <input type="text" id="outDestAddress" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 mb-1" placeholder="수령지 주소 입력">
+                 <button type="button" onclick="openAddressSearch('outDestAddress')" class="bg-slate-100 text-slate-600 px-3 py-2 rounded text-sm hover:bg-slate-200 font-medium whitespace-nowrap border border-slate-200">
                    <i class="fas fa-search"></i> 검색
                  </button>
               </div>
@@ -172,22 +218,32 @@ async function renderOutboundRegistrationTab(container) {
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <h3 class="font-bold text-slate-800 mb-4">5. 운송장 정보</h3>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
           <h3 class="font-bold text-slate-800 mb-4">4. 운송장 정보</h3>
           <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1">택배사</label>
-                <select id="outCourier" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white">
+                <select id="outCourier" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white" onchange="onOutCourierChange()">
                   <option value="CJ대한통운">CJ대한통운</option>
                   <option value="우체국택배">우체국택배</option>
                   <option value="한진택배">한진택배</option>
                   <option value="롯데택배">롯데택배</option>
                   <option value="로젠택배">로젠택배</option>
+                  <option value="직접수령">직접수령</option>
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1">운송장 번호</label>
-                <input type="text" id="outTracking" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500">
+                <div class="flex justify-between items-center mb-1">
+                  <label class="block text-xs font-bold text-slate-500">운송장 번호</label>
+                  <label class="flex items-center cursor-pointer hover:text-teal-600 transition-colors">
+                    <input type="checkbox" id="outDirectReceipt" onchange="toggleDirectReceipt()" class="form-checkbox text-teal-600 focus:ring-teal-500 w-3 h-3 rounded mr-1">
+                    <span class="text-xs text-slate-500 font-medium">직접수령</span>
+                  </label>
+                </div>
+                <input type="text" id="outTracking" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 transition-colors">
               </div>
             </div>
             <div>
@@ -236,20 +292,31 @@ function renderOutboundProducts(filterText = '') {
   if (total === 0) {
     container.innerHTML = '<div class="text-center text-slate-400 py-10">검색 결과가 없습니다.</div>';
   } else {
-    container.innerHTML = pageItems.map(p => `
-        <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" onclick="addToOutboundCart(${p.id})">
+    container.innerHTML = pageItems.map(p => {
+      // 마스터 상품 판단: product_type이 master이거나, 하위 변체가 존재하는 경우(레거시 데이터 대응)
+      const isMaster = p.product_type === 'master' || (p.variant_count && p.variant_count > 0);
+      const isBundle = p.product_type === 'bundle';
+
+      return `
+        <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer" 
+             onclick="handleProductSelection(${p.id}, '${isMaster ? 'master' : (p.product_type || 'simple')}')">
           <div>
-            <div class="font-medium text-slate-800">${p.name}</div>
+            <div class="flex items-center gap-2">
+              <div class="font-medium text-slate-800">${p.name}</div>
+              ${isMaster ? '<span class="px-1.5 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] font-bold rounded">옵션</span>' : ''}
+              ${isBundle ? '<span class="px-1.5 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-bold rounded">세트</span>' : ''}
+            </div>
             <div class="text-xs text-slate-500 flex items-center gap-2">
               <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded">${p.sku}</span>
-              <span>재고: <span class="${p.current_stock <= 0 ? 'text-rose-600 font-bold' : 'text-slate-600'}">${p.current_stock}</span></span>
+              ${!isMaster ? `<span>재고: <span class="${p.current_stock <= 0 ? 'text-rose-600 font-bold' : 'text-slate-600'}">${p.current_stock}</span></span>` : '<span class="text-indigo-500 font-medium">옵션 선택 필요</span>'}
             </div>
           </div>
           <button class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100">
-            <i class="fas fa-plus"></i>
+            <i class="fas ${isMaster ? 'fa-list-ul' : 'fa-plus'}"></i>
           </button>
         </div>
-      `).join('');
+      `;
+    }).join('');
   }
 
   // 4. 페이지네이션 컨트롤 렌더링
@@ -294,6 +361,93 @@ function filterOutboundProducts() {
   const text = document.getElementById('outboundSearch').value;
   outboundProdPage = 1; // 검색 시 페이지 초기화
   renderOutboundProducts(text);
+}
+
+function handleProductSelection(productId, type) {
+  if (type === 'master') {
+    showVariantSelector(productId);
+  } else {
+    addToOutboundCart(productId);
+  }
+}
+
+async function showVariantSelector(productId) {
+  try {
+    const res = await axios.get(`${API_BASE}/products/${productId}`);
+    const product = res.data.data;
+    const variants = product.variants || [];
+
+    if (variants.length === 0) {
+      showToast('등록된 세부옵션이 없습니다.', 'warning');
+      return;
+    }
+
+    // 변체 목록 저장 (전역 변수 활용하여 ID로 조회 가능하게 함)
+    window.currentSelectorVariants = variants;
+
+    const modalHtml = `
+      <div id="variantSelectorModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[100]">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+          <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+            <h3 class="font-bold text-slate-800">옵션 선택: ${product.name}</h3>
+            <button onclick="closeVariantSelector()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="max-h-[60vh] overflow-y-auto">
+            <div class="divide-y divide-slate-50">
+              ${variants.map(v => `
+                <div class="p-4 hover:bg-slate-50 cursor-pointer flex justify-between items-center group transition-colors" 
+                     onclick="selectVariantById(${v.id})">
+                  <div class="flex-1">
+                    <div class="font-medium text-slate-700">${v.options.map(o => o.value_name).join(' / ')}</div>
+                    <div class="text-xs text-slate-400 font-mono mt-0.5">${v.sku}</div>
+                  </div>
+                  <div class="flex items-center gap-4">
+                    <div class="text-right">
+                      <div class="text-xs text-slate-400">재고</div>
+                      <div class="text-sm font-bold ${v.current_stock <= 0 ? 'text-rose-500' : 'text-teal-600'}">${v.current_stock}</div>
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors">
+                      <i class="fas fa-plus"></i>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  } catch (e) {
+    console.error(e);
+    showToast('옵션 정보를 불러오는데 실패했습니다.', 'error');
+  }
+}
+
+function closeVariantSelector() {
+  const modal = document.getElementById('variantSelectorModal');
+  if (modal) modal.remove();
+  window.currentSelectorVariants = null;
+}
+
+function selectVariantById(variantId) {
+  const variant = window.currentSelectorVariants?.find(v => v.id === variantId);
+  if (variant) {
+    addVariantToCart(variant);
+  } else {
+    showToast('선택한 옵션 정보를 찾을 수 없습니다.', 'error');
+  }
+}
+
+function addVariantToCart(variant) {
+  const productIdx = window.products.findIndex(p => p.id === variant.id);
+  if (productIdx === -1) {
+    // If variant not in current page list, add it to window.products so addToOutboundCart can find it
+    window.products.push(variant);
+  }
+  addToOutboundCart(variant.id);
+  closeVariantSelector();
 }
 
 function addToOutboundCart(productId) {
@@ -427,14 +581,17 @@ async function submitDirectOutbound() {
 
   const payload = {
     items: window.outboundCart.map(i => ({ productId: i.product.id, quantity: i.quantity })),
-    recipient: destName,
+    recipient: document.getElementById('outDestName').value,
     phone: document.getElementById('outDestPhone').value,
-    address: destAddress,
+    address: document.getElementById('outDestAddress').value,
+    buyerName: document.getElementById('outBuyerName').value,
+    buyerPhone: document.getElementById('outBuyerPhone').value,
     courier: document.getElementById('outCourier').value,
     trackingNumber: document.getElementById('outTracking').value,
     memo: document.getElementById('outNotes').value,
     purchasePath: '',
-    warehouseId: warehouseId
+    warehouseId: warehouseId,
+    customerId: document.getElementById('outCustomerId').value || null
   };
 
   try {
@@ -518,6 +675,7 @@ async function filterOutboundHistory() {
             <th class="px-6 py-3 border-b">상품명</th>
             <th class="px-6 py-3 border-b">수령인</th>
             <th class="px-6 py-3 border-b">수량</th>
+            <th class="px-6 py-3 border-b">운송장</th>
             <th class="px-6 py-3 border-b">상태</th>
             <th class="px-6 py-3 border-b text-center">관리</th>
           </tr>
@@ -532,6 +690,18 @@ async function filterOutboundHistory() {
               </td>
               <td class="px-6 py-4">${o.destination_name}</td>
               <td class="px-6 py-4">${o.total_quantity || 0}</td>
+              <td class="px-6 py-4">
+                 ${(() => {
+        const tNum = o.tracking_number;
+        const courier = o.courier || o.courier_name || '';
+        if (!tNum) return '-';
+        if (tNum === '직접수령') return '<span class="text-slate-500">직접수령</span>';
+
+        const url = getTrackingUrl(courier, tNum);
+        if (url) return `<a href="${url}" target="_blank" class="text-blue-600 hover:underline flex items-center gap-1 group"><i class="fas fa-external-link-alt text-xs text-blue-400 group-hover:text-blue-600"></i> ${tNum}</a><div class="text-xs text-slate-400 mt-0.5">${courier}</div>`;
+        return `${tNum} <div class="text-xs text-slate-400 mt-0.5">${courier}</div>`;
+      })()}
+              </td>
               <td class="px-6 py-4"><span class="px-2 py-1 rounded bg-slate-100 text-xs font-bold">${o.status}</span></td>
               <td class="px-6 py-4 text-center">
                 <button onclick="showOutboundDetail(${o.id})" class="text-teal-600 hover:bg-teal-50 px-3 py-1 rounded text-xs font-bold">상세보기</button>
@@ -586,6 +756,11 @@ async function showOutboundDetail(id) {
               <p class="text-sm text-slate-500 mt-1 font-mono">${data.order_number}</p>
             </div>
             <div class="flex items-center gap-1">
+                ${data.status === 'PENDING' ? `
+                <button onclick="openShipOutboundModal(${data.id})" class="text-white bg-teal-600 hover:bg-teal-700 px-3 py-1.5 rounded-lg mr-2 text-sm font-bold shadow-sm transition-colors flex items-center gap-1">
+                  <i class="fas fa-shipping-fast"></i> 출고 확정
+                </button>
+                ` : ''}
                 <button onclick="openEditOutboundModal(${data.id})" class="text-slate-400 hover:text-teal-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors" title="수정">
                   <i class="fas fa-pen text-sm"></i>
                 </button>
@@ -684,7 +859,10 @@ async function showOutboundDetail(id) {
             </div>
           </div>
           
-          <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end">
+          <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-between items-center">
+            <button onclick="deleteOutbound(${data.id})" class="px-6 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium transition-colors border border-red-200">
+              <i class="fas fa-trash-alt mr-2"></i>주문 취소
+            </button>
             <button onclick="closeOutboundDetail()" class="px-6 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium transition-colors shadow-lg shadow-slate-200">
               닫기
             </button>
@@ -742,6 +920,20 @@ async function openEditOutboundModal(id) {
     const data = res.data.data;
     const { packages } = data;
     const pkg = packages && packages.length > 0 ? packages[0] : {};
+    const items = data.items || [];
+    const firstItem = items.length > 0 ? items[0] : {};
+
+    // 날짜를 datetime-local 형식으로 변환
+    let dateTimeLocal = '';
+    if (data.created_at) {
+      const date = new Date(data.created_at);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      dateTimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
 
     const modalHtml = `
       <div id="outEditModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[70] transition-opacity duration-300 opacity-0">
@@ -754,6 +946,20 @@ async function openEditOutboundModal(id) {
           </div>
           
           <div class="p-6 space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">출고일시</label>
+              <input type="datetime-local" id="editCreatedAt" value="${dateTimeLocal}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">상품명</label>
+                <input type="text" id="editProductName" value="${firstItem.product_name || ''}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">수량</label>
+                <input type="number" id="editQuantity" value="${firstItem.quantity_ordered || ''}" min="1" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
+              </div>
+            </div>
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">수령인</label>
               <input type="text" id="editDestName" value="${data.destination_name || ''}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50">
@@ -827,7 +1033,18 @@ function closeEditOutboundModal() {
 }
 
 async function updateOutbound(id) {
+  const createdAtInput = document.getElementById('editCreatedAt').value;
+  let createdAt = null;
+  if (createdAtInput) {
+    // datetime-local 값을 ISO 형식으로 변환
+    const date = new Date(createdAtInput);
+    createdAt = date.toISOString();
+  }
+
   const payload = {
+    created_at: createdAt,
+    product_name: document.getElementById('editProductName').value,
+    quantity: parseInt(document.getElementById('editQuantity').value) || null,
     destination_name: document.getElementById('editDestName').value,
     destination_phone: document.getElementById('editDestPhone').value,
     destination_address: document.getElementById('editDestAddr').value,
@@ -1094,6 +1311,61 @@ window.deleteOutbound = deleteOutbound;
 window.openEditOutboundModal = openEditOutboundModal;
 window.downloadOutboundExcel = downloadOutboundExcel;
 
+// New helper to sync Select -> Checkbox
+function onOutCourierChange() {
+  const courier = document.getElementById('outCourier').value;
+  const checkbox = document.getElementById('outDirectReceipt');
+  if (!checkbox) return;
+
+  if (courier === '직접수령') {
+    if (!checkbox.checked) {
+      checkbox.checked = true;
+      toggleDirectReceipt();
+    }
+  } else {
+    // If user changes to a real courier, uncheck direct receipt
+    if (checkbox.checked) {
+      checkbox.checked = false;
+      toggleDirectReceipt();
+    }
+  }
+}
+window.onOutCourierChange = onOutCourierChange;
+
+function toggleDirectReceipt() {
+  const isDirect = document.getElementById('outDirectReceipt').checked;
+  const trackingInput = document.getElementById('outTracking');
+  const courierSelect = document.getElementById('outCourier');
+
+  if (!trackingInput) return;
+
+  if (isDirect) {
+    trackingInput.value = '직접수령';
+    trackingInput.readOnly = true;
+    trackingInput.classList.add('bg-slate-100', 'text-slate-500');
+    trackingInput.classList.remove('bg-white');
+
+    // Sync Select
+    if (courierSelect && courierSelect.value !== '직접수령') {
+      courierSelect.value = '직접수령';
+    }
+  } else {
+    if (trackingInput.value === '직접수령') {
+      trackingInput.value = '';
+    }
+    trackingInput.readOnly = false;
+    trackingInput.classList.remove('bg-slate-100', 'text-slate-500');
+    trackingInput.classList.add('bg-white');
+    trackingInput.focus();
+
+    // Sync Select (Revert to default if it was Direct Receipt)
+    if (courierSelect && courierSelect.value === '직접수령') {
+      courierSelect.value = 'CJ대한통운'; // Default fallback
+    }
+  }
+}
+window.toggleDirectReceipt = toggleDirectReceipt;
+
 async function downloadOutboundExcel() {
   const search = document.getElementById('outHistorySearch')?.value || '';
   const status = document.getElementById('outHistoryStatus')?.value || '';
@@ -1152,3 +1424,361 @@ async function downloadOutboundExcel() {
     showToast('엑셀 다운로드 실패', 'error');
   }
 }
+
+// --- Excel Bulk Upload Logic ---
+
+function openOutboundExcelUploadModal() {
+  const modalHtml = `
+    <div id="outExcelModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[80] transition-opacity duration-300 opacity-0">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col transform scale-95 transition-transform duration-300">
+        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+          <h3 class="text-lg font-bold text-slate-800">엑셀 일괄 등록</h3>
+          <button onclick="closeOutboundExcelUploadModal()" class="text-slate-400 hover:text-slate-600">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <div class="p-6 space-y-6">
+          <div class="bg-blue-50 p-4 rounded-lg flex items-start gap-3">
+             <i class="fas fa-info-circle text-blue-500 mt-1"></i>
+             <div class="text-sm text-blue-700">
+                <p class="font-bold mb-1">사용 방법</p>
+                <ol class="list-decimal pl-4 space-y-1">
+                   <li>템플릿 파일을 다운로드합니다.</li>
+                   <li>엑셀 파일에 주문 정보를 입력합니다. (상품명 필수 항목)</li>
+                   <li>작성한 파일을 업로드하면 <strong>출고 대기</strong> 상태로 등록됩니다.</li>
+                </ol>
+             </div>
+          </div>
+
+          <div class="flex justify-center">
+             <button onclick="downloadOutboundTemplate()" class="text-teal-600 border border-teal-200 bg-teal-50 hover:bg-teal-100 px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                <i class="fas fa-download"></i> 템플릿 다운로드
+             </button>
+          </div>
+
+          <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-teal-500 hover:bg-teal-50 transition-all cursor-pointer" onclick="document.getElementById('excelFileInput').click()">
+             <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelFileSelect(this)">
+             <i class="fas fa-file-excel text-4xl text-slate-300 mb-3"></i>
+             <p class="text-slate-600 font-medium">클릭하여 엑셀 파일 업로드</p>
+             <p class="text-xs text-slate-400 mt-1">.xlsx, .xls 형식 지원</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  requestAnimationFrame(() => {
+    const modal = document.getElementById('outExcelModal');
+    if (modal) {
+      modal.classList.remove('opacity-0');
+      modal.querySelector('div').classList.remove('scale-95');
+    }
+  });
+}
+
+function closeOutboundExcelUploadModal() {
+  const modal = document.getElementById('outExcelModal');
+  if (modal) {
+    modal.classList.add('opacity-0');
+    modal.querySelector('div').classList.add('scale-95');
+    setTimeout(() => modal.remove(), 300);
+  }
+}
+
+function downloadOutboundTemplate() {
+  const headers = ['상품명', '수량', '수령인', '연락처', '주소', '배송메모', '택배사', '운송장번호'];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers]);
+  XLSX.utils.book_append_sheet(wb, ws, "Template");
+  XLSX.writeFile(wb, "출고등록_양식.xlsx");
+}
+
+async function handleExcelFileSelect(input) {
+  if (!input.files || input.files.length === 0) return;
+  const file = input.files[0];
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(sheet);
+
+      if (json.length === 0) {
+        showToast('데이터가 없습니다.', 'error');
+        return;
+      }
+
+      // Map keys
+      const items = json.map(row => ({
+        productName: row['상품명'],
+        quantity: row['수량'],
+        recipient: row['수령인'],
+        phone: row['연락처'],
+        address: row['주소'],
+        notes: row['배송메모'],
+        courier: row['택배사'],
+        trackingNumber: row['운송장번호']
+      }));
+
+      // Validate
+      const invalid = items.filter(i => !i.productName || !i.quantity);
+      if (invalid.length > 0) {
+        if (!confirm(`${invalid.length}개의 데이터에 필수 정보(상품명, 수량)가 누락되었습니다. 제외하고 진행하시겠습니까?`)) {
+          input.value = '';
+          return;
+        }
+      }
+
+      const validItems = items.filter(i => i.productName && i.quantity);
+
+      // Upload
+      showToast(`${validItems.length}건 업로드 중...`, 'info');
+      const res = await axios.post(`${API_BASE}/outbound/bulk`, { items: validItems });
+
+      if (res.data.success) {
+        const { success, fail } = res.data.data;
+        alert(`업로드 완료!\n성공: ${success}건\n실패: ${fail}건` + (fail > 0 ? '\n(콘솔에서 상세 에러 확인 가능)' : ''));
+        if (fail > 0) console.table(res.data.data.errors);
+
+        closeOutboundExcelUploadModal();
+        // Go to history tab to see them
+        switchOutboundTab('hist');
+        document.getElementById('outHistoryStatus').value = 'PENDING';
+        filterOutboundHistory();
+      }
+
+    } catch (e) {
+      console.error(e);
+      showToast('파일 처리 중 오류 발생', 'error');
+    } finally {
+      input.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// --- Ship Modal Logic ---
+let currentShipId = null;
+
+async function openShipOutboundModal(id) {
+  currentShipId = id;
+
+  // Load warehouses for selection
+  let warehouses = window.warehouses;
+  if (!warehouses) {
+    try {
+      const res = await axios.get(`${API_BASE}/warehouses`);
+      warehouses = res.data.data;
+      window.warehouses = warehouses;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const modalHtml = `
+      <div id="shipModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[80] transition-opacity duration-300 opacity-0">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 flex flex-col transform scale-95 transition-transform duration-300">
+           <div class="p-6">
+              <h3 class="text-xl font-bold text-slate-800 mb-2">출고 확정</h3>
+              <p class="text-slate-500 text-sm mb-4">해당 주문을 출고 처리하시겠습니까?<br>재고가 즉시 차감됩니다.</p>
+              
+              <div class="mb-4">
+                 <label class="block text-sm font-bold text-slate-700 mb-1">출고 창고 <span class="text-red-500">*</span></label>
+                 <select id="shipWarehouseId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    ${(warehouses || []).map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
+                 </select>
+              </div>
+
+              <div class="flex justify-end gap-2">
+                 <button onclick="closeShipOutboundModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">취소</button>
+                 <button onclick="confirmShipOutbound()" class="px-4 py-2 bg-teal-600 text-white hover:bg-teal-700 rounded-lg font-bold shadow-lg shadow-teal-200">확정 (재고차감)</button>
+              </div>
+           </div>
+        </div>
+      </div>
+    `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  requestAnimationFrame(() => {
+    const m = document.getElementById('shipModal');
+    if (m) { m.classList.remove('opacity-0'); m.querySelector('div').classList.remove('scale-95'); }
+  });
+}
+
+function closeShipOutboundModal() {
+  const m = document.getElementById('shipModal');
+  if (m) {
+    m.classList.add('opacity-0');
+    m.querySelector('div').classList.add('scale-95');
+    setTimeout(() => m.remove(), 200);
+  }
+  currentShipId = null;
+}
+
+async function confirmShipOutbound() {
+  if (!currentShipId) return;
+  const warehouseId = document.getElementById('shipWarehouseId').value;
+  if (!warehouseId) { showToast('창고를 선택해주세요.', 'error'); return; }
+
+  try {
+    const res = await axios.post(`${API_BASE}/outbound/${currentShipId}/ship`, { warehouseId });
+    if (res.data.success) {
+      showToast('출고 확정되었습니다.');
+      closeShipOutboundModal();
+      closeOutboundDetail(); // Close detail view
+      filterOutboundHistory(); // Refresh list
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('출고 확정 실패: ' + (e.response?.data?.error || e.message), 'error');
+  }
+}
+
+window.openOutboundExcelUploadModal = openOutboundExcelUploadModal;
+window.closeOutboundExcelUploadModal = closeOutboundExcelUploadModal;
+window.downloadOutboundTemplate = downloadOutboundTemplate;
+window.handleExcelFileSelect = handleExcelFileSelect;
+window.openShipOutboundModal = openShipOutboundModal;
+window.closeShipOutboundModal = closeShipOutboundModal;
+window.getTrackingUrl = getTrackingUrl;
+
+function getTrackingUrl(courier, number) {
+  if (!number) return null;
+  const cleanNum = number.replace(/[^0-9]/g, '');
+  if (!cleanNum) return null;
+
+  if (courier.includes('CJ') || courier.includes('대한통운')) return `https://nplus.doortodoor.co.kr/web/detail.jsp?slipno=${cleanNum}`;
+  if (courier.includes('우체국')) return `https://service.epost.go.kr/trace.RetrieveDomRgiTraceList.comm?sid1=${cleanNum}`;
+  if (courier.includes('한진')) return `https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumVal=${cleanNum}`;
+  if (courier.includes('로젠')) return `https://www.ilogen.com/web/personal/trace/${cleanNum}`; // 로젠은 GET 방식이 막힐 수 있음, 확인 필요. 일단 시도. (Actually logen is tricky, need form post usually, but mobile link might work: https://www.ilogen.com/m/personal/trace/...)
+  // 로젠 Mobile link: https://www.ilogen.com/m/personal/trace/{num}
+  if (courier.includes('로젠')) return `https://www.ilogen.com/m/personal/trace/${cleanNum}`;
+
+  if (courier.includes('롯데')) return `https://www.lotteglogis.com/home/reservation/tracking/index/${cleanNum}`;
+  return null;
+}
+// Customer Search for Outbound
+async function searchOutboundCustomer(query) {
+  const resDiv = document.getElementById('outCustomerResults');
+  if (!query) { resDiv.classList.add('hidden'); return; }
+  try {
+    const res = await axios.get(`${API_BASE}/customers`, { params: { search: query, limit: 5 } });
+    const customers = res.data.data;
+    resDiv.innerHTML = customers.map(c => `
+      <div class="p-3 hover:bg-teal-50 cursor-pointer border-b border-slate-50" onclick="selectOutboundCustomer(${c.id}, '${c.name}', '${c.phone}', '${c.address.replace(/'/g, "\\'")}')">
+        <div class="text-sm font-bold text-slate-800">${c.name}</div>
+        <div class="text-[10px] text-slate-400">${c.phone} | ${c.address || '주소 없음'}</div>
+      </div>
+    `).join('');
+    resDiv.classList.remove('hidden');
+  } catch (e) {
+    console.error('고객 검색 실패', e);
+  }
+}
+
+function selectOutboundCustomer(id, name, phone, address) {
+  document.getElementById('outCustomerId').value = id;
+  document.getElementById('outSelectedCustomerLabel').textContent = `${name} (${phone})`;
+  document.getElementById('outCustomerSearchWrapper').classList.add('hidden');
+  document.getElementById('outSelectedCustomer').classList.remove('hidden');
+  document.getElementById('outCustomerResults').classList.add('hidden');
+
+  // Auto-fill recipient info
+  document.getElementById('outDestName').value = name;
+  document.getElementById('outDestPhone').value = phone;
+  document.getElementById('outDestAddress').value = address;
+
+  showToast(`${name} 고객 정보를 불러왔습니다.`);
+}
+
+function clearOutboundCustomer() {
+  document.getElementById('outCustomerId').value = '';
+  document.getElementById('outCustomerSearch').value = '';
+  document.getElementById('outCustomerSearchWrapper').classList.remove('hidden');
+  document.getElementById('outSelectedCustomer').classList.add('hidden');
+
+  // Optionally clear recipient info? Usually better to keep it if they just wanted to detach link, 
+  // but and user said Buyer/Recipient can be different, so it's safer to keep for now or clear.
+  // Let's clear it to give a fresh start for manual input if they hit change.
+  document.getElementById('outDestName').value = '';
+  document.getElementById('outDestPhone').value = '';
+  document.getElementById('outDestAddress').value = '';
+}
+
+window.searchOutboundCustomer = searchOutboundCustomer;
+window.selectOutboundCustomer = selectOutboundCustomer;
+window.clearOutboundCustomer = clearOutboundCustomer;
+// Outbound Helper Functions
+function toggleSameAsBuyer() {
+  const isSame = document.getElementById('outSameAsBuyer').checked;
+  const destFields = ['outDestName', 'outDestPhone'];
+
+  if (isSame) {
+    syncToRecipient();
+    destFields.forEach(id => document.getElementById(id).readOnly = true);
+    document.getElementById('outDestName').classList.add('bg-slate-50');
+    document.getElementById('outDestPhone').classList.add('bg-slate-50');
+  } else {
+    destFields.forEach(id => {
+      document.getElementById(id).readOnly = false;
+      document.getElementById(id).classList.remove('bg-slate-50');
+    });
+  }
+}
+
+function syncToRecipient() {
+  if (!document.getElementById('outSameAsBuyer').checked) return;
+
+  const buyerId = document.getElementById('outCustomerId').value;
+  if (!buyerId) {
+    document.getElementById('outDestName').value = document.getElementById('outBuyerName').value;
+    document.getElementById('outDestPhone').value = document.getElementById('outBuyerPhone').value;
+  }
+}
+
+// [Override existing selectOutboundCustomer to support sync]
+const originalSelectOutboundCustomer = selectOutboundCustomer;
+selectOutboundCustomer = function (id, name, phone, address) {
+  document.getElementById('outCustomerId').value = id;
+  document.getElementById('outSelectedCustomerLabel').textContent = `${name} (${phone})`;
+  document.getElementById('outCustomerSearchWrapper').classList.add('hidden');
+  document.getElementById('outSelectedCustomer').classList.remove('hidden');
+  document.getElementById('outCustomerResults').classList.add('hidden');
+  document.getElementById('outNewBuyerFields').classList.add('opacity-50', 'pointer-events-none');
+
+  // Buyer fields (stored for safety even if disabled)
+  document.getElementById('outBuyerName').value = name;
+  document.getElementById('outBuyerPhone').value = phone;
+
+  if (document.getElementById('outSameAsBuyer').checked) {
+    document.getElementById('outDestName').value = name;
+    document.getElementById('outDestPhone').value = phone;
+    document.getElementById('outDestAddress').value = address || '';
+  }
+  showToast(`${name} 고객 정보를 불러왔습니다.`);
+};
+
+// [Override existing clearOutboundCustomer]
+const originalClearOutboundCustomer = clearOutboundCustomer;
+clearOutboundCustomer = function () {
+  document.getElementById('outCustomerId').value = '';
+  document.getElementById('outCustomerSearch').value = '';
+  document.getElementById('outCustomerSearchWrapper').classList.remove('hidden');
+  document.getElementById('outSelectedCustomer').classList.add('hidden');
+  document.getElementById('outNewBuyerFields').classList.remove('opacity-50', 'pointer-events-none');
+
+  document.getElementById('outBuyerName').value = '';
+  document.getElementById('outBuyerPhone').value = '';
+
+  if (document.getElementById('outSameAsBuyer').checked) {
+    document.getElementById('outDestName').value = '';
+    document.getElementById('outDestPhone').value = '';
+    document.getElementById('outDestAddress').value = '';
+  }
+};
+
+window.toggleSameAsBuyer = toggleSameAsBuyer;
+window.syncToRecipient = syncToRecipient;

@@ -154,4 +154,60 @@ app.post('/plan-requests/:id/reject', async (c) => {
     }
 })
 
+// 특정 테넌트의 사용자 목록 조회
+app.get('/tenants/:id/users', async (c) => {
+    const id = c.req.param('id')
+    try {
+        const { results } = await c.env.DB.prepare(
+            `SELECT id, email, name, role, created_at FROM users WHERE tenant_id = ? ORDER BY role DESC, created_at DESC`
+        ).bind(id).all()
+        return c.json({ success: true, data: results })
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500)
+    }
+})
+
+// 사용자 비밀번호 변경 (슈퍼관리자 권한)
+app.post('/users/:id/password', async (c) => {
+    const id = c.req.param('id')
+    const { newPassword } = await c.req.json<{ newPassword: string }>()
+
+    if (!newPassword || newPassword.length < 4) {
+        return c.json({ success: false, error: '비밀번호는 최소 4자 이상이어야 합니다.' }, 400)
+    }
+
+    try {
+        const { hashPassword } = await import('../utils/auth')
+        const passwordHash = await hashPassword(newPassword)
+
+        await c.env.DB.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+            .bind(passwordHash, id)
+            .run()
+
+        return c.json({ success: true, message: '비밀번호가 성공적으로 변경되었습니다.' })
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500)
+    }
+})
+
+// 사용자 역할 변경
+app.put('/users/:id/role', async (c) => {
+    const id = c.req.param('id')
+    const { role } = await c.req.json<{ role: string }>()
+
+    if (!['OWNER', 'ADMIN', 'staff'].includes(role)) {
+        return c.json({ success: false, error: '유효하지 않은 역할입니다.' }, 400)
+    }
+
+    try {
+        await c.env.DB.prepare('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+            .bind(role, id)
+            .run()
+
+        return c.json({ success: true, message: '역할이 변경되었습니다.' })
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500)
+    }
+})
+
 export default app

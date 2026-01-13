@@ -7,7 +7,7 @@
     "build": "vite build",
     "preview": "wrangler pages dev",
     "deploy": "npm run build && wrangler pages deploy",
-    "deploy:prod": "npm run build && wrangler pages deploy dist --project-name webapp",
+    "deploy:prod": "npm run build && wrangler pages deploy dist --project-name wow3d-stock-sales-manager",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "db:migrate:local": "wrangler d1 migrations apply wow3d-stock-sales-manager-production --local",
     "db:seed": "wrangler d1 execute wow3d-stock-sales-manager-production --local --file=./seed.sql",

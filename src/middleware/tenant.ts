@@ -3,6 +3,7 @@ import { verify } from 'hono/jwt'
 
 export const tenantMiddleware = async (c: Context, next: Next) => {
     // 인증이 필요 없는 경로 제외
+    // 인증이 필요 없는 경로 제외
     const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/find-email', '/api/auth/reset-password'];
     // /api/auth/me는 인증이 필요하므로 제외 목록에 포함하지 않음
     if (publicPaths.some(path => c.req.path === path || c.req.path.startsWith(path + '/'))) {
@@ -24,8 +25,13 @@ export const tenantMiddleware = async (c: Context, next: Next) => {
     const secret = c.env.JWT_SECRET || 'dev-secret-key-1234'
 
     try {
-        const payload = await verify(token, secret)
+        const payload = await verify(token, secret) as any
         console.log('[TENANT MIDDLEWARE] Token verified. Payload:', payload)
+
+        // Access Token인지 확인
+        if (payload.type !== 'access') {
+            return c.json({ success: false, error: '유효하지 않은 토큰 타입입니다.' }, 401)
+        }
 
         // 컨텍스트에 저장
         let tenantId = payload.tenantId

@@ -72,7 +72,7 @@ export interface Customer {
   department?: string;
   position?: string;
   birthday?: string;
-  grade?: string; // @deprecated
+  grade?: string;
   purchase_path?: string;
   notes?: string;
   total_purchase_amount: number;
@@ -163,6 +163,23 @@ export interface CreateProductRequest {
   tags?: string;
   status?: string;
   specifications?: string;
+  product_type?: 'simple' | 'master' | 'variant' | 'bundle';
+  has_options?: boolean;
+  variants?: {
+    sku: string;
+    name: string;
+    purchase_price: number;
+    selling_price: number;
+    current_stock: number;
+    options: {
+      group_id: number;
+      value_id: number;
+    }[];
+  }[];
+  bundle_items?: {
+    product_id: number;
+    quantity: number;
+  }[];
 }
 
 export interface UpdateProductRequest {
@@ -180,6 +197,17 @@ export interface UpdateProductRequest {
   tags?: string;
   status?: string;
   specifications?: string;
+  product_type?: 'simple' | 'master' | 'variant' | 'bundle';
+  bundle_items?: {
+    product_id: number;
+    quantity: number;
+  }[];
+  variants?: {
+    sku: string;
+    purchase_price?: number;
+    selling_price?: number;
+    current_stock?: number;
+  }[];
 }
 
 export interface CreateCustomerRequest {
@@ -195,6 +223,7 @@ export interface CreateCustomerRequest {
   birthday?: string;
   purchase_path?: string;
   notes?: string;
+  grade?: string;
 }
 
 export interface CreateSaleRequest {
@@ -353,3 +382,26 @@ export interface PackingRequest {
   courier?: string;
   tracking_number?: string;
 }
+
+// 등급별 가격 타입
+export interface ProductGradePrice {
+  id: number;
+  tenant_id: number;
+  product_id: number;
+  grade: string;
+  price: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// 고객별 지정 가격 타입
+export interface ProductCustomerPrice {
+  id: number;
+  tenant_id: number;
+  customer_id: number;
+  product_id: number;
+  price: number;
+  created_at: string;
+  updated_at: string;
+}
+

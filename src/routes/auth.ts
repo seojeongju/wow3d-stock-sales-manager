@@ -13,11 +13,12 @@ app.post('/register', async (c) => {
         email: string;
         password: string;
         name: string;
+        phone: string;
         company_name: string;
         plan?: string;
     }>()
 
-    if (!body.email || !body.password || !body.name || !body.company_name) {
+    if (!body.email || !body.password || !body.name || !body.phone || !body.company_name) {
         return c.json({ success: false, error: '모든 필드를 입력해주세요.' }, 400)
     }
 
@@ -42,28 +43,36 @@ app.post('/register', async (c) => {
         // 2. 사용자 생성
         const passwordHash = await hashPassword(body.password)
         const userResult = await DB.prepare(`
-      INSERT INTO users (tenant_id, email, name, password_hash, role)
-      VALUES (?, ?, ?, ?, 'OWNER')
-    `).bind(tenantId, body.email, body.name, passwordHash).run()
+      INSERT INTO users (tenant_id, email, name, phone, password_hash, role)
+      VALUES (?, ?, ?, ?, ?, 'OWNER')
+    `).bind(tenantId, body.email, body.name, body.phone, passwordHash).run()
 
         const userId = userResult.meta.last_row_id
 
-        // 3. JWT 발급
-        const payload = {
+        // 3. JWT 발급 (Access Token: 1시간, Refresh Token: 7일)
+        const secret = JWT_SECRET || 'dev-secret-key-1234'
+
+        const accessToken = await sign({
             sub: userId,
             tenantId: tenantId,
             role: 'OWNER',
-            exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7일 유효
-        }
+            type: 'access',
+            exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1시간
+        }, secret)
 
-        // JWT_SECRET이 없는 경우 대비 (개발용 기본값)
-        const secret = JWT_SECRET || 'dev-secret-key-1234'
-        const token = await sign(payload, secret)
+        const refreshToken = await sign({
+            sub: userId,
+            tenantId: tenantId,
+            role: 'OWNER',
+            type: 'refresh',
+            exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7일
+        }, secret)
 
         return c.json({
             success: true,
             data: {
-                token,
+                token: accessToken,
+                refreshToken: refreshToken,
                 user: { id: userId, email: body.email, name: body.name, role: 'OWNER', tenant_id: tenantId },
                 tenant: {
                     name: body.company_name,
@@ -102,15 +111,23 @@ app.post('/login', async (c) => {
         return c.json({ success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, 401)
     }
 
-    const payload = {
+    const secret = JWT_SECRET || 'dev-secret-key-1234'
+
+    const accessToken = await sign({
         sub: user.id,
         tenantId: user.tenant_id,
         role: user.role,
-        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7일
-    }
+        type: 'access',
+        exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1시간
+    }, secret)
 
-    const secret = JWT_SECRET || 'dev-secret-key-1234'
-    const token = await sign(payload, secret)
+    const refreshToken = await sign({
+        sub: user.id,
+        tenantId: user.tenant_id,
+        role: user.role,
+        type: 'refresh',
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7일
+    }, secret)
 
     // 테넌트 정보 조회
     const tenant = await DB.prepare('SELECT name, logo_url FROM tenants WHERE id = ?')
@@ -120,7 +137,8 @@ app.post('/login', async (c) => {
     return c.json({
         success: true,
         data: {
-            token,
+            token: accessToken,
+            refreshToken: refreshToken,
             user: {
                 id: user.id,
                 email: user.email,
@@ -149,34 +167,114 @@ app.get('/me', async (c) => {
     // 만약 적용되어 있다면 c.get('userId')를 사용할 수 있음.
 
     // 안전을 위해 헤더 확인 (미들웨어 의존성 없이 동작하도록)
-    const authHeader = c.req.header('Authorization')
-    if (!authHeader || !userId) {
-        // 미들웨어가 동작하지 않았거나 토큰이 없는 경우
-        return c.json({ success: false, error: 'Unauthorized' }, 401)
-    }
+    try {
+        const authHeader = c.req.header('Authorization')
+        if (!authHeader) {
+            return c.json({ success: false, error: 'Authorization header missing' }, 401)
+        }
 
-    const user = await DB.prepare('SELECT id, email, name, role, tenant_id FROM users WHERE id = ?')
-        .bind(userId)
-        .first<User>()
+        // Token parsing (Bearer token)
+        const token = authHeader.replace('Bearer ', '')
+        if (!token) {
+            return c.json({ success: false, error: 'Token missing' }, 401)
+        }
 
-    if (!user) {
-        return c.json({ success: false, error: 'User not found' }, 404)
-    }
+        // Verify token manually if needed or rely on middleware if it's reliable.
+        // If middleware set userId, use it. If not, try to verify.
+        let verifiedUserId = userId;
 
-    const tenant = await DB.prepare('SELECT name, logo_url FROM tenants WHERE id = ?')
-        .bind(user.tenant_id)
-        .first<{ name: string; logo_url: string | null }>()
-
-    return c.json({
-        success: true,
-        data: {
-            user,
-            tenant: {
-                name: tenant?.name || 'Unknown Company',
-                logo_url: tenant?.logo_url
+        if (!verifiedUserId) {
+            const { verify } = await import('hono/jwt')
+            const { JWT_SECRET } = c.env
+            const secret = JWT_SECRET || 'dev-secret-key-1234'
+            try {
+                const payload = await verify(token, secret) as any
+                verifiedUserId = payload.sub
+            } catch (err) {
+                return c.json({ success: false, error: 'Invalid token' }, 401)
             }
         }
-    })
+
+        if (!verifiedUserId) {
+            return c.json({ success: false, error: 'Unauthorized' }, 401)
+        }
+
+        const user = await DB.prepare('SELECT id, email, name, role, tenant_id FROM users WHERE id = ?')
+            .bind(verifiedUserId)
+            .first<User>()
+
+        if (!user) {
+            return c.json({ success: false, error: 'User not found' }, 404)
+        }
+
+        const tenant = await DB.prepare('SELECT name, logo_url FROM tenants WHERE id = ?')
+            .bind(user.tenant_id)
+            .first<{ name: string; logo_url: string | null }>()
+
+        return c.json({
+            success: true,
+            data: {
+                user,
+                tenant: {
+                    name: tenant?.name || 'Unknown Company',
+                    logo_url: tenant?.logo_url
+                }
+            }
+        })
+    } catch (e) {
+        console.error('/me error:', e)
+        return c.json({ success: false, error: 'Server error checkLogin' }, 500)
+    }
+})
+
+// 토큰 갱신 (Refresh Token 사용)
+app.post('/refresh', async (c) => {
+    const { JWT_SECRET } = c.env
+    const body = await c.req.json<{ refreshToken: string }>()
+
+    if (!body.refreshToken) {
+        return c.json({ success: false, error: 'Refresh Token이 필요합니다.' }, 400)
+    }
+
+    const secret = JWT_SECRET || 'dev-secret-key-1234'
+
+    try {
+        const { verify } = await import('hono/jwt')
+        const payload = await verify(body.refreshToken, secret) as any
+
+        // 리프레시 토큰 타입인지 확인
+        if (payload.type !== 'refresh') {
+            return c.json({ success: false, error: '유효하지 않은 토큰 타입입니다.' }, 401)
+        }
+
+        // 새로운 Access Token 발급
+        const newAccessToken = await sign({
+            sub: payload.sub,
+            tenantId: payload.tenantId,
+            role: payload.role,
+            type: 'access',
+            exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1시간
+        }, secret)
+
+        // (선택 사항) Refresh Token Rotation - 보안을 위해 리프레시 토큰도 새로 발급
+        const newRefreshToken = await sign({
+            sub: payload.sub,
+            tenantId: payload.tenantId,
+            role: payload.role,
+            type: 'refresh',
+            exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7일
+        }, secret)
+
+        return c.json({
+            success: true,
+            data: {
+                token: newAccessToken,
+                refreshToken: newRefreshToken
+            }
+        })
+    } catch (e) {
+        return c.json({ success: false, error: '로그인 세션이 만료되었습니다. 다시 로그인해주세요.' }, 401)
+    }
 })
 
 // 아이디(이메일) 찾기

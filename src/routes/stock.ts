@@ -174,6 +174,17 @@ app.post('/in', async (c) => {
     c.get('userId')
   ).run()
 
+  // 부모 상품(옵션 마스터) 재고 동기화
+  if (product.parent_id) {
+    const totalStockResult = await DB.prepare('SELECT SUM(current_stock) as total FROM products WHERE parent_id = ? AND is_active = 1 AND tenant_id = ?')
+      .bind(product.parent_id, tenantId)
+      .first<{ total: number }>()
+    const newTotalStock = totalStockResult?.total || 0
+    await DB.prepare('UPDATE products SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?')
+      .bind(newTotalStock, product.parent_id, tenantId)
+      .run()
+  }
+
   return c.json({ success: true, message: '입고 처리되었습니다.' })
 })
 
@@ -244,6 +255,17 @@ app.post('/out', async (c) => {
     c.get('userId')
   ).run()
 
+  // 부모 상품(옵션 마스터) 재고 동기화
+  if (product.parent_id) {
+    const totalStockResult = await DB.prepare('SELECT SUM(current_stock) as total FROM products WHERE parent_id = ? AND is_active = 1 AND tenant_id = ?')
+      .bind(product.parent_id, tenantId)
+      .first<{ total: number }>()
+    const newTotalStock = totalStockResult?.total || 0
+    await DB.prepare('UPDATE products SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?')
+      .bind(newTotalStock, product.parent_id, tenantId)
+      .run()
+  }
+
   return c.json({ success: true, message: '출고 처리되었습니다.' })
 })
 
@@ -251,7 +273,7 @@ app.post('/out', async (c) => {
 app.post('/adjust', async (c) => {
   const { DB } = c.env
   const tenantId = c.get('tenantId')
-  const body = await c.req.json<StockMovementRequest & { new_stock: number }>()
+  const body = await c.req.json<StockMovementRequest & { new_stock: number, warehouse_id?: number }>() // warehouse_id optional
 
   // 상품 확인
   const product = await DB.prepare('SELECT * FROM products WHERE id = ? AND is_active = 1 AND tenant_id = ?')
@@ -270,30 +292,70 @@ app.post('/adjust', async (c) => {
     return c.json({ success: false, error: '재고 변동이 없습니다.' }, 400)
   }
 
-  // 재고 조정
+  // 창고 ID 결정 (요청에 없으면 기본 창고/첫번째 창고 사용)
+  let warehouseId = body.warehouse_id || (body as any).warehouseId
+  if (!warehouseId) {
+    // 상품이 존재하는 창고 중 가장 재고가 많은 곳? 혹은 그냥 기본 창고?
+    // 여기서는 "기본 창고"를 찾거나 없으면 첫번째 창고를 사용
+    const defaultWh = await DB.prepare(`
+      SELECT id FROM warehouses 
+      WHERE tenant_id = ? 
+      ORDER BY CASE WHEN name = '기본 창고' THEN 0 ELSE 1 END, id ASC 
+      LIMIT 1
+    `).bind(tenantId).first<{ id: number }>()
+
+    warehouseId = defaultWh?.id
+  }
+
+  if (!warehouseId) {
+    return c.json({ success: false, error: '재고를 조정할 창고가 존재하지 않습니다. 창고를 먼저 등록해주세요.' }, 400)
+  }
+
+  // 1. 총 재고 조정
   await DB.prepare(`
     UPDATE products 
     SET current_stock = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND tenant_id = ?
   `).bind(newStock, body.product_id, tenantId).run()
 
-  // 재고 이동 기록
+  // 2. 창고 재고 조정 (개별 창고 재고도 변경)
+  // 차이(difference)만큼 해당 창고 재고를 증감
   await DB.prepare(`
-    INSERT INTO stock_movements (tenant_id, product_id, movement_type, quantity, reason, notes, created_by)
-    VALUES (?, ?, '조정', ?, ?, ?, ?)
+    INSERT INTO product_warehouse_stocks (tenant_id, product_id, warehouse_id, quantity)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(product_id, warehouse_id) 
+    DO UPDATE SET quantity = quantity + ?, updated_at = CURRENT_TIMESTAMP
+  `).bind(tenantId, body.product_id, warehouseId, difference, difference).run()
+
+  // 3. 재고 이동 기록
+  await DB.prepare(`
+    INSERT INTO stock_movements (tenant_id, product_id, warehouse_id, movement_type, quantity, reason, notes, created_by)
+    VALUES (?, ?, ?, '조정', ?, ?, ?, ?)
   `).bind(
     tenantId,
     body.product_id,
+    warehouseId,
     difference,
     body.reason || '재고 조정',
     body.notes || `이전 재고: ${currentStock}, 조정 후: ${newStock}`,
     c.get('userId')
   ).run()
 
+  // 부모 상품(옵션 마스터) 재고 동기화
+  if (product.parent_id) {
+    const totalStockResult = await DB.prepare('SELECT SUM(current_stock) as total FROM products WHERE parent_id = ? AND is_active = 1 AND tenant_id = ?')
+      .bind(product.parent_id, tenantId)
+      .first<{ total: number }>()
+    const newTotalStock = totalStockResult?.total || 0
+    await DB.prepare('UPDATE products SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?')
+      .bind(newTotalStock, product.parent_id, tenantId)
+      .run()
+  }
+
   return c.json({
     success: true,
     message: '재고가 조정되었습니다.',
-    data: { old_stock: currentStock, new_stock: newStock, difference }
+    data: { old_stock: currentStock, new_stock: newStock, difference, warehouse_id: warehouseId }
   })
 })
 
@@ -395,56 +457,128 @@ app.post('/migration/legacy-stock', async (c) => {
   const tenantId = c.get('tenantId')
   const userId = c.get('userId')
 
-  // 1. 기본 창고 확인 또는 생성
-  let defaultWarehouse = await DB.prepare('SELECT * FROM warehouses WHERE tenant_id = ? AND name = ?')
-    .bind(tenantId, '기본 창고')
-    .first<any>()
+  console.log(`[MIGRATION] Start legacy-stock for tenant: ${tenantId}, user: ${userId}`);
 
-  if (!defaultWarehouse) {
-    const res = await DB.prepare('INSERT INTO warehouses (tenant_id, name, location, description) VALUES (?, ?, ?, ?) RETURNING id')
-      .bind(tenantId, '기본 창고', '본사', '초기 재고 할당용 기본 창고')
+  try {
+    // 1. 기본 창고 확인 또는 생성
+    let defaultWarehouse = await DB.prepare('SELECT * FROM warehouses WHERE tenant_id = ? AND name = ?')
+      .bind(tenantId, '기본 창고')
       .first<any>()
 
-    defaultWarehouse = { id: res.id }
-  }
+    if (!defaultWarehouse) {
+      console.log(`[MIGRATION] Default warehouse not found for tenant ${tenantId}. Creating...`);
+      const res = await DB.prepare('INSERT INTO warehouses (tenant_id, name, location, description) VALUES (?, ?, ?, ?) RETURNING id')
+        .bind(tenantId, '기본 창고', '본사', '초기 재고 할당용 기본 창고')
+        .first<any>()
 
-  const warehouseId = defaultWarehouse.id
-
-  // 2. 모든 상품 조회
-  const { results: products } = await DB.prepare('SELECT * FROM products WHERE tenant_id = ?').bind(tenantId).all<any>()
-
-  let updatedCount = 0
-
-  for (const product of products) {
-    // 3. 해당 상품의 창고 재고 합계 조회
-    const stockSum = await DB.prepare('SELECT SUM(quantity) as total FROM product_warehouse_stocks WHERE product_id = ? AND tenant_id = ?')
-      .bind(product.id, tenantId)
-      .first<any>()
-
-    const warehouseTotal = stockSum?.total || 0
-    const diff = product.current_stock - warehouseTotal
-
-    // 4. 차이가 양수면(총 재고가 더 많으면) 차이만큼 기본 창고에 추가
-    if (diff > 0) {
-      // 창고 재고 추가 (UPSERT)
-      await DB.prepare(`
-        INSERT INTO product_warehouse_stocks (tenant_id, product_id, warehouse_id, quantity)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(product_id, warehouse_id) 
-        DO UPDATE SET quantity = quantity + ?, updated_at = CURRENT_TIMESTAMP
-      `).bind(tenantId, product.id, warehouseId, diff, diff).run()
-
-      // 이동 내역 기록
-      await DB.prepare(`
-        INSERT INTO stock_movements (tenant_id, product_id, warehouse_id, movement_type, quantity, reason, notes, created_by)
-        VALUES (?, ?, ?, '조정', ?, '초기 재고 마이그레이션', '기존 재고 데이터 동기화', ?)
-      `).bind(tenantId, product.id, warehouseId, diff, userId).run()
-
-      updatedCount++
+      if (!res) throw new Error('Failed to create default warehouse');
+      defaultWarehouse = { id: res.id }
     }
-  }
 
-  return c.json({ success: true, message: `재고 동기화 완료 (${updatedCount}개 상품 처리됨)`, data: { updatedCount } })
+    const warehouseId = defaultWarehouse.id;
+    console.log(`[MIGRATION] Using warehouseId: ${warehouseId}`);
+
+    // 2. 모든 상품 조회
+    const { results: products } = await DB.prepare('SELECT * FROM products WHERE tenant_id = ? AND is_active = 1').bind(tenantId).all<any>()
+    console.log(`[MIGRATION] Found ${products.length} active products`);
+
+    let updatedCount = 0
+    const batch: any[] = []
+
+    for (const product of products) {
+      // 3. 해당 상품의 창고 재고 합계 조회
+      const stockSum = await DB.prepare('SELECT SUM(quantity) as total FROM product_warehouse_stocks WHERE product_id = ? AND tenant_id = ?')
+        .bind(product.id, tenantId)
+        .first<{ total: number }>()
+
+      const warehouseTotal = stockSum?.total || 0
+      const diff = (product.current_stock || 0) - warehouseTotal
+
+      // 4. 차이가 있으면 보정
+      if (diff !== 0) {
+        console.log(`[MIGRATION] Product ${product.id} (${product.name}): diff=${diff}, current=${product.current_stock}, warehouse=${warehouseTotal}`);
+
+        // 창고 재고 업데이트
+        batch.push(DB.prepare(`
+          INSERT INTO product_warehouse_stocks (tenant_id, product_id, warehouse_id, quantity)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(product_id, warehouse_id) 
+          DO UPDATE SET quantity = quantity + ?, updated_at = CURRENT_TIMESTAMP
+        `).bind(tenantId, product.id, warehouseId, diff, diff));
+
+        // 이동 내역 기록
+        batch.push(DB.prepare(`
+          INSERT INTO stock_movements (tenant_id, product_id, warehouse_id, movement_type, quantity, reason, notes, created_by)
+          VALUES (?, ?, ?, '조정', ?, '초기 재고 마이그레이션', ?, ?)
+        `).bind(tenantId, product.id, warehouseId, diff, diff > 0 ? '기존 재고 데이터 동기화 (Add)' : '기존 재고 데이터 동기화 (Subtract)', userId));
+
+        updatedCount++
+      }
+    }
+
+    // 배치 실행 (한 번에 실행하여 성능 향상 및 타임아웃 방지)
+    if (batch.length > 0) {
+      console.log(`[MIGRATION] Executing batch of ${batch.length} statements...`);
+      // D1 batch limits might apply, but for 43 products (86 statements) it should be fine.
+      await DB.batch(batch);
+    }
+
+    console.log(`[MIGRATION] Success. Updated ${updatedCount} products.`);
+    return c.json({ success: true, message: `재고 동기화 완료 (${updatedCount}개 상품 처리됨)`, data: { updatedCount } })
+
+  } catch (error) {
+    console.error('[MIGRATION] Error:', error);
+    return c.json({
+      success: false,
+      error: '마이그레이션 중 오류가 발생했습니다.',
+      details: (error as Error).message,
+      stack: (error as Error).stack
+    }, 500);
+  }
+})
+
+// 글로벌 재고 동기화 (창고 재고 합계 및 마스터/베리언트 동기화)
+app.post('/sync-global', async (c) => {
+  const { DB } = c.env
+  const tenantId = c.get('tenantId')
+
+  try {
+    // 1. 개별 상품(단품/옵션)의 글로벌 재고를 창고 재고 합계로 업데이트
+    await DB.prepare(`
+        UPDATE products
+        SET current_stock = (
+          SELECT COALESCE(SUM(quantity), 0)
+          FROM product_warehouse_stocks
+          WHERE product_warehouse_stocks.product_id = products.id
+          AND product_warehouse_stocks.tenant_id = ?
+        )
+        WHERE tenant_id = ?
+        AND id IN (SELECT DISTINCT product_id FROM product_warehouse_stocks WHERE tenant_id = ?)
+    `).bind(tenantId, tenantId, tenantId).run()
+
+    // 2. 마스터 상품의 글로벌 재고를 해당 옵션(Variant)들의 재고 합계로 업데이트
+    const masterSyncResult = await DB.prepare(`
+        UPDATE products
+        SET current_stock = (
+          SELECT COALESCE(SUM(v.current_stock), 0)
+          FROM products v
+          WHERE v.parent_id = products.id
+          AND v.is_active = 1
+          AND v.tenant_id = ?
+        )
+        WHERE tenant_id = ?
+        AND (product_type = 'master' OR id IN (SELECT DISTINCT parent_id FROM products WHERE parent_id IS NOT NULL AND tenant_id = ?))
+    `).bind(tenantId, tenantId, tenantId).run()
+
+    return c.json({
+      success: true,
+      message: '전체 재고 동기화가 완료되었습니다. (창고 합산 및 마스터 상품 반영)',
+      updatedRows: masterSyncResult.meta.changes
+    })
+  } catch (e) {
+    console.error('Sync Global Error:', e)
+    return c.json({ success: false, error: '동기화 중 오류가 발생했습니다: ' + (e as Error).message }, 500)
+  }
 })
 
 // 재고 이동 내역 삭제 (역보정)
@@ -615,6 +749,18 @@ app.delete('/movements/:id', async (c) => {
     // 여기서는 0 이하인 데이터를 자동 삭제하는 로직을 유지하되, 마이너스 방지 로직이 우선함.
     await DB.prepare('DELETE FROM product_warehouse_stocks WHERE quantity <= 0 AND tenant_id = ?').bind(tenantId).run()
 
+    // 부모 상품(옵션 마스터) 재고 동기화
+    const productInfo = await DB.prepare('SELECT parent_id FROM products WHERE id = ?').bind(movement.product_id).first<{ parent_id: number }>()
+    if (productInfo?.parent_id) {
+      const totalStockResult = await DB.prepare('SELECT SUM(current_stock) as total FROM products WHERE parent_id = ? AND is_active = 1 AND tenant_id = ?')
+        .bind(productInfo.parent_id, tenantId)
+        .first<{ total: number }>()
+      const newTotalStock = totalStockResult?.total || 0
+      await DB.prepare('UPDATE products SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?')
+        .bind(newTotalStock, productInfo.parent_id, tenantId)
+        .run()
+    }
+
     return c.json({ success: true, message: '내역이 삭제되고 재고가 원상복구되었습니다.' })
 
   } catch (e) {
@@ -631,6 +777,8 @@ app.get('/warehouse-stocks', async (c) => {
   const warehouseId = c.req.query('warehouseId')
   const page = parseInt(c.req.query('page') || '1')
   const limit = parseInt(c.req.query('limit') || '10')
+  const sortBy = c.req.query('sortBy') || 'updated_at'
+  const sortOrder = c.req.query('sortOrder') || 'desc'
   const offset = (page - 1) * limit
 
   let query = `
@@ -638,7 +786,7 @@ app.get('/warehouse-stocks', async (c) => {
     FROM product_warehouse_stocks pws
     JOIN products p ON pws.product_id = p.id
     JOIN warehouses w ON pws.warehouse_id = w.id
-    WHERE pws.tenant_id = ?
+    WHERE pws.tenant_id = ? AND p.is_active = 1
   `
   const params: any[] = [tenantId]
 
@@ -647,8 +795,20 @@ app.get('/warehouse-stocks', async (c) => {
     params.push(warehouseId)
   }
 
-  // 최신순 정렬 (updated_at 기준 내림차순)
-  query += ' ORDER BY pws.updated_at DESC, p.name ASC LIMIT ? OFFSET ?'
+  // 정렬 매핑
+  const sortMap: Record<string, string> = {
+    'warehouse_name': 'w.name',
+    'product_name': 'p.name',
+    'sku': 'p.sku',
+    'category': 'p.category',
+    'quantity': 'pws.quantity',
+    'updated_at': 'pws.updated_at'
+  }
+
+  const sortColumn = sortMap[sortBy] || 'pws.updated_at'
+  const orderDirection = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC'
+
+  query += ` ORDER BY ${sortColumn} ${orderDirection} LIMIT ? OFFSET ?`
   params.push(limit, offset)
 
   const { results } = await DB.prepare(query).bind(...params).all()
@@ -657,7 +817,8 @@ app.get('/warehouse-stocks', async (c) => {
   let countQuery = `
     SELECT COUNT(*) as total
     FROM product_warehouse_stocks pws
-    WHERE pws.tenant_id = ?
+    JOIN products p ON pws.product_id = p.id
+    WHERE pws.tenant_id = ? AND p.is_active = 1
   `
   const countParams: any[] = [tenantId]
 
