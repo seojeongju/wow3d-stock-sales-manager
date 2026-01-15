@@ -35,7 +35,7 @@ app.post('/register', async (c) => {
     try {
         // 1. 테넌트 생성
         const tenantResult = await DB.prepare(`
-      INSERT INTO tenants (name, plan_type) VALUES (?, ?)
+      INSERT INTO tenants (name, plan_type, status) VALUES (?, ?, 'PENDING')
     `).bind(body.company_name, selectedPlan).run()
 
         const tenantId = tenantResult.meta.last_row_id
@@ -49,36 +49,10 @@ app.post('/register', async (c) => {
 
         const userId = userResult.meta.last_row_id
 
-        // 3. JWT 발급 (Access Token: 1시간, Refresh Token: 7일)
-        const secret = JWT_SECRET || 'dev-secret-key-1234'
-
-        const accessToken = await sign({
-            sub: userId,
-            tenantId: tenantId,
-            role: 'OWNER',
-            type: 'access',
-            exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1시간
-        }, secret)
-
-        const refreshToken = await sign({
-            sub: userId,
-            tenantId: tenantId,
-            role: 'OWNER',
-            type: 'refresh',
-            exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7일
-        }, secret)
-
+        // 3. 승인 대기 메시지 반환 (토큰 발급 생략)
         return c.json({
             success: true,
-            data: {
-                token: accessToken,
-                refreshToken: refreshToken,
-                user: { id: userId, email: body.email, name: body.name, role: 'OWNER', tenant_id: tenantId },
-                tenant: {
-                    name: body.company_name,
-                    plan: selectedPlan
-                }
-            }
+            message: '회원가입이 완료되었습니다. 관리자 승인 후 이용 가능합니다.'
         })
 
     } catch (e) {
@@ -130,9 +104,14 @@ app.post('/login', async (c) => {
     }, secret)
 
     // 테넌트 정보 조회
-    const tenant = await DB.prepare('SELECT name, logo_url FROM tenants WHERE id = ?')
+    const tenant = await DB.prepare('SELECT name, logo_url, status FROM tenants WHERE id = ?')
         .bind(user.tenant_id)
-        .first<{ name: string; logo_url: string | null }>()
+        .first<{ name: string; logo_url: string | null; status: string }>()
+
+    if (!tenant || tenant.status !== 'ACTIVE') {
+        const statusMsg = tenant?.status === 'PENDING' ? '승인 대기 중' : '비활성화';
+        return c.json({ success: false, error: `계정이 ${statusMsg} 상태입니다. 관리자에게 문의하세요.` }, 403)
+    }
 
     return c.json({
         success: true,

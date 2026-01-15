@@ -311,10 +311,15 @@
                     email, password, name, phone, company_name, plan
                 });
                 if (res.data.success) {
-                    alert('회원가입이 완료되었습니다. 자동 로그인됩니다.');
-                    localStorage.setItem('token', res.data.data.token);
-                    localStorage.setItem('user', JSON.stringify(res.data.data.user));
-                    window.location.href = '/';
+                    // 승인 대기 메시지 출력
+                    const msg = res.data.message || '회원가입이 완료되었습니다.\n관리자 승인 후 이용 가능합니다.';
+                    alert(msg);
+
+                    // 로그인 탭으로 전환
+                    showTab('login');
+
+                    // 입력 필드 정리 (선택 사항)
+                    document.getElementById('regPassword').value = '';
                 }
             } catch (err) {
                 alert(err.response?.data?.error || '회원가입 실패');
