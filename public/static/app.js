@@ -1035,6 +1035,8 @@ async function switchStockTab(tabName) {
     await renderStockLevelsTab(container);
   }
 }
+window.switchStockTab = switchStockTab;
+
 
 // 재고 이동 내역 탭 렌더링
 async function renderStockMovementsTab(container) {
