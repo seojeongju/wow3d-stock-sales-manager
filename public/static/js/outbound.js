@@ -7,7 +7,7 @@ const outboundProdLimit = 6; // Product items per page
 let outboundInputMode = 'auto'; // 'auto' | 'manual'
 if (!window.outboundCart) window.outboundCart = [];
 
-async function renderOutboundPage() {
+async function renderOutboundPage(initialTab = 'reg') {
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="flex flex-col h-full">
@@ -38,7 +38,7 @@ async function renderOutboundPage() {
   `;
 
   // 기본 탭 로드
-  switchOutboundTab('reg');
+  switchOutboundTab(initialTab);
 }
 
 async function switchOutboundTab(tabName) {

@@ -1,6 +1,6 @@
 
 // 입고/발주 관리 페이지 로드
-window.loadPurchasesPage = function () {
+window.loadPurchasesPage = function (initialTab = 'purchases') {
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="flex justify-between items-center mb-6">
@@ -25,7 +25,7 @@ window.loadPurchasesPage = function () {
   `;
 
   // 초기 탭 로드
-  switchPurchaseTab('purchases');
+  switchPurchaseTab(initialTab);
 }
 
 window.switchPurchaseTab = function (tabName) {

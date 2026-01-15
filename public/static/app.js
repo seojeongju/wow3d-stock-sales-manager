@@ -198,17 +198,24 @@ function setupNavigation() {
   document.querySelectorAll('.nav-link').forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
-      const page = e.currentTarget.dataset.page;
+      // 이벤트 위임 문제 방지를 위해 currentTarget 사용 (이미 되어 있음)
+      const target = e.currentTarget;
+      const page = target.dataset.page;
+      const tab = target.dataset.tab;
 
       // 활성 상태 변경
       document.querySelectorAll('.nav-link').forEach(l => {
         l.classList.remove('active', 'text-white', 'bg-blue-500', 'shadow-md');
         l.classList.add('text-blue-100');
+        // 서브메뉴 아이템 스타일링 리셋 (필요시)
+        if (l.dataset.page === page && l.dataset.tab === tab) {
+          // This will be handled below
+        }
       });
-      e.currentTarget.classList.add('active', 'text-white', 'bg-blue-500', 'shadow-md');
-      e.currentTarget.classList.remove('text-blue-100');
+      target.classList.add('active', 'text-white', 'bg-blue-500', 'shadow-md');
+      target.classList.remove('text-blue-100');
 
-      loadPage(page);
+      loadPage(page, tab);
     });
   });
 }
@@ -226,7 +233,7 @@ function updatePageTitle(title, subtitle) {
 }
 
 // 페이지 로드
-async function loadPage(page) {
+async function loadPage(page, subPage = null) {
   currentPage = page;
   const content = document.getElementById('content');
 
@@ -245,11 +252,11 @@ async function loadPage(page) {
       break;
     case 'stock':
       updatePageTitle('재고 관리', '입고/출고 및 재고 조정');
-      await renderStockPage();
+      await loadStock(content, subPage || 'movements');
       break;
     case 'sales':
       updatePageTitle('판매 관리', '판매 및 주문 내역 관리');
-      await loadSales(content);
+      await loadSales(content, subPage || 'pos');
       break;
     case 'pricing-policy':
       updatePageTitle('가격 정책 관리', '등급별 및 고객별 특수 단가 현황');
@@ -257,7 +264,7 @@ async function loadPage(page) {
       break;
     case 'purchases':
       updatePageTitle('입고/발주 관리', '발주서 작성 및 입고 처리');
-      if (window.loadPurchasesPage) await window.loadPurchasesPage();
+      if (window.loadPurchasesPage) await window.loadPurchasesPage(subPage || 'purchases');
       else content.innerHTML = '<div class="text-center py-10">모듈 로딩 중...</div>';
       break;
     case 'customers':
@@ -266,7 +273,7 @@ async function loadPage(page) {
       break;
     case 'outbound':
       updatePageTitle('출고 관리', '출고 등록 및 이력 조회');
-      await window.renderOutboundPage();
+      await window.renderOutboundPage(subPage || 'reg');
       break;
     case 'settings':
       updatePageTitle('설정', '시스템 및 회사 정보 설정');
@@ -914,7 +921,257 @@ function changeCustomerPage(page) {
 window.changeCustomerPage = changeCustomerPage;
 
 // 재고 관리 로드
-async function loadStock(content) {
+// ==========================================
+// NEW STOCK MANAGEMENT (Tabbed)
+// ==========================================
+
+// 재고 관리 로드
+async function loadStock(content, initialTab = 'movements') {
+  content.innerHTML = `
+    <div class="flex flex-col h-full">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">
+          <i class="fas fa-cubes mr-2 text-teal-600"></i>재고 관리
+        </h1>
+        <div class="space-x-2">
+          <button onclick="openStockModal('in')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors">
+            <i class="fas fa-plus mr-2"></i>입고
+          </button>
+          <button onclick="openStockModal('out')" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors">
+            <i class="fas fa-minus mr-2"></i>출고
+          </button>
+          <button onclick="openStockModal('adjust')" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors">
+            <i class="fas fa-sync mr-2"></i>조정
+          </button>
+          <button onclick="openTransferModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors">
+            <i class="fas fa-exchange-alt mr-2"></i>이동
+          </button>
+        </div>
+      </div>
+
+      <!-- 탭 버튼 -->
+      <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
+        <button onclick="switchStockTab('movements')" id="tab-stock-movements" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center">
+           <i class="fas fa-list-ul mr-2"></i>재고 이동 내역
+        </button>
+        <button onclick="switchStockTab('levels')" id="tab-stock-levels" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors border-b-2 border-transparent flex items-center">
+           <i class="fas fa-boxes mr-2"></i>창고별 재고 현황
+        </button>
+      </div>
+
+      <!-- 탭 컨텐츠 영역 -->
+      <div id="stockTabContent" class="flex-1 overflow-hidden flex flex-col relative">
+        <!-- 동적 로드 -->
+      </div>
+    </div>
+  `;
+
+  // 모달 주입 (한 번만)
+  injectStockModal();
+  injectTransferModal();
+
+  switchStockTab(initialTab);
+}
+
+// 재고 탭 전환
+async function switchStockTab(tabName) {
+  const tabs = ['movements', 'levels'];
+  tabs.forEach(t => {
+    const btn = document.getElementById(`tab-stock-${t}`);
+    if (btn) {
+      if (t === tabName) {
+        btn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        btn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
+      } else {
+        btn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        btn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
+      }
+    }
+  });
+
+  const container = document.getElementById('stockTabContent');
+  // 로딩 표시
+  container.innerHTML = '<div class="flex items-center justify-center p-10 h-full"><i class="fas fa-spinner fa-spin text-3xl text-teal-500"></i></div>';
+
+  if (tabName === 'movements') {
+    await renderStockMovementsTab(container);
+  } else if (tabName === 'levels') {
+    await renderStockLevelsTab(container);
+  }
+}
+
+// 재고 이동 내역 탭 렌더링
+async function renderStockMovementsTab(container) {
+  try {
+    // 필요한 데이터 로드
+    const [movementsRes, productsRes, warehousesRes] = await Promise.all([
+      axios.get(`${API_BASE}/stock/movements`),
+      axios.get(`${API_BASE}/products`),
+      axios.get(`${API_BASE}/warehouses`)
+    ]);
+
+    const movements = movementsRes.data.data;
+    window.products = productsRes.data.data; // 모달 등에서 사용
+    const warehouses = warehousesRes.data.data;
+
+    container.innerHTML = `
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-slate-100">
+          <div class="flex flex-wrap gap-4 items-center">
+            <div class="flex items-center gap-2">
+              <input type="date" id="stockStartDate" class="border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+              <span class="text-slate-400">~</span>
+              <input type="date" id="stockEndDate" class="border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+            </div>
+            <select id="stockWarehouseFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white min-w-[120px]"
+                    onchange="filterStockMovements()">
+              <option value="">전체 창고</option>
+              ${warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
+            </select>
+            <select id="stockTypeFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white min-w-[120px]"
+                    onchange="filterStockMovements()">
+              <option value="">전체 구분</option>
+              <option value="입고">입고</option>
+              <option value="출고">출고</option>
+              <option value="조정">조정</option>
+            </select>
+            <button onclick="filterStockMovements()" class="bg-teal-600 text-white px-5 py-2.5 rounded-lg hover:bg-teal-700 font-medium transition-colors">
+              <i class="fas fa-search mr-2"></i>조회
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1">
+          <div class="overflow-x-auto h-full" id="stockListContainer">
+            ${generateStockMovementsTable(movements)}
+          </div>
+        </div>
+    `;
+  } catch (error) {
+    console.error('재고 이동 내역 로드 실패:', error);
+    showError(container, '재고 이동 내역을 불러오는데 실패했습니다.');
+  }
+}
+
+// 재고 이동 테이블 생성 헬퍼
+function generateStockMovementsTable(movements) {
+  return `
+    <table class="min-w-full divide-y divide-slate-200 sticky top-0">
+      <thead class="bg-slate-50 sticky top-0 z-10 shadow-sm">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">일시</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">창고</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">구분</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">상품명</th>
+          <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">수량</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">사유</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">처리자</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">비고</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-slate-200">
+        ${movements.length > 0 ? movements.map(m => `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+              ${formatDateTimeKST(m.created_at)}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+              ${m.warehouse_name || '-'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                ${m.movement_type === '입고' ? 'bg-emerald-100 text-emerald-700' :
+      m.movement_type === '출고' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}">
+                ${m.movement_type}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-slate-900">${m.product_name}</div>
+              <div class="text-xs text-slate-500 mb-0.5">${[m.category, m.category_medium, m.category_small].filter(Boolean).join(' > ')}</div>
+              <div class="text-xs text-slate-400 font-mono">${m.sku}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right">
+              <div class="text-sm font-bold ${m.movement_type === '입고' ? 'text-emerald-600' : 'text-amber-600'}">
+                ${m.movement_type === '입고' ? '+' : '-'}${m.quantity}
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+              ${m.reason || '-'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+              ${m.created_by_name || '-'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+              ${m.notes || '-'}
+            </td>
+          </tr>
+        `).join('') : `
+          <tr>
+            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
+              데이터가 없습니다.
+            </td>
+          </tr>
+        `}
+      </tbody>
+    </table>
+  `;
+}
+
+async function filterStockMovements() {
+  const startDate = document.getElementById('stockStartDate').value;
+  const endDate = document.getElementById('stockEndDate').value;
+  const movementType = document.getElementById('stockTypeFilter').value;
+  const warehouseId = document.getElementById('stockWarehouseFilter').value;
+  const container = document.getElementById('stockListContainer');
+
+  try {
+    const response = await axios.get(`${API_BASE}/stock/movements`, {
+      params: { startDate, endDate, movementType, warehouseId }
+    });
+    const movements = response.data.data;
+    container.innerHTML = generateStockMovementsTable(movements);
+  } catch (e) {
+    console.error(e);
+    alert('조회 실패');
+  }
+}
+
+// 창고별 재고 현황 탭 렌더링
+async function renderStockLevelsTab(container) {
+  try {
+    const [warehousesResponse, productsResponse] = await Promise.all([
+      axios.get(`${API_BASE}/warehouses`),
+      axios.get(`${API_BASE}/products`)
+    ]);
+    const warehouses = warehousesResponse.data.data;
+    window.products = productsResponse.data.data;
+
+    container.innerHTML = `
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6 border border-slate-100">
+          <div class="flex items-center gap-4">
+            <label class="font-semibold text-slate-700">창고 선택:</label>
+            <select id="levelWarehouseFilter" class="border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white min-w-[200px]" onchange="loadWarehouseStockLevels()">
+              <option value="">전체 창고</option>
+              ${warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1">
+          <div class="overflow-x-auto h-full" id="stockLevelsContainer">
+            <div class="text-center py-10 text-slate-500">창고를 선택하거나 전체 보기를 기다려주세요...</div>
+          </div>
+        </div>
+    `;
+
+    // 자동으로 전체 로드
+    loadWarehouseStockLevels();
+
+  } catch (error) {
+    console.error('창고 목록 로드 실패:', error);
+    showError(container, '창고 목록을 불러오는데 실패했습니다.');
+  }
+}
+
+async function loadStock_old(content) {
   try {
     // 재고 이동 내역 조회
     const response = await axios.get(`${API_BASE}/stock/movements`);
@@ -1090,7 +1347,7 @@ async function loadStock(content) {
   }
 }
 
-async function filterStockMovements() {
+async function filterStockMovements_old() {
   const startDate = document.getElementById('stockStartDate').value;
   const endDate = document.getElementById('stockEndDate').value;
   const movementType = document.getElementById('stockTypeFilter').value;
@@ -1169,7 +1426,7 @@ async function filterStockMovements() {
 }
 
 // 판매 관리 로드 (탭 구조)
-async function loadSales(content) {
+async function loadSales(content, initialTab = 'pos') {
   content.innerHTML = `
     <div class="flex flex-col h-full">
       <div class="flex justify-between items-center mb-6">
@@ -1199,7 +1456,7 @@ async function loadSales(content) {
   `;
 
   // 기본 탭 로드
-  switchSalesTab('pos');
+  switchSalesTab(initialTab);
 }
 
 // 탭 전환 함수

@@ -719,22 +719,90 @@ app.get('/', (c: Context) => {
                                                     영업 및 물류
                                                 </p>
                                                 <div class="space-y-1">
-                                                    <a href="#" data-page="sales" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                        <i class="fas fa-cash-register w-6 text-center text-lg mr-3"></i>
-                                                        <span class="font-medium">판매 관리</span>
-                                                    </a>
-                                                    <a href="#" data-page="outbound" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                        <i class="fas fa-truck-loading w-6 text-center text-lg mr-3"></i>
-                                                        <span class="font-medium">출고 관리</span>
-                                                    </a>
-                                                    <a href="#" data-page="purchases" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                        <i class="fas fa-shopping-cart w-6 text-center text-lg mr-3"></i>
-                                                        <span class="font-medium">입고/발주 관리</span>
-                                                    </a>
-                                                    <a href="#" data-page="stock" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
-                                                        <i class="fas fa-cubes w-6 text-center text-lg mr-3"></i>
-                                                        <span class="font-medium">재고 관리</span>
-                                                    </a>
+                                                    <div class="nav-item-group">
+                                                        <button onclick="toggleSubMenu(this, 'sales-submenu')" class="flex items-center justify-between w-full px-4 py-3 rounded-lg group hover:bg-white/5 transition-all text-slate-400 hover:text-white">
+                                                            <div class="flex items-center">
+                                                                <i class="fas fa-cash-register w-6 text-center text-lg mr-3"></i>
+                                                                <span class="font-medium">판매 관리</span>
+                                                            </div>
+                                                            <i class="fas fa-chevron-down text-[10px] submenu-arrow"></i>
+                                                        </button>
+                                                        <div id="sales-submenu" class="nav-submenu ml-4 space-y-1">
+                                                            <a href="#" data-page="sales" data-tab="pos" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                <i class="fas fa-calculator w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                <span>POS (판매등록)</span>
+                                                            </a>
+                                                            <a href="#" data-page="sales" data-tab="orders" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                <i class="fas fa-truck w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                <span>주문/배송 관리</span>
+                                                            </a>
+                                                            <a href="#" data-page="sales" data-tab="claims" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                <i class="fas fa-undo w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                <span>반품/교환 관리</span>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                    <div class="nav-item-group">
+                                                        <button onclick="toggleSubMenu(this, 'outbound-submenu')" class="flex items-center justify-between w-full px-4 py-3 rounded-lg group hover:bg-white/5 transition-all text-slate-400 hover:text-white">
+                                                            <div class="flex items-center">
+                                                                <i class="fas fa-truck-loading w-6 text-center text-lg mr-3"></i>
+                                                                <span class="font-medium">출고 관리</span>
+                                                            </div>
+                                                            <i class="fas fa-chevron-down text-[10px] submenu-arrow"></i>
+                                                        </button>
+                                                        <div id="outbound-submenu" class="nav-submenu ml-4 space-y-1">
+                                                            <a href="#" data-page="outbound" data-tab="reg" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                <i class="fas fa-edit w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                <span>간편 출고 등록</span>
+                                                            </a>
+                                                            <a href="#" data-page="outbound" data-tab="hist" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                <i class="fas fa-history w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                <span>출고 이력 조회</span>
+                                                            </a>
+                                                            <a href="#" data-page="outbound" data-tab="warehouse" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                <i class="fas fa-warehouse w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                <span>창고별 관리</span>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                    <div class="nav-item-group">
+                                                        <button onclick="toggleSubMenu(this, 'purchases-submenu')" class="flex items-center justify-between w-full px-4 py-3 rounded-lg group hover:bg-white/5 transition-all text-slate-400 hover:text-white">
+                                                            <div class="flex items-center">
+                                                                <i class="fas fa-shopping-cart w-6 text-center text-lg mr-3"></i>
+                                                                <span class="font-medium">입고/발주 관리</span>
+                                                            </div>
+                                                            <i class="fas fa-chevron-down text-[10px] submenu-arrow"></i>
+                                                        </button>
+                                                        <div id="purchases-submenu" class="nav-submenu ml-4 space-y-1">
+                                                            <a href="#" data-page="purchases" data-tab="purchases" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                <i class="fas fa-file-invoice-dollar w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                <span>발주 관리</span>
+                                                            </a>
+                                                            <a href="#" data-page="purchases" data-tab="suppliers" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                <i class="fas fa-users w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                <span>공급사 관리</span>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                    <div class="nav-item-group">
+                                                        <button onclick="toggleSubMenu(this, 'stock-submenu')" class="flex items-center justify-between w-full px-4 py-3 rounded-lg group hover:bg-white/5 transition-all text-slate-400 hover:text-white">
+                                                            <div class="flex items-center">
+                                                                <i class="fas fa-cubes w-6 text-center text-lg mr-3"></i>
+                                                                <span class="font-medium">재고 관리</span>
+                                                            </div>
+                                                            <i class="fas fa-chevron-down text-[10px] submenu-arrow"></i>
+                                                        </button>
+                                                        <div id="stock-submenu" class="nav-submenu ml-4 space-y-1">
+                                                            <a href="#" data-page="stock" data-tab="movements" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                <i class="fas fa-list-ul w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                <span>재고 이동 내역</span>
+                                                            </a>
+                                                            <a href="#" data-page="stock" data-tab="levels" class="nav-link flex items-center px-4 py-2 rounded-lg group text-sm" onclick="closeSidebarOnMobile()">
+                                                                <i class="fas fa-boxes w-5 text-center mr-3 text-xs opacity-70"></i>
+                                                                <span>창고별 재고 현황</span>
+                                                            </a>
+                                                        </div>
+                                                    </div>
                                                     <a href="#" data-page="transaction-statement" class="nav-link flex items-center px-4 py-3 rounded-lg group" onclick="closeSidebarOnMobile()">
                                                         <i class="fas fa-file-invoice w-6 text-center text-lg mr-3"></i>
                                                         <span class="font-medium">거래명세서 출력</span>
