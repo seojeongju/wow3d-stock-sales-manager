@@ -970,8 +970,12 @@ async function loadStock(content, initialTab = 'movements') {
   injectStockModal();
   injectTransferModal();
 
-  // DOM 렌더링 완료 후 탭 활성화
-  setTimeout(() => switchStockTab(initialTab), 0);
+  // DOM 렌더링 완료 후 탭 활성화 (브라우저 렌더링 후 실행)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      switchStockTab(initialTab);
+    });
+  });
 }
 
 // 재고 탭 전환
