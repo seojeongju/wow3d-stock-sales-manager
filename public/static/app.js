@@ -970,7 +970,8 @@ async function loadStock(content, initialTab = 'movements') {
   injectStockModal();
   injectTransferModal();
 
-  switchStockTab(initialTab);
+  // DOM 렌더링 완료 후 탭 활성화
+  setTimeout(() => switchStockTab(initialTab), 0);
 }
 
 // 재고 탭 전환
@@ -990,6 +991,11 @@ async function switchStockTab(tabName) {
   });
 
   const container = document.getElementById('stockTabContent');
+  if (!container) {
+    console.error('stockTabContent 컨테이너를 찾을 수 없습니다.');
+    return;
+  }
+
   // 로딩 표시
   container.innerHTML = '<div class="flex items-center justify-center p-10 h-full"><i class="fas fa-spinner fa-spin text-3xl text-teal-500"></i></div>';
 
