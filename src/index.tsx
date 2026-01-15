@@ -59,7 +59,7 @@ app.route('/api/qr', qrRouter)
 
 // 슈퍼 관리자 페이지
 app.get('/admin', (c: Context) => {
-    return c.html(\`<!DOCTYPE html>
+    return c.html(`<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -112,12 +112,12 @@ app.get('/admin', (c: Context) => {
         }
 
         // Axios 설정
-        axios.defaults.headers.common['Authorization'] = \\\`Bearer \\\${token}\\\`;
+        axios.defaults.headers.common['Authorization'] = \`Bearer \${token}\`;
 
         async function loadPendingTenants() {
             setActiveButton('btnPending');
             try {
-                const res = await axios.get(\\\`\\\${API_BASE}/super-admin/tenants?status=PENDING\\\`);
+                const res = await axios.get(\`\${API_BASE}/super-admin/tenants?status=PENDING\`);
                 renderTenants(res.data.data, true);
             } catch (err) {
                 console.error(err);
@@ -133,7 +133,7 @@ app.get('/admin', (c: Context) => {
         async function loadAllTenants() {
             setActiveButton('btnAll');
             try {
-                const res = await axios.get(\\\`\\\${API_BASE}/super-admin/tenants\\\`);
+                const res = await axios.get(\`\${API_BASE}/super-admin/tenants\`);
                 renderTenants(res.data.data, false);
             } catch (err) {
                  console.error(err);
@@ -164,36 +164,36 @@ app.get('/admin', (c: Context) => {
                 
                 let actionsHtml = '';
                 if (showActions && t.status === 'PENDING') {
-                    actionsHtml = \\\`
+                    actionsHtml = \`
                         <div class="flex items-center space-x-2">
-                            <button onclick="approveTenant(\\\${t.id})" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            <button onclick="approveTenant(\${t.id})" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                                 <i class="fas fa-check mr-1"></i> 승인
                             </button>
-                            <button onclick="rejectTenant(\\\${t.id})" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                            <button onclick="rejectTenant(\${t.id})" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
                                 <i class="fas fa-times mr-1"></i> 거절
                             </button>
                         </div>
-                    \\\`;
+                    \`;
                 } else {
-                     actionsHtml = \\\`<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium \\\${getStatusColor(t.status)}">\\\${t.status}</span>\\\`;
+                     actionsHtml = \`<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium \${getStatusColor(t.status)}">\${t.status}</span>\`;
                 }
 
-                li.innerHTML = \\\`
+                li.innerHTML = \`
                     <div class="px-4 py-4 sm:px-6 flex items-center justify-between">
                         <div class="flex flex-col">
-                            <p class="text-sm font-medium text-teal-600 truncate">\\\${t.name}</p>
+                            <p class="text-sm font-medium text-teal-600 truncate">\${t.name}</p>
                             <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
                                 <p class="flex items-center mr-4">
-                                    <i class="fas fa-cube flex-shrink-0 mr-1.5 text-gray-400"></i> \\\${t.plan_type}
+                                    <i class="fas fa-cube flex-shrink-0 mr-1.5 text-gray-400"></i> \${t.plan_type}
                                 </p>
                                 <p class="flex items-center">
-                                    <i class="fas fa-calendar flex-shrink-0 mr-1.5 text-gray-400"></i> \\\${new Date(t.created_at).toLocaleDateString()}
+                                    <i class="fas fa-calendar flex-shrink-0 mr-1.5 text-gray-400"></i> \${new Date(t.created_at).toLocaleDateString()}
                                 </p>
                             </div>
                         </div>
-                        \\\${actionsHtml}
+                        \${actionsHtml}
                     </div>
-                \\\`;
+                \`;
                 container.appendChild(li);
             });
         }
@@ -210,7 +210,7 @@ app.get('/admin', (c: Context) => {
         async function approveTenant(id) {
             if(!confirm('해당 테넌트를 승인하시겠습니까?')) return;
             try {
-                await axios.post(\\\`\\\${API_BASE}/super-admin/tenants/\\\${id}/approve\\\`);
+                await axios.post(\`\${API_BASE}/super-admin/tenants/\${id}/approve\`);
                 alert('승인되었습니다.');
                 loadPendingTenants();
             } catch (err) {
@@ -221,7 +221,7 @@ app.get('/admin', (c: Context) => {
         async function rejectTenant(id) {
              if(!confirm('해당 테넌트 승인을 거절하시겠습니까?')) return;
             try {
-                await axios.post(\\\`\\\${API_BASE}/super-admin/tenants/\\\${id}/reject\\\`);
+                await axios.post(\`\${API_BASE}/super-admin/tenants/\${id}/reject\`);
                 alert('거절되었습니다.');
                 loadPendingTenants();
             } catch (err) {
@@ -239,10 +239,10 @@ app.get('/admin', (c: Context) => {
         loadPendingTenants();
     </script>
 </body>
-</html>\`);
+</html>`);
 })
 app.get('/login', (c: Context) => {
-    return c.html(`< !DOCTYPE html >
+    return c.html(`<!DOCTYPE html>
     <html lang="ko">
 
         <head>
@@ -705,7 +705,7 @@ app.get('/login', (c: Context) => {
                             </script>
                         </body>
 
-                    </html>`)
+                    </html>`);
 })
 
 // 메인 페이지
@@ -1227,5 +1227,5 @@ app.get('/', (c: Context) => {
                                     `)
 })
 
-                                    export default app
+export default app
 
