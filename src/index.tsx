@@ -1020,7 +1020,7 @@ app.get('/', (c: Context) => {
                                 <script src="/static/js/utils.js?v=2"></script>
                                 <script src="/static/js/utils_address.js?v=1"></script>
                                 <script src="/static/js/auth.js?v=1"></script>
-                                <script src="/static/app.js?v=28"></script>
+                                <script src="/static/app.js?v=29"></script>
                                 <script src="/static/js/outbound.js?v=9"></script>
                                 <script src="/static/js/purchases.js?v=1"></script>
                                 <script src="/static/js/options.js?v=1"></script>

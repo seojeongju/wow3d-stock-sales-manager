@@ -4639,88 +4639,8 @@ async function switchSalesAnalysisTab(tab) {
   }
 }
 
-// --- 재고 관리 탭 및 함수 ---
-function switchStockTab(tab) {
-  const movementsBtn = document.getElementById('tab-stock-movements');
-  const levelsBtn = document.getElementById('tab-stock-levels');
-  const movementsContent = document.getElementById('stockMovementsContent');
-  const levelsContent = document.getElementById('stockLevelsContent');
 
-  if (tab === 'movements') {
-    movementsBtn.classList.add('text-teal-600', 'border-teal-600', 'font-bold');
-    movementsBtn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-    levelsBtn.classList.remove('text-teal-600', 'border-teal-600', 'font-bold');
-    levelsBtn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
 
-    movementsContent.classList.remove('hidden');
-    levelsContent.classList.add('hidden');
-  } else {
-    levelsBtn.classList.add('text-teal-600', 'border-teal-600', 'font-bold');
-    levelsBtn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
-    movementsBtn.classList.remove('text-teal-600', 'border-teal-600', 'font-bold');
-    movementsBtn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
-
-    movementsContent.classList.add('hidden');
-    levelsContent.classList.remove('hidden');
-
-    // 재고 현황 로드 (처음 한 번만 로드하거나 매번 로드)
-    loadWarehouseStockLevels();
-  }
-}
-
-async function loadWarehouseStockLevels() {
-  const warehouseId = document.getElementById('levelWarehouseFilter').value;
-  const container = document.getElementById('stockLevelsContainer');
-
-  container.innerHTML = '<div class="flex justify-center py-10"><i class="fas fa-spinner fa-spin text-indigo-500 text-2xl"></i></div>';
-
-  try {
-    const res = await axios.get(`${API_BASE}/stock/warehouse-stocks`, {
-      params: { warehouseId }
-    });
-    const stocks = res.data.data;
-
-    container.innerHTML = `
-      <table class="min-w-full divide-y divide-slate-200">
-        <thead class="bg-slate-50">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">창고명</th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">상품명</th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">SKU</th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">카테고리</th>
-            <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">재고 수량</th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">최근 업데이트</th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-slate-200">
-          ${stocks.length > 0 ? stocks.map(s => `
-            <tr class="hover:bg-slate-50 transition-colors">
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${s.warehouse_name}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-800">${s.product_name}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">${s.sku}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${s.category || '-'}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-right">
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-teal-100 text-teal-700">
-                  ${s.quantity}개
-                </span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${formatDateTimeKST(s.updated_at)}</td>
-            </tr>
-          `).join('') : `
-            <tr>
-              <td colspan="6" class="px-6 py-10 text-center text-slate-500">
-                해당 창고에 재고가 없습니다.
-              </td>
-            </tr>
-          `}
-        </tbody>
-      </table>
-    `;
-  } catch (e) {
-    console.error(e);
-    container.innerHTML = '<div class="text-center py-10 text-rose-500">데이터 로드 실패</div>';
-  }
-}
 
 async function loadDashboardLowStock(page) {
   try {
