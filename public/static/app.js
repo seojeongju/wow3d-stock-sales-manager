@@ -970,6 +970,24 @@ async function loadStock(content, initialTab = 'movements') {
   injectStockModal();
   injectTransferModal();
 
+  // 탭 버튼 이벤트 리스너 추가
+  const movementsTabBtn = document.getElementById('tab-stock-movements');
+  const levelsTabBtn = document.getElementById('tab-stock-levels');
+
+  if (movementsTabBtn) {
+    movementsTabBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchStockTab('movements');
+    });
+  }
+
+  if (levelsTabBtn) {
+    levelsTabBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchStockTab('levels');
+    });
+  }
+
   // 직접 초기 탭 렌더링 (switchStockTab 호출하지 않음)
   const container = document.getElementById('stockTabContent');
   if (container) {
