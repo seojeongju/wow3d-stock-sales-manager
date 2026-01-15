@@ -4,15 +4,24 @@ import { Bindings, Variables } from '../types'
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // 모든 테넌트 조회
+// 모든 테넌트 조회 (상태 필터링 가능)
 app.get('/tenants', async (c) => {
+    const status = c.req.query('status')
     try {
-        const { results } = await c.env.DB.prepare(
-            `SELECT t.*, 
+        let query = `SELECT t.*, 
             (SELECT COUNT(*) FROM users u WHERE u.tenant_id = t.id) as user_count,
             (SELECT COUNT(*) FROM products p WHERE p.tenant_id = t.id) as product_count
-            FROM tenants t 
-            ORDER BY t.created_at DESC`
-        ).all()
+            FROM tenants t`
+
+        const params: any[] = []
+        if (status) {
+            query += ` WHERE t.status = ?`
+            params.push(status)
+        }
+
+        query += ` ORDER BY t.created_at DESC`
+
+        const { results } = await c.env.DB.prepare(query).bind(...params).all()
         return c.json({ success: true, data: results })
     } catch (e) {
         return c.json({ success: false, error: (e as Error).message }, 500)
@@ -56,6 +65,28 @@ app.put('/tenants/:id', async (c) => {
             `UPDATE tenants SET name = ?, plan_type = ?, status = ? WHERE id = ?`
         ).bind(name, plan_type, status, id).run()
         return c.json({ success: true })
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500)
+    }
+})
+
+// 테넌트 승인
+app.post('/tenants/:id/approve', async (c) => {
+    const id = c.req.param('id')
+    try {
+        await c.env.DB.prepare("UPDATE tenants SET status = 'ACTIVE' WHERE id = ?").bind(id).run()
+        return c.json({ success: true, message: '테넌트가 승인되었습니다.' })
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500)
+    }
+})
+
+// 테넌트 거절
+app.post('/tenants/:id/reject', async (c) => {
+    const id = c.req.param('id')
+    try {
+        await c.env.DB.prepare("UPDATE tenants SET status = 'REJECTED' WHERE id = ?").bind(id).run()
+        return c.json({ success: true, message: '테넌트 승인이 거절되었습니다.' })
     } catch (e) {
         return c.json({ success: false, error: (e as Error).message }, 500)
     }
