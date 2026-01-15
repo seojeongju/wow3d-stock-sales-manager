@@ -842,6 +842,45 @@ app.get('/warehouse-stocks', async (c) => {
   })
 })
 
+// 창고별 재고 현황 (레벨) 조회 - 안전재고 정보 포함
+app.get('/levels', async (c) => {
+  const { DB } = c.env
+  const tenantId = c.get('tenantId')
+  const warehouseId = c.req.query('warehouseId')
+
+  let query = `
+    SELECT 
+      pws.*,
+      p.name as product_name,
+      p.sku,
+      p.category,
+      p.category_medium,
+      p.category_small,
+      p.min_stock_alert as safety_stock,
+      w.name as warehouse_name
+    FROM product_warehouse_stocks pws
+    JOIN products p ON pws.product_id = p.id
+    JOIN warehouses w ON pws.warehouse_id = w.id
+    WHERE pws.tenant_id = ? AND p.is_active = 1
+  `
+  const params: any[] = [tenantId]
+
+  if (warehouseId) {
+    query += ' AND pws.warehouse_id = ?'
+    params.push(warehouseId)
+  }
+
+  query += ' ORDER BY w.name ASC, p.name ASC'
+
+  const { results } = await DB.prepare(query).bind(...params).all()
+
+  return c.json({
+    success: true,
+    data: results
+  })
+})
+
+
 // 창고 재고 항목 삭제
 app.delete('/warehouse-stocks/:id', async (c) => {
   const { DB } = c.env
