@@ -33,10 +33,13 @@ app.post('/register', async (c) => {
     }
 
     try {
+        // 플랜에 따른 초기 상태 설정 (FREE는 즉시 승인)
+        const initialStatus = selectedPlan === 'FREE' ? 'ACTIVE' : 'PENDING';
+
         // 1. 테넌트 생성
         const tenantResult = await DB.prepare(`
-      INSERT INTO tenants (name, plan_type, status) VALUES (?, ?, 'PENDING')
-    `).bind(body.company_name, selectedPlan).run()
+      INSERT INTO tenants (name, plan_type, status) VALUES (?, ?, ?)
+    `).bind(body.company_name, selectedPlan, initialStatus).run()
 
         const tenantId = tenantResult.meta.last_row_id
 
@@ -49,11 +52,45 @@ app.post('/register', async (c) => {
 
         const userId = userResult.meta.last_row_id
 
-        // 3. 승인 대기 메시지 반환 (토큰 발급 생략)
-        return c.json({
-            success: true,
-            message: '회원가입이 완료되었습니다. 관리자 승인 후 이용 가능합니다.'
-        })
+        // 3. 무료 플랜(ACTIVE)인 경우 즉시 토큰 발급 및 로그인
+        if (initialStatus === 'ACTIVE') {
+            const secret = JWT_SECRET || 'dev-secret-key-1234'
+
+            const accessToken = await sign({
+                sub: userId,
+                tenantId: tenantId,
+                role: 'OWNER',
+                type: 'access',
+                exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1시간
+            }, secret)
+
+            const refreshToken = await sign({
+                sub: userId,
+                tenantId: tenantId,
+                role: 'OWNER',
+                type: 'refresh',
+                exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7일
+            }, secret)
+
+            return c.json({
+                success: true,
+                data: {
+                    token: accessToken,
+                    refreshToken: refreshToken,
+                    user: { id: userId, email: body.email, name: body.name, role: 'OWNER', tenant_id: tenantId },
+                    tenant: {
+                        name: body.company_name,
+                        plan: selectedPlan
+                    }
+                }
+            })
+        } else {
+            // 유료 플랜인 경우 승인 대기 메시지 반환
+            return c.json({
+                success: true,
+                message: '회원가입이 완료되었습니다. 유료 플랜은 관리자 승인 후 이용 가능합니다.'
+            })
+        }
 
     } catch (e) {
         console.error(e)
