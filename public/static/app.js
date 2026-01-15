@@ -951,10 +951,10 @@ async function loadStock(content, initialTab = 'movements') {
 
       <!-- 탭 버튼 -->
       <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
-        <button onclick="switchStockTab('movements')" id="tab-stock-movements" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center">
+        <button id="tab-stock-movements" class="px-6 py-4 font-bold text-teal-600 border-b-2 border-teal-600 transition-colors flex items-center">
            <i class="fas fa-list-ul mr-2"></i>재고 이동 내역
         </button>
-        <button onclick="switchStockTab('levels')" id="tab-stock-levels" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors border-b-2 border-transparent flex items-center">
+        <button id="tab-stock-levels" class="px-6 py-4 font-medium text-slate-500 hover:text-slate-700 transition-colors border-b-2 border-transparent flex items-center">
            <i class="fas fa-boxes mr-2"></i>창고별 재고 현황
         </button>
       </div>
@@ -1027,16 +1027,17 @@ async function loadStock(content, initialTab = 'movements') {
 
 // 재고 탭 전환
 async function switchStockTab(tabName) {
+  console.log('Switching stock tab to:', tabName);
   const tabs = ['movements', 'levels'];
   tabs.forEach(t => {
     const btn = document.getElementById(`tab-stock-${t}`);
     if (btn) {
       if (t === tabName) {
-        btn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
-        btn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
+        btn?.classList?.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        btn?.classList?.remove('text-slate-500', 'font-medium', 'border-transparent');
       } else {
-        btn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
-        btn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
+        btn?.classList?.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        btn?.classList?.add('text-slate-500', 'font-medium', 'border-transparent');
       }
     }
   });
@@ -1046,6 +1047,7 @@ async function switchStockTab(tabName) {
     console.error('stockTabContent 컨테이너를 찾을 수 없습니다.');
     return;
   }
+
 
   // 로딩 표시
   container.innerHTML = '<div class="flex items-center justify-center p-10 h-full"><i class="fas fa-spinner fa-spin text-3xl text-teal-500"></i></div>';
