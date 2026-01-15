@@ -970,12 +970,38 @@ async function loadStock(content, initialTab = 'movements') {
   injectStockModal();
   injectTransferModal();
 
-  // DOM 렌더링 완료 후 탭 활성화 (브라우저 렌더링 후 실행)
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      switchStockTab(initialTab);
-    });
-  });
+  // 직접 초기 탭 렌더링 (switchStockTab 호출하지 않음)
+  const container = document.getElementById('stockTabContent');
+  if (container) {
+    // 로딩 표시
+    container.innerHTML = '<div class="flex items-center justify-center p-10 h-full"><i class="fas fa-spinner fa-spin text-3xl text-teal-500"></i></div>';
+
+    // 탭 버튼 상태 업데이트
+    const movementsBtn = document.getElementById('tab-stock-movements');
+    const levelsBtn = document.getElementById('tab-stock-levels');
+
+    if (initialTab === 'movements') {
+      if (movementsBtn) {
+        movementsBtn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        movementsBtn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
+      }
+      if (levelsBtn) {
+        levelsBtn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        levelsBtn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
+      }
+      await renderStockMovementsTab(container);
+    } else {
+      if (levelsBtn) {
+        levelsBtn.classList.add('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        levelsBtn.classList.remove('text-slate-500', 'font-medium', 'border-transparent');
+      }
+      if (movementsBtn) {
+        movementsBtn.classList.remove('text-teal-600', 'border-b-2', 'border-teal-600', 'font-bold');
+        movementsBtn.classList.add('text-slate-500', 'font-medium', 'border-transparent');
+      }
+      await renderStockLevelsTab(container);
+    }
+  }
 }
 
 // 재고 탭 전환
