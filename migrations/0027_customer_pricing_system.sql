@@ -1,7 +1,7 @@
 -- 고객 등급 및 커스텀 가격 정책 시스템
 
 -- 1. 고객 테이블에 등급 컬럼 추가
-ALTER TABLE customers ADD COLUMN grade TEXT DEFAULT '일반';
+-- ALTER TABLE customers ADD COLUMN grade TEXT DEFAULT '일반';
 
 -- 2. 등급별 상품 가격 테이블
 CREATE TABLE IF NOT EXISTS product_grade_prices (

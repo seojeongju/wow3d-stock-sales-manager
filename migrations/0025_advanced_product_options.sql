@@ -20,9 +20,9 @@ CREATE TABLE IF NOT EXISTS product_option_values (
 );
 
 -- 기존 상품 테이블 확장
-ALTER TABLE products ADD COLUMN parent_id INTEGER;
-ALTER TABLE products ADD COLUMN product_type TEXT DEFAULT 'simple'; -- simple, master, variant
-ALTER TABLE products ADD COLUMN has_options BOOLEAN DEFAULT 0;
+-- ALTER TABLE products ADD COLUMN parent_id INTEGER;
+-- ALTER TABLE products ADD COLUMN product_type TEXT DEFAULT 'simple'; -- simple, master, variant
+-- ALTER TABLE products ADD COLUMN has_options BOOLEAN DEFAULT 0;
 
 -- 상품 변체와 옵션 값 매핑
 CREATE TABLE IF NOT EXISTS product_variant_options (
