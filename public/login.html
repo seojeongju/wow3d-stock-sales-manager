@@ -86,6 +86,17 @@
                             </div>
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">전화번호</label>
+                            <div class="relative">
+                                <i class="fas fa-phone absolute left-3 top-3 text-slate-400"></i>
+                                <input type="tel" id="regPhone" required
+                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                    placeholder="010-1234-5678">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">요금제 선택</label>
                             <div class="relative">
                                 <i class="fas fa-rocket absolute left-3 top-3 text-slate-400"></i>
@@ -291,12 +302,13 @@
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPassword').value;
             const name = document.getElementById('regName').value;
+            const phone = document.getElementById('regPhone').value;
             const company_name = document.getElementById('regCompany').value;
             const plan = document.getElementById('regPlan').value;
 
             try {
                 const res = await axios.post(`${API_BASE}/auth/register`, {
-                    email, password, name, company_name, plan
+                    email, password, name, phone, company_name, plan
                 });
                 if (res.data.success) {
                     alert('회원가입이 완료되었습니다. 자동 로그인됩니다.');
