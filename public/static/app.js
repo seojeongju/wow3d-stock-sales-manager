@@ -1207,6 +1207,82 @@ async function renderStockLevelsTab(container) {
   }
 }
 
+// 창고별 재고 현황 로드
+async function loadWarehouseStockLevels() {
+  const warehouseId = document.getElementById('levelWarehouseFilter')?.value || '';
+  const container = document.getElementById('stockLevelsContainer');
+
+  if (!container) return;
+
+  try {
+    // 로딩 표시
+    container.innerHTML = '<div class="flex items-center justify-center py-10"><i class="fas fa-spinner fa-spin text-2xl text-teal-500"></i></div>';
+
+    // 재고 현황 조회
+    const response = await axios.get(`${API_BASE}/stock/levels`, {
+      params: warehouseId ? { warehouseId } : {}
+    });
+    const levels = response.data.data || [];
+
+    if (levels.length === 0) {
+      container.innerHTML = '<div class="text-center py-10 text-slate-500">재고 데이터가 없습니다.</div>';
+      return;
+    }
+
+    // 재고 현황 테이블 렌더링
+    container.innerHTML = `
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50 sticky top-0 z-10">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">창고</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">상품명</th>
+            <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">현재고</th>
+            <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">안전재고</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">상태</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-slate-200">
+          ${levels.map(level => {
+      const stockStatus = level.quantity <= (level.safety_stock || 0) ? 'warning' : 'normal';
+      const statusText = level.quantity <= (level.safety_stock || 0) ? '부족' : '정상';
+      const statusColor = stockStatus === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+
+      return `
+              <tr class="hover:bg-slate-50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                  ${level.warehouse_name || '-'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-slate-900">${level.product_name}</div>
+                  <div class="text-xs text-slate-500 mb-0.5">${[level.category, level.category_medium, level.category_small].filter(Boolean).join(' > ')}</div>
+                  <div class="text-xs text-slate-400 font-mono">${level.sku}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right">
+                  <div class="text-sm font-bold ${stockStatus === 'warning' ? 'text-amber-600' : 'text-slate-900'}">
+                    ${level.quantity || 0}
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-600">
+                  ${level.safety_stock || 0}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center">
+                  <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">
+                    ${statusText}
+                  </span>
+                </td>
+              </tr>
+            `;
+    }).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (error) {
+    console.error('재고 현황 로드 실패:', error);
+    container.innerHTML = '<div class="text-center py-10 text-red-500">재고 현황을 불러오는데 실패했습니다.</div>';
+  }
+}
+window.loadWarehouseStockLevels = loadWarehouseStockLevels;
+
 async function loadStock_old(content) {
   try {
     // 재고 이동 내역 조회
