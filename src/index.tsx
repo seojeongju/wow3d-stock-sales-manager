@@ -966,17 +966,25 @@ app.get('/', (c: Context) => {
                                         }
                                     }
 
-                                    // 서브메뉴 토글 함수
+                                    // 서브메뉴 토글 및 자동 페이지 이동 함수
                                     function toggleSubMenu(button, menuId) {
                                         const menu = document.getElementById(menuId);
                                         const arrow = button?.querySelector('.submenu-arrow');
                                         
                                         if (menu && menu.classList.contains('open')) {
+                                            // 서브메뉴 닫기
                                             menu.classList.remove('open');
                                             if (arrow) arrow.style.transform = 'rotate(0deg)';
                                         } else if (menu) {
+                                            // 서브메뉴 열기
                                             menu.classList.add('open');
                                             if (arrow) arrow.style.transform = 'rotate(180deg)';
+                                            
+                                            // 첫 번째 서브메뉴 항목으로 자동 이동
+                                            const firstLink = menu.querySelector('a[data-page]');
+                                            if (firstLink) {
+                                                firstLink.click();
+                                            }
                                         }
                                     }
 
