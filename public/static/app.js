@@ -7001,7 +7001,7 @@ function changeTenantPage(page) {
   if (!window.tenantsPagination) window.tenantsPagination = { currentPage: 1, itemsPerPage: 10 };
 
   window.tenantsPagination.currentPage = page;
-  const container = document.getElementById('superAdminTenants');
+  const container = document.getElementById('superAdminContent');
   if (container) renderAllTenants(container);
 }
 
@@ -7010,13 +7010,11 @@ function changeUserPage(page) {
   if (!window.usersPagination) window.usersPagination = { currentPage: 1, itemsPerPage: 10 };
 
   window.usersPagination.currentPage = page;
-  const container = document.getElementById('superAdminUsers');
+  const container = document.getElementById('superAdminContent');
   if (container) renderAllUsers(container);
 }
 
 window.changeTenantPage = changeTenantPage;
-window.changeUserPage = changeUserPage;
-
 
 
 
