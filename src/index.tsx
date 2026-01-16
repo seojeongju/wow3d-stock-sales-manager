@@ -787,7 +787,7 @@ app.get('/', (c: Context) => {
 
                                                 /* Submenu Styles */
                                                 .nav-submenu {
-                                                    max - height: 0;
+                                                    max-height: 0;
                                                 overflow: hidden;
                                                 transition: all 0.3s ease-in-out;
                                                 background: rgba(0, 0, 0, 0.15);
@@ -796,7 +796,7 @@ app.get('/', (c: Context) => {
                                     }
 
                                                 .nav-submenu.open {
-                                                    max - height: 500px;
+                                                    max-height: 500px;
                                                 margin-top: 0.25rem;
                                                 margin-bottom: 0.5rem;
                                                 padding: 0.25rem 0;
@@ -1171,12 +1171,6 @@ app.get('/', (c: Context) => {
                                                     // 서브메뉴 열기
                                                     menu.classList.add('open');
                                                 if (arrow) arrow.style.transform = 'rotate(180deg)';
-
-                                                // 첫 번째 서브메뉴 항목으로 자동 이동
-                                                const firstLink = menu.querySelector('a[data-page]');
-                                                if (firstLink) {
-                                                    firstLink.click();
-                                            }
                                         }
                                     }
 
