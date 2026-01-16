@@ -25,6 +25,7 @@ import diagnosticRouter from './routes/diagnostic'
 import productOptionsRouter from './routes/product-options'
 import pricesRouter from './routes/prices'
 import qrRouter from './routes/qr'
+import dashboardKpiRouter from './routes/dashboard-kpi'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -56,6 +57,7 @@ app.route('/api/tracking', trackingRouter)
 app.route('/api/diagnostic', diagnosticRouter)
 app.route('/api/prices', pricesRouter)
 app.route('/api/qr', qrRouter)
+app.route('/api/dashboard-kpi', dashboardKpiRouter)
 
 // 슈퍼 관리자 페이지
 app.get('/admin', (c: Context) => {
