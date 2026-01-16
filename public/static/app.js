@@ -6290,9 +6290,23 @@ async function renderAllTenants(container) {
   const res = await axios.get(`${API_BASE}/super-admin/tenants`);
   const tenants = res.data.data;
 
+  // 페이지네이션 상태 초기화
+  if (!window.tenantsPagination) {
+    window.tenantsPagination = { currentPage: 1, itemsPerPage: 10 };
+  }
+
+  const { currentPage, itemsPerPage } = window.tenantsPagination;
+  const totalPages = Math.ceil(tenants.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTenants = tenants.slice(startIndex, endIndex);
+
   container.innerHTML = `
-        <div class="mb-4 flex justify-between">
-            <h3 class="font-bold text-lg">등록된 조직 목록</h3>
+        <div class="mb-4 flex justify-between items-center">
+            <div>
+                <h3 class="font-bold text-lg">등록된 조직 목록</h3>
+                <p class="text-sm text-slate-500 mt-1">전체 ${tenants.length}개 조직 중 ${startIndex + 1}-${Math.min(endIndex, tenants.length)}번째 표시</p>
+            </div>
             <button onclick="openCreateTenantModal()" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700">
                 <i class="fas fa-plus mr-2"></i>조직 생성
             </button>
@@ -6312,7 +6326,7 @@ async function renderAllTenants(container) {
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200">
-                    ${tenants.map(t => `
+                    ${paginatedTenants.map(t => `
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">#${t.id}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${t.name}</td>
@@ -6343,6 +6357,37 @@ async function renderAllTenants(container) {
                     `).join('')}
                 </tbody>
             </table>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        <div class="mt-4 flex items-center justify-between">
+            <div class="text-sm text-slate-500">
+                총 ${tenants.length}개 조직 / Page ${currentPage} of ${totalPages}
+            </div>
+            <div class="flex gap-2">
+                <button 
+                    onclick="changeTenantPage(${currentPage - 1})" 
+                    ${currentPage === 1 ? 'disabled' : ''}
+                    class="px-3 py-1 rounded border ${currentPage === 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-300'}"
+                >
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                ${Array.from({ length: totalPages }, (_, i) => i + 1).map(page =>
+    `<button 
+                        onclick="changeTenantPage(${page})" 
+                        class="px-3 py-1 rounded ${page === currentPage ? 'bg-teal-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-300'}"
+                    >
+                        ${page}
+                    </button>`
+  ).join('')}
+                <button 
+                    onclick="changeTenantPage(${currentPage + 1})" 
+                    ${currentPage === totalPages ? 'disabled' : ''}
+                    class="px-3 py-1 rounded border ${currentPage === totalPages ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-300'}"
+                >
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
         </div>
         
         <!-- 수정 모달 (동적 생성됨) -->
@@ -6430,9 +6475,21 @@ async function renderAllUsers(container) {
   const res = await axios.get(`${API_BASE}/super-admin/users`);
   const users = res.data.data;
 
+  // 페이지네이션 상태 초기화
+  if (!window.usersPagination) {
+    window.usersPagination = { currentPage: 1, itemsPerPage: 10 };
+  }
+
+  const { currentPage, itemsPerPage } = window.usersPagination;
+  const totalPages = Math.ceil(users.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedUsers = users.slice(startIndex, endIndex);
+
   container.innerHTML = `
         <div class="mb-4">
             <h3 class="font-bold text-lg">전체 사용자 목록</h3>
+            <p class="text-sm text-slate-500 mt-1">전체 ${users.length}명 중 ${startIndex + 1}-${Math.min(endIndex, users.length)}번째 표시</p>
         </div>
         <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
             <table class="min-w-full divide-y divide-slate-200">
@@ -6447,7 +6504,7 @@ async function renderAllUsers(container) {
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200">
-                    ${users.map(u => `
+                    ${paginatedUsers.map(u => `
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${u.name}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${u.email}</td>
@@ -6462,6 +6519,37 @@ async function renderAllUsers(container) {
                     `).join('')}
                 </tbody>
             </table>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        <div class="mt-4 flex items-center justify-between">
+            <div class="text-sm text-slate-500">
+                총 ${users.length}명 / Page ${currentPage} of ${totalPages}
+            </div>
+            <div class="flex gap-2">
+                <button 
+                    onclick="changeUserPage(${currentPage - 1})" 
+                    ${currentPage === 1 ? 'disabled' : ''}
+                    class="px-3 py-1 rounded border ${currentPage === 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-300'}"
+                >
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                ${Array.from({ length: totalPages }, (_, i) => i + 1).map(page =>
+    `<button 
+                        onclick="changeUserPage(${page})" 
+                        class="px-3 py-1 rounded ${page === currentPage ? 'bg-teal-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-300'}"
+                    >
+                        ${page}
+                    </button>`
+  ).join('')}
+                <button 
+                    onclick="changeUserPage(${currentPage + 1})" 
+                    ${currentPage === totalPages ? 'disabled' : ''}
+                    class="px-3 py-1 rounded border ${currentPage === totalPages ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-300'}"
+                >
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
         </div>
     `;
 }
@@ -6907,6 +6995,27 @@ async function renderSettingsPage(content) {
 
 window.renderSettingsPage = renderSettingsPage;
 // Note: Suber Admin functions are assigned to window earlier in the file (around line 5750)
+
+// 조직 목록 페이지 변경
+function changeTenantPage(page) {
+  if (!window.tenantsPagination) window.tenantsPagination = { currentPage: 1, itemsPerPage: 10 };
+
+  window.tenantsPagination.currentPage = page;
+  const container = document.getElementById('superAdminTenants');
+  if (container) renderAllTenants(container);
+}
+
+// 사용자 목록 페이지 변경
+function changeUserPage(page) {
+  if (!window.usersPagination) window.usersPagination = { currentPage: 1, itemsPerPage: 10 };
+
+  window.usersPagination.currentPage = page;
+  const container = document.getElementById('superAdminUsers');
+  if (container) renderAllUsers(container);
+}
+
+window.changeTenantPage = changeTenantPage;
+window.changeUserPage = changeUserPage;
 
 
 
