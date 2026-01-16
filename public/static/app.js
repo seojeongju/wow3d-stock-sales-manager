@@ -338,7 +338,7 @@ async function loadDashboard(content) {
     });
 
     // 병렬 데이터 로드
-    const [summaryRes, salesChartRes, categoryStatsRes, lowStockRes, productsRes, salesRes, inventoryRes, actionRes, profitRes] = await Promise.all([
+    const [summaryRes, salesChartRes, categoryStatsRes, lowStockRes, productsRes, salesRes, inventoryRes, actionRes, profitRes, kpiRes] = await Promise.all([
       fetchWithFallback(`${API_BASE}/dashboard/summary`, {}),
       fetchWithFallback(`${API_BASE}/dashboard/sales-chart?days=30`, []),
       fetchWithFallback(`${API_BASE}/dashboard/category-stats`, []),
@@ -347,7 +347,8 @@ async function loadDashboard(content) {
       fetchWithFallback(`${API_BASE}/sales?limit=5&offset=0`, []),
       fetchWithFallback(`${API_BASE}/dashboard/inventory-health?days=30`, []),
       fetchWithFallback(`${API_BASE}/dashboard/action-items`, { pending_shipment: 0, shipping: 0, claims: 0, low_stock: 0 }),
-      fetchWithFallback(`${API_BASE}/dashboard/profit-chart?days=30`, [])
+      fetchWithFallback(`${API_BASE}/dashboard/profit-chart?days=30`, []),
+      fetchWithFallback(`${API_BASE}/dashboard-kpi/kpi-comparison`, {})
     ]);
 
     const data = summaryRes.data.data || {};
@@ -359,8 +360,117 @@ async function loadDashboard(content) {
     const deadStocks = inventoryRes.data.data || [];
     const actionItems = actionRes.data.data || { pending_shipment: 0, shipping: 0, claims: 0, low_stock: 0 };
     const profitData = profitRes.data.data || [];
+    const kpiData = kpiRes.data.data || {};
+
 
     content.innerHTML = `
+      <!-- KPI 대시보드 (오늘 vs 어제 비교) -->
+      <div class="mb-6">
+        <div class="mb-4 flex items-center gap-2">
+          <h2 class="text-xl font-bold text-slate-800">핵심 성과 지표</h2>
+          <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">KPI Dashboard</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          <!-- 오늘 매출 -->
+          <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-sm border border-blue-200 p-5">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-blue-700 text-xs font-semibold uppercase tracking-wide">오늘 매출</p>
+              <div class="w-8 h-8 bg-blue-200 rounded-lg flex items-center justify-center">
+                <i class="fas fa-won-sign text-blue-600 text-sm"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-bold text-blue-900 mb-1">${formatCurrency(kpiData.today_revenue || 0)}</p>
+            <div class="flex items-center gap-1 text-xs">
+              <span class="text-blue-600">vs 어제</span>
+              ${kpiData.revenue_change >= 0
+        ? `<span class="text-emerald-600 font-bold flex items-center gap-1">
+                    <i class="fas fa-arrow-up text-[10px]"></i>
+                    ${Math.abs(kpiData.revenue_change || 0).toFixed(1)}%
+                   </span>`
+        : `<span class="text-rose-600 font-bold flex items-center gap-1">
+                    <i class="fas fa-arrow-down text-[10px]"></i>
+                    ${Math.abs(kpiData.revenue_change || 0).toFixed(1)}%
+                   </span>`
+      }
+            </div>
+          </div>
+
+          <!-- 주문 건수 -->
+          <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl shadow-sm border border-emerald-200 p-5">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-emerald-700 text-xs font-semibold uppercase tracking-wide">주문 건수</p>
+              <div class="w-8 h-8 bg-emerald-200 rounded-lg flex items-center justify-center">
+                <i class="fas fa-shopping-bag text-emerald-600 text-sm"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-bold text-emerald-900 mb-1">${kpiData.today_order_count || 0}건</p>
+            <div class="flex items-center gap-1 text-xs">
+              <span class="text-emerald-600">vs 어제</span>
+              ${kpiData.order_count_change >= 0
+        ? `<span class="text-emerald-600 font-bold flex items-center gap-1">
+                    <i class="fas fa-arrow-up text-[10px]"></i>
+                    ${Math.abs(kpiData.order_count_change || 0).toFixed(1)}%
+                   </span>`
+        : `<span class="text-rose-600 font-bold flex items-center gap-1">
+                    <i class="fas fa-arrow-down text-[10px]"></i>
+                    ${Math.abs(kpiData.order_count_change || 0).toFixed(1)}%
+                   </span>`
+      }
+            </div>
+          </div>
+
+          <!-- 평균 주문액 -->
+          <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-sm border border-purple-200 p-5">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-purple-700 text-xs font-semibold uppercase tracking-wide">평균 주문액</p>
+              <div class="w-8 h-8 bg-purple-200 rounded-lg flex items-center justify-center">
+                <i class="fas fa-chart-line text-purple-600 text-sm"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-bold text-purple-900 mb-1">${formatCurrency(kpiData.today_avg_order || 0)}</p>
+            <div class="flex items-center gap-1 text-xs">
+              <span class="text-purple-600">vs 어제</span>
+              ${kpiData.avg_order_change >= 0
+        ? `<span class="text-emerald-600 font-bold flex items-center gap-1">
+                    <i class="fas fa-arrow-up text-[10px]"></i>
+                    ${Math.abs(kpiData.avg_order_change || 0).toFixed(1)}%
+                   </span>`
+        : `<span class="text-rose-600 font-bold flex items-center gap-1">
+                    <i class="fas fa-arrow-down text-[10px]"></i>
+                    ${Math.abs(kpiData.avg_order_change || 0).toFixed(1)}%
+                   </span>`
+      }
+            </div>
+          </div>
+
+          <!-- 재고 회전율 -->
+          <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl shadow-sm border border-amber-200 p-5">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-amber-700 text-xs font-semibold uppercase tracking-wide">재고 회전율</p>
+              <div class="w-8 h-8 bg-amber-200 rounded-lg flex items-center justify-center">
+                <i class="fas fa-sync text-amber-600 text-sm"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-bold text-amber-900 mb-1">${kpiData.turnover_days || 0}일</p>
+            <p class="text-xs text-amber-600">평균 재고 소진 일수</p>
+          </div>
+
+          <!-- 매출 목표 달성률 -->
+          <div class="bg-gradient-to-br from-rose-50 to-rose-100 rounded-xl shadow-sm border border-rose-200 p-5">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-rose-700 text-xs font-semibold uppercase tracking-wide">목표 달성률</p>
+              <div class="w-8 h-8 bg-rose-200 rounded-lg flex items-center justify-center">
+                <i class="fas fa-bullseye text-rose-600 text-sm"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-bold text-rose-900 mb-1">${(kpiData.target_achievement || 0).toFixed(1)}%</p>
+            <div class="w-full bg-rose-200 rounded-full h-2 mt-2">
+              <div class="bg-rose-500 h-2 rounded-full transition-all duration-500" style="width: ${Math.min(kpiData.target_achievement || 0, 100)}%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Action Board (오늘의 업무) -->
       <div class="mb-4 flex items-center gap-2">
         <h2 class="text-xl font-bold text-slate-800">오늘의 업무</h2>
