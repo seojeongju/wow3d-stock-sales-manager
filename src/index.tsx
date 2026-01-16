@@ -753,61 +753,116 @@ app.get('/', (c: Context) => {
                                                 /* Modern Sidebar Styles */
                                                 .nav-link {
                                                     position: relative;
-                                                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                                    }
+                                                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                                                    overflow: hidden;
+                                                }
+
+                                                .nav-link::before {
+                                                    content: '';
+                                                    position: absolute;
+                                                    left: 0;
+                                                    top: 50%;
+                                                    transform: translateY(-50%);
+                                                    width: 0;
+                                                    height: 70%;
+                                                    background: linear-gradient(90deg, #2dd4bf, transparent);
+                                                    transition: width 0.3s ease;
+                                                    border-radius: 0 8px 8px 0;
+                                                }
 
                                                 .nav-link:hover {
-                                                    background - color: rgba(255, 255, 255, 0.05);
-                                                color: #f1f5f9;
-                                    }
+                                                    background-color: rgba(255, 255, 255, 0.05);
+                                                    color: #f1f5f9;
+                                                    transform: translateX(4px);
+                                                }
+
+                                                .nav-link:hover::before {
+                                                    width: 4px;
+                                                }
 
                                                 .nav-link.active {
-                                                    background: linear-gradient(90deg, rgba(45, 212, 191, 0.15) 0%, rgba(45, 212, 191, 0) 100%);
-                                                color: #2dd4bf; /* Teal 400 */
-                                    }
+                                                    background: linear-gradient(90deg, rgba(45, 212, 191, 0.2) 0%, rgba(45, 212, 191, 0.05) 100%);
+                                                    color: #2dd4bf;
+                                                    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                                                }
 
                                                 .nav-link.active::before {
-                                                    content: '';
-                                                position: absolute;
-                                                left: 0;
-                                                top: 0;
-                                                bottom: 0;
-                                                width: 3px;
-                                                background-color: #2dd4bf;
-                                                border-radius: 0 4px 4px 0;
-                                    }
+                                                    width: 4px;
+                                                    height: 70%;
+                                                    background: linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%);
+                                                    box-shadow: 0 0 12px rgba(45, 212, 191, 0.5);
+                                                }
 
                                                 .nav-link i {
                                                     transition: all 0.3s ease;
-                                    }
+                                                }
+
+                                                .nav-link:hover i {
+                                                    transform: scale(1.1) rotate(-5deg);
+                                                }
 
                                                 .nav-link.active i {
                                                     color: #2dd4bf;
-                                                filter: drop-shadow(0 0 8px rgba(45, 212, 191, 0.4));
-                                                transform: scale(1.1);
-                                    }
+                                                    filter: drop-shadow(0 0 8px rgba(45, 212, 191, 0.6));
+                                                    transform: scale(1.15);
+                                                }
+
+                                                /* Submenu Parent Button */
+                                                .nav-item-group button {
+                                                    position: relative;
+                                                    transition: all 0.3s ease;
+                                                }
+
+                                                .nav-item-group button:hover {
+                                                    background-color: rgba(255, 255, 255, 0.08);
+                                                    transform: translateX(2px);
+                                                }
 
                                                 /* Submenu Styles */
                                                 .nav-submenu {
                                                     max-height: 0;
-                                                overflow: hidden;
-                                                transition: all 0.3s ease-in-out;
-                                                background: rgba(0, 0, 0, 0.15);
-                                                border-radius: 0.5rem;
-                                                opacity: 0;
-                                    }
+                                                    overflow: hidden;
+                                                    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                                                    background: linear-gradient(135deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.1) 100%);
+                                                    border-radius: 0.75rem;
+                                                    opacity: 0;
+                                                    transform: translateY(-10px);
+                                                    border-left: 2px solid transparent;
+                                                }
 
                                                 .nav-submenu.open {
                                                     max-height: 500px;
-                                                margin-top: 0.25rem;
-                                                margin-bottom: 0.5rem;
-                                                padding: 0.25rem 0;
-                                                opacity: 1;
-                                    }
+                                                    margin-top: 0.5rem;
+                                                    margin-bottom: 0.5rem;
+                                                    padding: 0.5rem 0;
+                                                    opacity: 1;
+                                                    transform: translateY(0);
+                                                    border-left-color: rgba(45, 212, 191, 0.3);
+                                                }
+
+                                                .nav-submenu .nav-link {
+                                                    font-size: 0.875rem;
+                                                    padding-left: 2.5rem;
+                                                }
 
                                                 .submenu-arrow {
                                                     transition: transform 0.3s ease;
-                                    }
+                                                }
+
+                                                /* Group Headers */
+                                                .nav-item-group p {
+                                                    position: relative;
+                                                    padding-left: 1rem;
+                                                }
+
+                                                .nav-item-group p .w-1\.5 {
+                                                    animation: pulse 2s ease-in-out infinite;
+                                                }
+
+                                                @keyframes pulse {
+                                                    0%, 100% { opacity: 0.5; }
+                                                    50% { opacity: 1; }
+                                                }
 
                                                 .glass-header {
                                                     background: rgba(255, 255, 255, 0.9);
@@ -1090,13 +1145,19 @@ app.get('/', (c: Context) => {
                                                     </nav>
 
                                                     <!-- User Profile Section -->
-                                                    <div class="p-4 border-t border-[#1e293b] bg-[#0b111e]">
-                                                        <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-[#1e293b] transition-all duration-300 cursor-pointer group">
-                                                            <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-500 p-[2px] shadow-md group-hover:shadow-teal-500/20">
-                                                                <div class="w-full h-full rounded-full bg-[#0f172a] flex items-center justify-center text-white font-bold text-sm" id="user-avatar">
-                                                                    U
+                                                    <div class="p-4 border-t border-[#1e293b] bg-gradient-to-br from-[#0b111e] to-[#0f172a] relative">
+                                                        <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-[#1e293b]/50 transition-all duration-300 cursor-pointer group relative">
+                                                            <!-- Avatar with Status Badge -->
+                                                            <div class="relative">
+                                                                <div class="w-11 h-11 rounded-full bg-gradient-to-tr from-teal-500 via-teal-400 to-emerald-400 p-[2px] shadow-md group-hover:shadow-teal-500/30 transition-all duration-300">
+                                                                    <div class="w-full h-full rounded-full bg-[#0f172a] flex items-center justify-center text-white font-bold text-sm" id="user-avatar">
+                                                                        U
+                                                                    </div>
                                                                 </div>
+                                                                <!-- Online Status Indicator -->
+                                                                <div class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#0f172a] shadow-lg"></div>
                                                             </div>
+                                                            
                                                             <div class="flex-1 min-w-0">
                                                                 <p class="text-sm font-semibold text-white truncate group-hover:text-teal-400 transition-colors" id="user-name">Loading...</p>
                                                                 <p class="text-[11px] text-slate-400 truncate" id="user-email">...</p>
