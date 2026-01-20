@@ -11,7 +11,7 @@ export const PLANS = {
     },
     BASIC: {
         name: 'Basic',
-        price: 9900,
+        price: 50000,
         limits: {
             products: 1000,
             users: 5,
@@ -21,7 +21,7 @@ export const PLANS = {
     },
     PRO: {
         name: 'Pro',
-        price: 29900,
+        price: 70000,
         limits: {
             products: Infinity,
             users: Infinity,
