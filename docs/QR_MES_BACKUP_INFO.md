@@ -1,0 +1,242 @@
+# QR MES 백업 정보
+
+## 📅 최신 백업 일시 (긴급 수정: 빌드 오류)
+**2026-01-15 19:35:00 KST**
+
+### 🏷️ Git 태그 정보
+- **태그명**: `v1.0.6-admin-fix`
+- **태그 메시지**: "빌드 오류 수정 및 관리자 페이지 안정화"
+- **주요 수정사항**:
+  - `src/index.tsx` 문법 오류(이스케이프 문자) 수정
+  - 관리자 페이지 및 로그인 페이지 렌더링 오류 해결
+
+---
+
+## 📅 이전 백업 일시 (관리자 승인 기능)
+**2026-01-15 19:21:00 KST**
+
+### 🏷️ Git 태그 정보
+- **태그명**: `v1.0.5-admin-approval`
+- **태그 메시지**: "슈퍼 관리자 승인 기능 구현 완료"
+- **주요 수정사항**:
+  - `/admin` 페이지 추가 (승인 대기 목록 조회)
+  - 테넌트 승인(`approve`) 및 거절(`reject`) API 구현
+  - 관리자 권한 확인 및 UI 연동 완료
+
+---
+
+## 📅 이전 백업 일시 (무료 플랜 자동 승인)
+**2026-01-15 19:10:00 KST**
+
+### 🏷️ Git 태그 정보
+- **태그명**: `v1.0.4-free-plan-active`
+- **태그 메시지**: "무료 플랜 자동 승인 기능 추가"
+- **주요 수정사항**:
+  - `FREE` 플랜 가입 시 즉시 `ACTIVE` 상태로 설정 및 자동 로그인
+  - 유료 플랜(`BASIC`, `PRO`)은 `PENDING` 상태 유지 (관리자 승인 필요)
+  - 프론트엔드에서 플랜에 따른 로그인 분기 처리 (`token` 유무 확인)
+
+---
+
+## 📅 이전 백업 일시 (회원가입 승인 대기 기능)
+**2026-01-15 19:04:00 KST**
+
+### 🏷️ Git 태그 정보
+- **태그명**: `v1.0.3-pending-approval`
+- **태그 메시지**: "회원가입 승인 대기 기능 추가"
+- **주요 수정사항**:
+  - 회원가입 시 테넌트 상태 `PENDING` 설정
+  - 회원가입 직후 자동 로그인 방지
+  - 로그인 시 상태 `ACTIVE` 체크 로직 추가
+  - 관리자 승인 전까지 이용 불가
+
+---
+
+## 📅 이전 백업 일시 (회원가입 기능 복구)
+**2026-01-15 18:59:01 KST**
+
+### 🏷️ Git 태그 정보
+- **태그명**: `v1.0.2-fixed-auth`
+- **태그 메시지**: "회원가입 오류 해결 및 마이그레이션 안정화"
+- **주요 수정사항**:
+  - 회원가입 시 전화번호(`phone`) 누락 문제 해결 (프론트/백엔드)
+  - DB 마이그레이션 (`0022`~`0028`) 충돌 해결 및 완전 적용
+  - `users` 테이블에 `phone` 컬럼 정상 추가됨
+
+---
+
+## 📅 이전 백업 일시 (재고 관리 버그 수정)
+**2026-01-15 17:42:20 KST**
+
+### 🏷️ Git 태그 정보
+- **태그명**: `v1.0.1-fixed-stock-levels`
+- **태그 메시지**: "재고 관리 페이지 버그 수정 완료 (API, 탭 전환, 데이터 로딩)"
+- **주요 수정사항**:
+  - `/api/stock/levels` 엔드포인트 추가 (창고별 재고 현황)
+  - 재고 관리 페이지 탭 전환 버그 수정 (`switchStockTab` 중복 삭제)
+  - 데이터 로딩 시 DOM 렌더링 타이밍 이슈 해결
+  - `app.js` 캐시 무효화 (v29)
+
+---
+
+## 📅 이전 백업 일시
+**2026-01-13 10:44:28 KST**
+
+---
+
+## 🏷️ Git 태그 정보
+- **태그명**: `v1.0.0-before-qr`
+- **태그 메시지**: "QR MES 기능 구현 전 안정 버전 - 2026-01-13"
+- **커밋 해시**: `7e36f7d`
+- **커밋 메시지**: "docs: Add QR MES implementation plan and backup documentation"
+
+---
+
+## 🌿 브랜치 정보
+- **안정 브랜치**: `main`
+- **작업 브랜치**: `feature/qr-mes-system`
+- **원격 저장소**: `origin/main`
+
+---
+
+## ☁️ Cloudflare Pages 배포 정보
+- **프로젝트명**: `wow3d-stock-sales-manager`
+- **프로덕션 URL**: https://wow3d-stock-sales-manager.pages.dev
+- **현재 배포 커밋**: `d58cc82`
+- **배포 상태**: ✅ 정상 작동
+
+---
+
+## 📦 주요 기능 현황 (백업 시점)
+
+### ✅ 구현 완료 기능
+1. **제품 관리**
+   - 제품 등록/수정/삭제
+   - 제품 목록 조회 및 검색
+   - 정렬 기능 (재고순, 이름순)
+
+2. **입고 관리**
+   - 간편 입고 등록
+   - 발주 기반 입고
+   - 공급처 관리
+
+3. **출고 관리**
+   - 간편 출고 등록
+   - 창고 관리
+   - 출고 이력
+
+4. **판매 관리**
+   - POS 판매 등록
+   - 판매 이력 조회
+   - 제품 정렬 (재고순, 최신순, 이름순)
+
+5. **설정**
+   - 사용자 프로필
+   - 사업자 정보
+   - 창고 관리
+   - 플랜 설정
+
+---
+
+## 💾 데이터베이스 스키마
+
+### 주요 테이블 (마이그레이션 0001-0027)
+- `users` - 사용자 관리
+- `products` - 제품 정보
+- `warehouses` - 창고 정보
+- `suppliers` - 공급처 정보
+- `inbounds` - 입고 내역
+- `inbound_items` - 입고 상세
+- `outbounds` - 출고 내역
+- `outbound_items` - 출고 상세
+- `sales` - 판매 내역
+- `sale_items` - 판매 상세
+
+---
+
+## 📚 기술 스택
+
+### Frontend
+- **프레임워크**: Vite
+- **스타일**: Vanilla CSS
+- **모듈 구조**: ES6 Modules
+
+### Backend
+- **프레임워크**: Hono
+- **런타임**: Cloudflare Workers
+- **데이터베이스**: Cloudflare D1 (SQLite)
+
+### DevOps
+- **호스팅**: Cloudflare Pages
+- **버전 관리**: Git + GitHub
+- **배포**: Wrangler CLI
+
+---
+
+## 🔄 롤백 방법
+
+### 긴급 롤백 (Git)
+```bash
+cd d:\Documents\program_DEV\wow3d-stock-sales-manager
+git checkout main
+git reset --hard v1.0.0-before-qr
+npm run build
+npm run deploy:prod
+```
+
+### Cloudflare Pages 대시보드 롤백
+1. https://dash.cloudflare.com 접속
+2. Pages > wow3d-stock-sales-manager 선택
+3. Deployments 탭
+4. 커밋 `d58cc82` 찾기
+5. "Rollback to this deployment" 클릭
+
+---
+
+## 📝 파일 구조 (주요 파일)
+
+```
+wow3d-stock-sales-manager/
+├── public/
+│   ├── index.html                 # 메인 HTML
+│   └── static/
+│       ├── app.js                 # 메인 애플리케이션
+│       ├── modules/
+│       │   ├── product.js         # 제품 모듈
+│       │   ├── inbound.js         # 입고 모듈
+│       │   ├── outbound.js        # 출고 모듈
+│       │   ├── sales.js           # 판매 모듈
+│       │   └── settings.js        # 설정 모듈
+│       └── styles/
+│           └── main.css           # 메인 스타일
+├── src/
+│   ├── index.tsx                  # Hono 서버
+│   └── api/                       # API 라우터
+├── migrations/                    # DB 마이그레이션 (0001-0027)
+└── package.json
+```
+
+---
+
+## ⚠️ 주의사항
+
+1. **QR 기능 구현 전에는 절대 `main` 브랜치에 직접 커밋하지 않기**
+2. **모든 작업은 `feature/qr-mes-system` 브랜치에서 진행**
+3. **정기적으로 커밋 및 푸시하여 작업 내용 백업**
+4. **테스트 후 안정화되면 `main`으로 병합**
+
+---
+
+## 🎯 다음 작업
+
+QR MES 기능 구현 시작:
+1. ✅ 백업 완료
+2. ⏳ `/qr-mes-backup` 워크플로우 실행
+3. ⏳ Phase 1: 기반 구축
+4. ⏳ DB 마이그레이션 작성
+5. ⏳ MES 메뉴 추가
+
+---
+
+**백업 확인자**: Antigravity AI  
+**최종 업데이트**: 2026-01-13 10:37:38 KST

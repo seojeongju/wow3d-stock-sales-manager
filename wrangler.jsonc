@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wow3d-stock-sales-manager",
+  "compatibility_date": "2025-10-31",
+  "pages_build_output_dir": "./dist",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wow3d-stock-sales-manager-production",
+      "database_id": "463de385-2845-4930-b64e-c0c4e872e01a"
+    }
+  ]
+}

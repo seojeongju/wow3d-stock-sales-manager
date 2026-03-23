@@ -1,0 +1,3 @@
+-- 0018_create_plan_requests.sql
+-- Table already exists in production, skipping creation.
+-- CREATE TABLE IF NOT EXISTS plan_change_requests ...

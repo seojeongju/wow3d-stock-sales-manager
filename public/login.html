@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 - 재고/판매 관리 시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<body class="bg-slate-50 min-h-screen font-sans text-slate-900">
+    <div class="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+
+        <!-- Login Container -->
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden mb-20 relative z-10">
+            <div class="p-8">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-teal-600 mb-2">Stock Manager</h1>
+                    <p class="text-slate-500">재고와 판매를 한 곳에서 관리하세요</p>
+                </div>
+
+                <!-- 탭 버튼 -->
+                <div class="flex mb-6 border-b border-slate-200">
+                    <button onclick="switchTab('login')" id="loginTabBtn"
+                        class="flex-1 py-3 text-sm font-medium text-teal-600 border-b-2 border-teal-600 focus:outline-none transition-colors">로그인</button>
+                    <button onclick="switchTab('register')" id="registerTabBtn"
+                        class="flex-1 py-3 text-sm font-medium text-slate-500 hover:text-teal-600 focus:outline-none transition-colors">회원가입</button>
+                </div>
+
+                <!-- 로그인 폼 -->
+                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-3 top-3 text-slate-400"></i>
+                            <input type="email" id="loginEmail" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="example@company.com">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-3 top-3 text-slate-400"></i>
+                            <input type="password" id="loginPassword" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="••••••••">
+                        </div>
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-teal-600 text-white py-2.5 rounded-lg font-medium hover:bg-teal-700 transition-colors shadow-sm mt-2">
+                        로그인
+                    </button>
+                </form>
+
+                <!-- 회원가입 폼 -->
+                <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-3 top-3 text-slate-400"></i>
+                            <input type="email" id="regEmail" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="example@company.com">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-3 top-3 text-slate-400"></i>
+                            <input type="password" id="regPassword" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="••••••••">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">이름</label>
+                            <div class="relative">
+                                <i class="fas fa-user absolute left-3 top-3 text-slate-400"></i>
+                                <input type="text" id="regName" required
+                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                    placeholder="홍길동">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">전화번호</label>
+                            <div class="relative">
+                                <i class="fas fa-phone absolute left-3 top-3 text-slate-400"></i>
+                                <input type="tel" id="regPhone" required
+                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                    placeholder="010-1234-5678">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">요금제 선택</label>
+                            <div class="relative">
+                                <i class="fas fa-rocket absolute left-3 top-3 text-slate-400"></i>
+                                <select id="regPlan"
+                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow appearance-none bg-white">
+                                    <option value="FREE">Free (₩0)</option>
+                                    <option value="BASIC">Basic (₩50,000)</option>
+                                    <option value="PRO">Pro (₩70,000)</option>
+                                </select>
+                                <i
+                                    class="fas fa-chevron-down absolute right-3 top-3 text-slate-400 pointer-events-none"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">회사명 (조직 이름)</label>
+                        <div class="relative">
+                            <i class="fas fa-building absolute left-3 top-3 text-slate-400"></i>
+                            <input type="text" id="regCompany" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                                placeholder="(주)와우3D">
+                        </div>
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-teal-600 text-white py-2.5 rounded-lg font-medium hover:bg-teal-700 transition-colors shadow-sm mt-2">
+                        회원가입 및 조직 생성
+                    </button>
+                </form>
+            </div>
+            <div class="bg-teal-50 px-8 py-4 border-t border-teal-100 text-center text-xs text-teal-600 font-medium">
+                Tip: 아래에서 요금제 정보를 확인하세요!
+            </div>
+        </div>
+
+        <!-- Pricing Section -->
+        <div class="w-full max-w-5xl px-4 animate-fade-in-up">
+            <div class="text-center mb-12">
+                <h2 class="text-2xl font-bold text-slate-800 mb-3">
+                    <i class="fas fa-rocket text-teal-600 mr-2"></i>서비스 요금제 안내
+                </h2>
+                <p class="text-slate-500">비즈니스 규모에 맞는 최적의 플랜을 선택하세요.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Free Plan -->
+                <div
+                    class="bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 relative group overflow-hidden">
+                    <div
+                        class="absolute top-0 left-0 w-full h-1.5 bg-slate-300 group-hover:bg-slate-400 transition-colors">
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">Free</h3>
+                    <div class="flex items-baseline mb-4">
+                        <span class="text-4xl font-bold text-slate-900">₩0</span>
+                        <span class="text-slate-500 ml-2">/월</span>
+                    </div>
+                    <p class="text-sm text-slate-500 mb-8 h-10">개인 또는 소규모 팀의<br>간단한 재고 관리를 위해</p>
+
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-teal-500 mt-1 mr-3"></i> <span>상품 100개 제한</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-teal-500 mt-1 mr-3"></i> <span>사용자 1명 (초대 불가)</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-teal-500 mt-1 mr-3"></i> <span>기본 재고 입출고</span>
+                        </li>
+                    </ul>
+                    <button onclick="scrollToTop('register', 'FREE')"
+                        class="w-full py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 hover:text-slate-800 transition-colors">
+                        무료로 시작하기
+                    </button>
+                </div>
+
+                <!-- Basic Plan -->
+                <div
+                    class="bg-white rounded-2xl p-8 shadow-md hover:shadow-2xl transition-all duration-300 border-2 border-teal-500 relative transform md:-translate-y-4 z-10">
+                    <div
+                        class="absolute top-0 right-0 bg-teal-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl">
+                        인기 플랜</div>
+                    <div class="absolute top-0 left-0 w-full h-1 bg-teal-500"></div>
+                    <h3 class="text-xl font-bold text-teal-700 mb-2">Basic</h3>
+                    <div class="flex items-baseline mb-4">
+                        <span class="text-4xl font-bold text-slate-900">₩50,000</span>
+                        <span class="text-slate-500 ml-2">/월</span>
+                    </div>
+                    <p class="text-sm text-slate-500 mb-8 h-10">성장하는 팀을 위한<br>표준 재고 관리 기능</p>
+
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>상품 1,000개</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>사용자 5명까지</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>주간/월간 리포트</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check-circle text-teal-600 mt-1 mr-3"></i> <span>데이터 엑셀 내보내기</span>
+                        </li>
+                    </ul>
+                    <button onclick="scrollToTop('register', 'BASIC')"
+                        class="w-full py-3 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-700 transition-colors shadow-lg shadow-teal-200">
+                        지금 시작하기
+                    </button>
+                </div>
+
+                <!-- Pro Plan -->
+                <div
+                    class="bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 relative group overflow-hidden">
+                    <div
+                        class="absolute top-0 left-0 w-full h-1.5 bg-purple-500 group-hover:bg-purple-600 transition-colors">
+                    </div>
+                    <h3 class="text-xl font-bold text-purple-700 mb-2">Pro</h3>
+                    <div class="flex items-baseline mb-4">
+                        <span class="text-4xl font-bold text-slate-900">₩70,000</span>
+                        <span class="text-slate-500 ml-2">/월</span>
+                    </div>
+                    <p class="text-sm text-slate-500 mb-8 h-10">본격적인 비즈니스 확장을 위한<br>고급 기능 및 무제한 사용</p>
+
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>상품 무제한</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>사용자 무제한</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>API 및 웹훅 연동(예정)</span>
+                        </li>
+                        <li class="flex items-start text-sm text-slate-600">
+                            <i class="fas fa-check text-purple-600 mt-1 mr-3"></i> <span>우선 기술 지원</span>
+                        </li>
+                    </ul>
+                    <button onclick="scrollToTop('register', 'PRO')"
+                        class="w-full py-3 rounded-xl border border-purple-200 text-purple-700 font-bold hover:bg-purple-50 transition-colors">
+                        Enterprise 문의
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-20 text-center text-xs text-slate-400">
+                &copy; 2025 Stock Sales Manager. All rights reserved.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        function switchTab(tab) {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const loginBtn = document.getElementById('loginTabBtn');
+            const registerBtn = document.getElementById('registerTabBtn');
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                loginBtn.classList.add('text-teal-600', 'border-teal-600');
+                loginBtn.classList.remove('text-slate-500');
+                registerBtn.classList.remove('text-teal-600', 'border-teal-600');
+                registerBtn.classList.add('text-slate-500');
+            } else {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                registerBtn.classList.add('text-teal-600', 'border-teal-600');
+                registerBtn.classList.remove('text-slate-500');
+                loginBtn.classList.remove('text-teal-600', 'border-teal-600');
+                loginBtn.classList.add('text-slate-500');
+            }
+        }
+
+        function scrollToTop(tab, plan) {
+            if (tab) switchTab(tab);
+            if (plan) {
+                const planSelect = document.getElementById('regPlan');
+                if (planSelect) planSelect.value = plan;
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
+                if (res.data.success) {
+                    localStorage.setItem('token', res.data.data.token);
+                    localStorage.setItem('user', JSON.stringify(res.data.data.user));
+                    window.location.href = '/';
+                }
+            } catch (err) {
+                alert(err.response?.data?.error || '로그인 실패');
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const name = document.getElementById('regName').value;
+            const phone = document.getElementById('regPhone').value;
+            const company_name = document.getElementById('regCompany').value;
+            const plan = document.getElementById('regPlan').value;
+
+            try {
+                const res = await axios.post(`${API_BASE}/auth/register`, {
+                    email, password, name, phone, company_name, plan
+                });
+                if (res.data.success) {
+                    if (res.data.data && res.data.data.token) {
+                        // 무료 플랜 등 즉시 승인된 경우 자동 로그인
+                        alert('회원가입이 완료되었습니다. 자동 로그인됩니다.');
+                        localStorage.setItem('token', res.data.data.token);
+                        localStorage.setItem('user', JSON.stringify(res.data.data.user));
+                        window.location.href = '/';
+                    } else {
+                        // 유료 플랜 등 승인 대기인 경우
+                        const msg = res.data.message || '회원가입이 완료되었습니다.\n관리자 승인 후 이용 가능합니다.';
+                        alert(msg);
+
+                        switchTab('login');
+                        document.getElementById('regPassword').value = '';
+                    }
+                }
+            } catch (err) {
+                alert(err.response?.data?.error || '회원가입 실패');
+            }
+        }
+    </script>
+</body>
+
+</html>
