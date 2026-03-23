@@ -872,29 +872,29 @@ app.get('/', (c: Context) => {
 
                                                 /* Print Styles */
                                                 @media print {
-                                                    #sidebar, #sidebarOverlay, .glass - header, .no - print {
-                                                    display: none !important;
-                                        }
-                                                #content {
-                                                    margin - left: 0 !important;
-                                                padding: 0 !important;
-                                                width: 100% !important;
-                                        }
-                                                body {
-                                                    background: white !important;
-                                        }
-                                                .print-only {
-                                                    display: block !important;
-                                        }
-                                                .invoice-box {
-                                                    padding: 0 !important;
-                                                border: none !important;
-                                                box-shadow: none !important;
-                                        }
-                                    }
+                                                    #sidebar, #sidebarOverlay, .glass-header, .no-print {
+                                                        display: none !important;
+                                                    }
+                                                    #content {
+                                                        margin-left: 0 !important;
+                                                        padding: 0 !important;
+                                                        width: 100% !important;
+                                                    }
+                                                    body {
+                                                        background: white !important;
+                                                    }
+                                                    .print-only {
+                                                        display: block !important;
+                                                    }
+                                                    .invoice-box {
+                                                        padding: 0 !important;
+                                                        border: none !important;
+                                                        box-shadow: none !important;
+                                                    }
+                                                }
                                                 .print-only {
                                                     display: none;
-                                    }
+                                                }
                                             </style>
                                             <script>
                                                 tailwind.config = {
