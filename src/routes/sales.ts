@@ -3,6 +3,87 @@ import type { Bindings, Variables, Sale, CreateSaleRequest } from '../types'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
+type WarehouseAllocation = { warehouse_id: number; quantity: number }
+
+/** 창고 재고가 가장 많은 곳(또는 지정 창고 우선)에서 수량만큼 출고 배분 */
+async function allocateWarehouseDeductions(
+  DB: D1Database,
+  tenantId: number,
+  productId: number,
+  quantity: number,
+  preferredWarehouseId?: number | null
+): Promise<WarehouseAllocation[]> {
+  const sumRow = await DB.prepare(`
+    SELECT COALESCE(SUM(quantity), 0) as t
+    FROM product_warehouse_stocks
+    WHERE tenant_id = ? AND product_id = ?
+  `).bind(tenantId, productId).first<{ t: number }>()
+
+  const totalWh = sumRow?.t ?? 0
+  if (totalWh < quantity) {
+    throw new Error(
+      `창고 재고 합계(${totalWh})가 판매 수량(${quantity})보다 부족합니다. ` +
+        `재고 관리에서 「초기 재고 마이그레이션」 또는 입고/조정으로 창고 재고를 맞춘 뒤 다시 시도해 주세요.`
+    )
+  }
+
+  const { results } = await DB.prepare(`
+    SELECT warehouse_id, quantity FROM product_warehouse_stocks
+    WHERE tenant_id = ? AND product_id = ? AND quantity > 0
+    ORDER BY quantity DESC
+  `).bind(tenantId, productId).all<{ warehouse_id: number; quantity: number }>()
+
+  const rows = (results || []).slice()
+  if (preferredWarehouseId) {
+    rows.sort((a, b) => {
+      if (a.warehouse_id === preferredWarehouseId) return -1
+      if (b.warehouse_id === preferredWarehouseId) return 1
+      return b.quantity - a.quantity
+    })
+  }
+
+  const allocations: WarehouseAllocation[] = []
+  let remaining = quantity
+  for (const r of rows) {
+    if (remaining <= 0) break
+    const take = Math.min(r.quantity, remaining)
+    allocations.push({ warehouse_id: r.warehouse_id, quantity: take })
+    remaining -= take
+  }
+
+  if (remaining > 0) {
+    throw new Error(`창고별 출고 배분 실패(잔여 ${remaining}개).`)
+  }
+
+  return allocations
+}
+
+async function syncMasterStockIfVariant(
+  DB: D1Database,
+  tenantId: number,
+  productId: number
+) {
+  const prodRow = await DB.prepare('SELECT parent_id FROM products WHERE id = ? AND tenant_id = ?')
+    .bind(productId, tenantId)
+    .first<{ parent_id: number | null }>()
+
+  if (!prodRow?.parent_id) return
+
+  const totalStockResult = await DB.prepare(`
+    SELECT COALESCE(SUM(current_stock), 0) as total FROM products
+    WHERE parent_id = ? AND is_active = 1 AND tenant_id = ?
+  `)
+    .bind(prodRow.parent_id, tenantId)
+    .first<{ total: number }>()
+
+  await DB.prepare(`
+    UPDATE products SET current_stock = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND tenant_id = ?
+  `)
+    .bind(totalStockResult?.total ?? 0, prodRow.parent_id, tenantId)
+    .run()
+}
+
 // 판매 목록 조회
 app.get('/', async (c) => {
   const { DB } = c.env
@@ -122,34 +203,67 @@ app.post('/', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json<CreateSaleRequest>()
 
-  // 상품 정보 및 재고 확인
-  let totalAmount = 0
-  const productDetails: any[] = []
-
+  // 동일 상품이 여러 줄로 올 수 있으므로, 재고 검증·차감은 상품별 합산 수량 기준
+  const qtyByProduct = new Map<number, number>()
   for (const item of body.items) {
+    qtyByProduct.set(item.product_id, (qtyByProduct.get(item.product_id) || 0) + item.quantity)
+  }
+
+  const productCache = new Map<number, { id: number; name: string; selling_price: number; current_stock: number }>()
+
+  for (const [productId, qty] of qtyByProduct) {
     const product = await DB.prepare(`
       SELECT id, name, selling_price, current_stock 
       FROM products 
       WHERE id = ? AND is_active = 1 AND tenant_id = ?
-    `).bind(item.product_id, tenantId).first()
+    `).bind(productId, tenantId).first<{
+      id: number
+      name: string
+      selling_price: number
+      current_stock: number
+    }>()
 
     if (!product) {
       return c.json({
         success: false,
-        error: `상품 ID ${item.product_id}을(를) 찾을 수 없습니다.`
+        error: `상품 ID ${productId}을(를) 찾을 수 없습니다.`
       }, 400)
     }
 
-    if (product.current_stock < item.quantity) {
+    if (product.current_stock < qty) {
       return c.json({
         success: false,
-        error: `${product.name}의 재고가 부족합니다. (현재 재고: ${product.current_stock})`
+        error: `${product.name}의 재고가 부족합니다. (요청 합계: ${qty}개, 현재 재고: ${product.current_stock})`
       }, 400)
     }
 
+    const whSum = await DB.prepare(`
+      SELECT COALESCE(SUM(quantity), 0) as t
+      FROM product_warehouse_stocks
+      WHERE tenant_id = ? AND product_id = ?
+    `).bind(tenantId, productId).first<{ t: number }>()
+
+    if ((whSum?.t ?? 0) < qty) {
+      return c.json({
+        success: false,
+        error: `${product.name}: 창고 재고 합계(${(whSum?.t ?? 0)})가 부족합니다. (판매 합계: ${qty}개) ` +
+          `총재고(${product.current_stock})와 창고별 재고가 어긋난 경우 재고 관리에서 동기화·입고 후 다시 시도해 주세요.`
+      }, 400)
+    }
+
+    productCache.set(productId, product)
+  }
+
+  let totalAmount = 0
+  const productDetails: any[] = []
+
+  for (const item of body.items) {
+    const product = productCache.get(item.product_id)
+    if (!product) {
+      return c.json({ success: false, error: `상품 ID ${item.product_id} 오류` }, 400)
+    }
     const subtotal = product.selling_price * item.quantity
     totalAmount += subtotal
-
     productDetails.push({
       product_id: product.id,
       quantity: item.quantity,
@@ -165,10 +279,39 @@ app.post('/', async (c) => {
     return c.json({ success: false, error: '할인 금액이 총액보다 클 수 없습니다.' }, 400)
   }
 
-  // 판매 등록
+  const preferredWarehouseId =
+    body.warehouse_id != null && !Number.isNaN(Number(body.warehouse_id))
+      ? Number(body.warehouse_id)
+      : null
+
+  type StockPlan = { productId: number; qty: number; allocations: WarehouseAllocation[] }
+  const stockPlan: StockPlan[] = []
+
+  for (const [productId, qty] of qtyByProduct) {
+    try {
+      const allocations = await allocateWarehouseDeductions(
+        DB,
+        tenantId,
+        productId,
+        qty,
+        preferredWarehouseId
+      )
+      stockPlan.push({ productId, qty, allocations })
+    } catch (e: any) {
+      console.error('allocateWarehouseDeductions:', e)
+      return c.json(
+        {
+          success: false,
+          error: e?.message || '창고 출고 배분에 실패했습니다.'
+        },
+        400
+      )
+    }
+  }
+
   const saleResult = await DB.prepare(`
-    INSERT INTO sales (tenant_id, customer_id, total_amount, discount_amount, final_amount, payment_method, notes, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sales (tenant_id, customer_id, total_amount, discount_amount, final_amount, payment_method, notes, created_by, warehouse_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     tenantId,
     body.customer_id || null,
@@ -177,37 +320,64 @@ app.post('/', async (c) => {
     finalAmount,
     body.payment_method,
     body.notes || null,
-    userId
+    userId,
+    preferredWarehouseId
   ).run()
 
-  const saleId = saleResult.meta.last_row_id
+  const saleId = saleResult.meta.last_row_id as number
 
-  // 판매 상품 등록 및 재고 차감
+  const batchStmts: D1PreparedStatement[] = []
+
   for (const detail of productDetails) {
-    // 판매 상세 등록
-    await DB.prepare(`
-      INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal)
-      VALUES (?, ?, ?, ?, ?)
-    `).bind(
-      saleId,
-      detail.product_id,
-      detail.quantity,
-      detail.unit_price,
-      detail.subtotal
-    ).run()
+    batchStmts.push(
+      DB.prepare(`
+        INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(saleId, detail.product_id, detail.quantity, detail.unit_price, detail.subtotal)
+    )
+  }
 
-    // 재고 차감
-    await DB.prepare(`
-      UPDATE products 
-      SET current_stock = current_stock - ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND tenant_id = ?
-    `).bind(detail.quantity, detail.product_id, tenantId).run()
+  for (const p of stockPlan) {
+    for (const a of p.allocations) {
+      batchStmts.push(
+        DB.prepare(`
+          UPDATE product_warehouse_stocks
+          SET quantity = quantity - ?, updated_at = CURRENT_TIMESTAMP
+          WHERE tenant_id = ? AND product_id = ? AND warehouse_id = ?
+        `).bind(a.quantity, tenantId, p.productId, a.warehouse_id)
+      )
+      batchStmts.push(
+        DB.prepare(`
+          INSERT INTO stock_movements (tenant_id, product_id, warehouse_id, movement_type, quantity, reason, reference_id, created_by)
+          VALUES (?, ?, ?, '출고', ?, '판매', ?, ?)
+        `).bind(tenantId, p.productId, a.warehouse_id, -a.quantity, saleId, userId)
+      )
+    }
+    batchStmts.push(
+      DB.prepare(`
+        UPDATE products 
+        SET current_stock = current_stock - ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND tenant_id = ?
+      `).bind(p.qty, p.productId, tenantId)
+    )
+  }
 
-    // 재고 이동 기록
-    await DB.prepare(`
-      INSERT INTO stock_movements (tenant_id, product_id, movement_type, quantity, reason, reference_id, created_by)
-      VALUES (?, ?, '출고', ?, '판매', ?, ?)
-    `).bind(tenantId, detail.product_id, -detail.quantity, saleId, userId).run()
+  try {
+    await DB.batch(batchStmts)
+  } catch (e: any) {
+    console.error('Sale batch failed:', e)
+    await DB.prepare(`DELETE FROM sales WHERE id = ? AND tenant_id = ?`).bind(saleId, tenantId).run()
+    return c.json(
+      {
+        success: false,
+        error: '판매 저장 중 오류가 발생했습니다. 다시 시도해 주세요.'
+      },
+      500
+    )
+  }
+
+  for (const p of stockPlan) {
+    await syncMasterStockIfVariant(DB, tenantId, p.productId)
   }
 
   // 고객 구매 금액 및 횟수 업데이트
@@ -248,7 +418,23 @@ app.put('/:id/cancel', async (c) => {
     SELECT * FROM sale_items WHERE sale_id = ?
   `).bind(id).all<any>()
 
-  // 재고 복구
+  // 판매 시 차감했던 창고별 재고 복구 (출고 이동 내역과 동일한 창고에 입고 반영)
+  const { results: saleOutMovements } = await DB.prepare(`
+    SELECT product_id, warehouse_id, quantity FROM stock_movements
+    WHERE tenant_id = ? AND reference_id = ? AND reason = '판매' AND movement_type = '출고'
+  `).bind(tenantId, id).all<{ product_id: number; warehouse_id: number | null; quantity: number }>()
+
+  for (const m of saleOutMovements || []) {
+    if (!m.warehouse_id) continue
+    const addBack = -m.quantity
+    await DB.prepare(`
+      UPDATE product_warehouse_stocks
+      SET quantity = quantity + ?, updated_at = CURRENT_TIMESTAMP
+      WHERE tenant_id = ? AND product_id = ? AND warehouse_id = ?
+    `).bind(addBack, tenantId, m.product_id, m.warehouse_id).run()
+  }
+
+  // 총재고 복구 및 이력
   for (const item of items) {
     await DB.prepare(`
       UPDATE products 
@@ -256,11 +442,12 @@ app.put('/:id/cancel', async (c) => {
       WHERE id = ? AND tenant_id = ?
     `).bind(item.quantity, item.product_id, tenantId).run()
 
-    // 재고 이동 기록
     await DB.prepare(`
       INSERT INTO stock_movements (tenant_id, product_id, movement_type, quantity, reason, reference_id, created_by)
       VALUES (?, ?, '입고', ?, '판매 취소', ?, ?)
     `).bind(tenantId, item.product_id, item.quantity, id, userId).run()
+
+    await syncMasterStockIfVariant(DB, tenantId, item.product_id)
   }
 
   // 고객 구매 금액 및 횟수 복구

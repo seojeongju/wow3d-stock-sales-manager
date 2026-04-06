@@ -230,6 +230,8 @@ export interface CreateCustomerRequest {
 
 export interface CreateSaleRequest {
   customer_id?: number;
+  /** POS·매장 판매 시 출고 창고(미지정 시 창고 재고가 많은 순으로 자동 배분) */
+  warehouse_id?: number;
   items: {
     product_id: number;
     quantity: number;
