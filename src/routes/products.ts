@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Bindings, Variables, Product, CreateProductRequest, UpdateProductRequest } from '../types'
 import { checkPlanLimit } from '../utils/subscription'
+import { applyDisplayStockFromWarehouses } from '../utils/product-stock-display'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -107,6 +108,10 @@ app.get('/', async (c) => {
 
   const { results } = await DB.prepare(query).bind(...params).all<Product>()
 
+  if (results?.length) {
+    await applyDisplayStockFromWarehouses(DB, tenantId, results as { id: number; current_stock?: number }[])
+  }
+
   return c.json({
     success: true,
     data: results,
@@ -157,6 +162,12 @@ app.get('/:id', async (c) => {
       return { ...v, options: choices.results }
     }))
       ; (product as any).variants = variantsWithChoices
+
+    const variantRows = [
+      product as { id: number; current_stock?: number },
+      ...variantsWithChoices.map((v: any) => v as { id: number; current_stock?: number })
+    ]
+    await applyDisplayStockFromWarehouses(DB, tenantId, variantRows)
   } else {
     ; (product as any).variants = [];
     // 만약 옵션이 있는 상품인데 variants가 안 불러와진 경우를 대비해 
@@ -173,6 +184,12 @@ app.get('/:id', async (c) => {
     `).bind(id, tenantId).all()
 
       ; (product as any).bundle_items = bundleItems.results
+  }
+
+  if (!(product as any).variants?.length) {
+    await applyDisplayStockFromWarehouses(DB, tenantId, [
+      product as { id: number; current_stock?: number }
+    ])
   }
 
   return c.json({ success: true, data: product })

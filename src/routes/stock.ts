@@ -581,6 +581,170 @@ app.post('/sync-global', async (c) => {
   }
 })
 
+// 총재고(products)와 창고별 재고(pws)를 동일 목표 수량으로 맞춤 (불일치 보정용)
+app.post('/align-total', async (c) => {
+  const { DB } = c.env
+  const tenantId = c.get('tenantId')
+  const userId = c.get('userId')
+  const body = await c.req.json<{
+    quantity: number
+    product_id?: number
+    sku?: string
+    name?: string
+    /** LIKE %…% 로 1건일 때만 허용 (예: 마포트라팰리스) */
+    name_contains?: string
+    warehouse_id?: number
+  }>()
+
+  if (body.quantity == null || !Number.isFinite(Number(body.quantity)) || Number(body.quantity) < 0) {
+    return c.json({ success: false, error: 'quantity(0 이상의 숫자)가 필요합니다.' }, 400)
+  }
+
+  const qty = Math.floor(Number(body.quantity))
+
+  let product: { id: number; name: string; current_stock: number } | null = null
+  if (body.product_id != null) {
+    product = await DB.prepare(
+      `SELECT id, name, current_stock FROM products WHERE id = ? AND tenant_id = ? AND is_active = 1`
+    )
+      .bind(body.product_id, tenantId)
+      .first()
+  } else if (body.sku?.trim()) {
+    product = await DB.prepare(
+      `SELECT id, name, current_stock FROM products WHERE sku = ? AND tenant_id = ? AND is_active = 1`
+    )
+      .bind(body.sku.trim(), tenantId)
+      .first()
+  } else if (body.name?.trim()) {
+    product = await DB.prepare(
+      `SELECT id, name, current_stock FROM products WHERE name = ? AND tenant_id = ? AND is_active = 1`
+    )
+      .bind(body.name.trim(), tenantId)
+      .first()
+  } else if (body.name_contains?.trim()) {
+    const { results: matches } = await DB.prepare(
+      `SELECT id, name, sku, current_stock FROM products WHERE tenant_id = ? AND is_active = 1 AND name LIKE ?`
+    )
+      .bind(tenantId, `%${body.name_contains.trim()}%`)
+      .all<{ id: number; name: string; sku: string; current_stock: number }>()
+    if (!matches?.length) {
+      product = null
+    } else if (matches.length > 1) {
+      return c.json(
+        {
+          success: false,
+          error: `상품이 ${matches.length}건 검색되었습니다. sku·product_id 또는 정확한 name으로 지정해 주세요.`,
+          candidates: matches.slice(0, 10).map((m) => ({ id: m.id, name: m.name, sku: m.sku }))
+        },
+        400
+      )
+    } else {
+      product = matches[0]
+    }
+  }
+
+  if (!product) {
+    return c.json(
+      {
+        success: false,
+        error: '상품을 찾을 수 없습니다. product_id, sku, name 중 하나를 정확히 지정해 주세요.'
+      },
+      404
+    )
+  }
+
+  const pid = product.id
+
+  const prevSumRow = await DB.prepare(
+    `SELECT COALESCE(SUM(quantity), 0) as t FROM product_warehouse_stocks WHERE tenant_id = ? AND product_id = ?`
+  )
+    .bind(tenantId, pid)
+    .first<{ t: number }>()
+  const prevWhSum = prevSumRow?.t ?? 0
+  const diff = qty - prevWhSum
+
+  let warehouseId = body.warehouse_id
+  if (!warehouseId) {
+    const seoul = await DB.prepare(`SELECT id FROM warehouses WHERE tenant_id = ? AND name = ?`)
+      .bind(tenantId, '서울')
+      .first<{ id: number }>()
+    if (seoul) warehouseId = seoul.id
+    else {
+      const def = await DB.prepare(`
+        SELECT id FROM warehouses WHERE tenant_id = ?
+        ORDER BY CASE WHEN name = '기본 창고' THEN 0 ELSE 1 END, id ASC LIMIT 1
+      `)
+        .bind(tenantId)
+        .first<{ id: number }>()
+      warehouseId = def?.id
+    }
+  }
+
+  if (!warehouseId) {
+    return c.json({ success: false, error: '창고가 없습니다. 창고를 먼저 등록해 주세요.' }, 400)
+  }
+
+  const wid = warehouseId as number
+
+  await DB.prepare(`DELETE FROM product_warehouse_stocks WHERE tenant_id = ? AND product_id = ?`)
+    .bind(tenantId, pid)
+    .run()
+
+  if (qty > 0) {
+    await DB.prepare(`
+      INSERT INTO product_warehouse_stocks (tenant_id, product_id, warehouse_id, quantity)
+      VALUES (?, ?, ?, ?)
+    `)
+      .bind(tenantId, pid, wid, qty)
+      .run()
+  }
+
+  await DB.prepare(`
+    UPDATE products SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?
+  `)
+    .bind(qty, pid, tenantId)
+    .run()
+
+  if (diff !== 0) {
+    await DB.prepare(`
+      INSERT INTO stock_movements (tenant_id, product_id, warehouse_id, movement_type, quantity, reason, notes, created_by)
+      VALUES (?, ?, ?, '조정', ?, '재고 일치 보정', ?, ?)
+    `)
+      .bind(tenantId, pid, wid, diff, `총재고·창고 일괄 맞춤 → ${qty}개`, userId)
+      .run()
+  }
+
+  const prodRow = await DB.prepare('SELECT parent_id FROM products WHERE id = ? AND tenant_id = ?')
+    .bind(pid, tenantId)
+    .first<{ parent_id: number | null }>()
+
+  if (prodRow?.parent_id) {
+    const totalStockResult = await DB.prepare(`
+      SELECT COALESCE(SUM(current_stock), 0) as total FROM products
+      WHERE parent_id = ? AND is_active = 1 AND tenant_id = ?
+    `)
+      .bind(prodRow.parent_id, tenantId)
+      .first<{ total: number }>()
+    await DB.prepare(`
+      UPDATE products SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?
+    `)
+      .bind(totalStockResult?.total ?? 0, prodRow.parent_id, tenantId)
+      .run()
+  }
+
+  return c.json({
+    success: true,
+    message: `재고를 ${qty}개로 맞췄습니다.`,
+    data: {
+      product_id: pid,
+      product_name: product.name,
+      quantity: qty,
+      warehouse_id: wid,
+      previous_warehouse_sum: prevWhSum
+    }
+  })
+})
+
 // 재고 이동 내역 삭제 (역보정)
 app.delete('/movements/:id', async (c) => {
   const { DB } = c.env
