@@ -1223,6 +1223,16 @@ async function renderStockMovementsTab(container) {
   }
 }
 
+/** DB 수량이 이미 부호 포함(출고·조정 음수 등)일 때 앞에 또 - 를 붙이지 않음 */
+function formatStockMovementQuantity(qty) {
+  const q = Number(qty);
+  if (Number.isNaN(q)) return String(qty ?? '');
+  const abs = Math.abs(q);
+  if (q > 0) return `+${abs}`;
+  if (q < 0) return `-${abs}`;
+  return '0';
+}
+
 // 재고 이동 테이블 생성 헬퍼
 function generateStockMovementsTable(movements) {
   return `
@@ -1262,7 +1272,7 @@ function generateStockMovementsTable(movements) {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right">
               <div class="text-sm font-bold ${m.movement_type === '입고' ? 'text-emerald-600' : 'text-amber-600'}">
-                ${m.movement_type === '입고' ? '+' : '-'}${m.quantity}
+                ${formatStockMovementQuantity(m.quantity)}
               </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
@@ -1520,7 +1530,7 @@ async function loadStock_old(content) {
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right">
                       <div class="text-sm font-bold ${m.movement_type === '입고' ? 'text-emerald-600' : 'text-amber-600'}">
-                        ${m.movement_type === '입고' ? '+' : '-'}${m.quantity}
+                        ${formatStockMovementQuantity(m.quantity)}
                       </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
@@ -1643,7 +1653,7 @@ async function filterStockMovements_old() {
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right">
                 <div class="text-sm font-bold ${m.movement_type === '입고' ? 'text-emerald-600' : 'text-amber-600'}">
-                  ${m.movement_type === '입고' ? '+' : '-'}${m.quantity}
+                  ${formatStockMovementQuantity(m.quantity)}
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
