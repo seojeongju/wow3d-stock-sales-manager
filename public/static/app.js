@@ -3588,7 +3588,8 @@ function injectStockModal() {
     }
 
     if (warehouseId) {
-      const whStock = window.currentProductWarehouseStocks?.find(i => i.warehouse_id === warehouseId)?.quantity || 0;
+      const wid = Number(warehouseId);
+      const whStock = window.currentProductWarehouseStocks?.find(i => Number(i.warehouse_id) === wid)?.quantity || 0;
       text = `선택 창고 재고: ${whStock} / 총 재고: ${product.current_stock}`;
     } else {
       text = `현재 총 재고: ${product.current_stock}`;
@@ -3638,6 +3639,7 @@ async function openStockModal(type) {
 
     const products = prodRes.data.data;
     const warehouses = whRes.data.data;
+    window.products = products;
 
     productSelect.innerHTML = '<option value="">상품을 선택하세요</option>' +
       products.map(p => `<option value="${p.id}" data-stock="${p.current_stock}">${p.name} (${p.sku})</option>`).join('');
@@ -3699,7 +3701,8 @@ async function submitStockMovement(e) {
       // 창고별 조정: 입력값은 '해당 창고의 실재고'
       // 변동량(diff) = 입력값(Target) - 현재 창고 재고
       const whItems = window.currentProductWarehouseStocks || [];
-      const currentWhStock = whItems.find(i => i.warehouse_id === parseInt(warehouseId))?.quantity || 0;
+      const wid = parseInt(warehouseId, 10);
+      const currentWhStock = whItems.find(i => Number(i.warehouse_id) === wid)?.quantity || 0;
       const targetWhStock = quantity;
       const diff = targetWhStock - currentWhStock;
 

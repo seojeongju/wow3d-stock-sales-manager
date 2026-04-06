@@ -284,9 +284,27 @@ app.post('/adjust', async (c) => {
     return c.json({ success: false, error: '상품을 찾을 수 없습니다.' }, 404)
   }
 
-  const currentStock = product.current_stock
-  const newStock = body.new_stock
-  const difference = newStock - currentStock
+  const newStockRaw = body.new_stock
+  const newStock = Number(newStockRaw)
+  if (!Number.isFinite(newStock) || newStock < 0) {
+    return c.json({ success: false, error: '조정 후 수량(new_stock)은 0 이상의 숫자여야 합니다.' }, 400)
+  }
+
+  // 창고 합계와 products.current_stock이 어긋난 경우(화면은 창고 합 기준)에도 올바르게 변동량을 계산
+  const pwsCount = await DB.prepare(
+    `SELECT COUNT(*) as c FROM product_warehouse_stocks WHERE tenant_id = ? AND product_id = ?`
+  )
+    .bind(tenantId, body.product_id)
+    .first<{ c: number }>()
+  const sumRow = await DB.prepare(
+    `SELECT COALESCE(SUM(quantity), 0) as total FROM product_warehouse_stocks WHERE tenant_id = ? AND product_id = ?`
+  )
+    .bind(tenantId, body.product_id)
+    .first<{ total: number }>()
+
+  const hasWarehouseRows = (pwsCount?.c ?? 0) > 0
+  const effectiveCurrent = hasWarehouseRows ? (sumRow?.total ?? 0) : (product.current_stock ?? 0)
+  const difference = newStock - effectiveCurrent
 
   if (difference === 0) {
     return c.json({ success: false, error: '재고 변동이 없습니다.' }, 400)
@@ -337,7 +355,7 @@ app.post('/adjust', async (c) => {
     warehouseId,
     difference,
     body.reason || '재고 조정',
-    body.notes || `이전 재고: ${currentStock}, 조정 후: ${newStock}`,
+    body.notes || `이전 재고(기준): ${effectiveCurrent}, 조정 후: ${newStock}`,
     c.get('userId')
   ).run()
 
@@ -355,7 +373,12 @@ app.post('/adjust', async (c) => {
   return c.json({
     success: true,
     message: '재고가 조정되었습니다.',
-    data: { old_stock: currentStock, new_stock: newStock, difference, warehouse_id: warehouseId }
+    data: {
+      old_stock: effectiveCurrent,
+      new_stock: newStock,
+      difference,
+      warehouse_id: warehouseId
+    }
   })
 })
 
